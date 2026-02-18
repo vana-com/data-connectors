@@ -1,0 +1,67 @@
+{
+  "version": "2.0.0",
+  "lastUpdated": "2026-02-10T00:00:00Z",
+  "baseUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main",
+  "connectors": [
+    {
+      "id": "chatgpt-playwright",
+      "company": "openai",
+      "version": "2.0.0",
+      "name": "ChatGPT",
+      "description": "Exports your email, memories, and all conversations from ChatGPT using Playwright browser automation.",
+      "files": {
+        "script": "openai/chatgpt-playwright.js",
+        "metadata": "openai/chatgpt-playwright.json"
+      },
+      "checksums": {
+        "script": "sha256:ce1909cfa5eb35a3d5d58d3df3bd7e1aba63c29170200759c1832c91b8c5ee51",
+        "metadata": "sha256:8063c35a23001521430fe1f49f149da78080845f13a3c4b2823df778dd46b3d7"
+      }
+    },
+    {
+      "id": "instagram-playwright",
+      "company": "meta",
+      "version": "1.0.0",
+      "name": "Instagram",
+      "description": "Exports your Instagram profile and posts using Playwright browser automation.",
+      "files": {
+        "script": "meta/instagram-playwright.js",
+        "metadata": "meta/instagram-playwright.json"
+      },
+      "checksums": {
+        "script": "sha256:2164d4689d2850acb7171a1360c8e08a1d25a11a060e47882d9fcf6118205a87",
+        "metadata": "sha256:724c2889e9ca811957ccb74e50b3e67b604d9f6802341a96768b906fc27229b8"
+      }
+    },
+    {
+      "id": "linkedin-playwright",
+      "company": "linkedin",
+      "version": "1.0.0",
+      "name": "LinkedIn",
+      "description": "Exports your LinkedIn profile including experience, education, and skills using Playwright browser automation.",
+      "files": {
+        "script": "linkedin/linkedin-playwright.js",
+        "metadata": "linkedin/linkedin-playwright.json"
+      },
+      "checksums": {
+        "script": "sha256:d002d0a485f6db0d681b5d89fc86519ea4e7203c09d45a76037997c475b5c8d0",
+        "metadata": "sha256:a21b8ff9517c099ca7392f9e381c76bba8e9a327d38e0ca75ffe0dc8e2413639"
+      }
+    },
+    {
+      "id": "spotify-playwright",
+      "company": "spotify",
+      "version": "1.0.0",
+      "name": "Spotify",
+      "description": "Exports your Spotify library, playlists, listening history, and preferences using Playwright browser automation.",
+      "files": {
+        "script": "spotify/spotify-playwright.js",
+        "metadata": "spotify/spotify-playwright.json"
+      },
+      "checksums": {
+        "script": "sha256:665a010ce5cc1d44a5278f010a56dafa94ff00e4dcd6458fb22afe3d01a505a4",
+        "metadata": "sha256:b556e27341f88d841cf09cf68e0f9b9fa262f64465b2aa2cf9b64c831fe0a6eb"
+      }
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "name": "Instagram Posts",
+  "version": "1.0.0",
+  "scope": "instagram.posts",
+  "dialect": "json",
+  "description": "User's Instagram posts including media and engagement data",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "posts": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "shortcode": { "type": "string" },
+            "caption": { "type": "string" },
+            "mediaType": { "type": "string", "enum": ["image", "video", "carousel"] },
+            "mediaUrl": { "type": "string" },
+            "thumbnailUrl": { "type": "string" },
+            "mediaUrls": { "type": "array", "items": { "type": "string" } },
+            "timestamp": { "type": "string" },
+            "likeCount": { "type": "number" },
+            "commentCount": { "type": "number" },
+            "location": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "name": { "type": "string" },
+                "slug": { "type": "string" }
+              },
+              "required": ["id", "name"],
+              "additionalProperties": false
+            },
+            "taggedUsers": { "type": "array", "items": { "type": "string" } },
+            "hashtags": { "type": "array", "items": { "type": "string" } },
+            "commentsDisabled": { "type": "boolean" },
+            "videoDuration": { "type": "number" },
+            "videoViewCount": { "type": "number" }
+          },
+          "required": ["id", "shortcode", "caption", "mediaType", "mediaUrl", "timestamp", "likeCount", "commentCount", "commentsDisabled"],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": ["posts"],
+    "additionalProperties": false
+  }
+}

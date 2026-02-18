@@ -1,0 +1,26 @@
+{
+  "id": "chatgpt-playwright",
+  "version": "2.0.0",
+  "name": "ChatGPT",
+  "company": "OpenAI",
+  "description": "Exports your email, memories, and all conversations from ChatGPT.",
+  "connectURL": "https://chatgpt.com/",
+  "connectSelector": "nav a[href^='/c/']",
+  "exportFrequency": "daily",
+  "runtime": "playwright",
+  "scopes": [
+    {
+      "scope": "chatgpt.memories",
+      "label": "Your ChatGPT memories",
+      "description": "Saved memories that ChatGPT uses to personalize responses"
+    },
+    {
+      "scope": "chatgpt.conversations",
+      "label": "Your ChatGPT conversations",
+      "description": "All conversation history including messages with ChatGPT"
+    }
+  ],
+  "vectorize_config": {
+    "documents": "content"
+  }
+}

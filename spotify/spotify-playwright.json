@@ -1,0 +1,12 @@
+{
+  "id": "spotify-playwright",
+  "version": "1.0.0",
+  "name": "Spotify",
+  "company": "Spotify",
+  "description": "Exports your Spotify library, playlists, listening history, and preferences using Playwright browser automation.",
+  "connectURL": "https://open.spotify.com/",
+  "connectSelector": "button[data-testid='user-widget-link']",
+  "exportFrequency": "daily",
+  "runtime": "playwright",
+  "vectorize_config": { "documents": "savedTracks" }
+}

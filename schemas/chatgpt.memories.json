@@ -1,0 +1,30 @@
+{
+  "name": "ChatGPT Memories",
+  "version": "1.0.0",
+  "scope": "chatgpt.memories",
+  "dialect": "json",
+  "description": "Saved memories from ChatGPT",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "memories": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "content": { "type": "string" },
+            "createdAt": { "type": "string" },
+            "updatedAt": { "type": "string" },
+            "type": { "type": "string" }
+          },
+          "required": ["id", "content", "createdAt"],
+          "additionalProperties": false
+        }
+      },
+      "total": { "type": "number" }
+    },
+    "required": ["memories", "total"],
+    "additionalProperties": false
+  }
+}

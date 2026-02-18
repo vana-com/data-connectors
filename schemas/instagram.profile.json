@@ -1,0 +1,27 @@
+{
+  "name": "Instagram Profile",
+  "version": "1.0.0",
+  "scope": "instagram.profile",
+  "dialect": "json",
+  "description": "Instagram user profile information",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "username": { "type": "string" },
+      "fullName": { "type": "string" },
+      "bio": { "type": "string" },
+      "avatarUrl": { "type": "string" },
+      "externalUrl": { "type": "string" },
+      "followersCount": { "type": "number" },
+      "followingCount": { "type": "number" },
+      "postsCount": { "type": "number" },
+      "isVerified": { "type": "boolean" },
+      "isPrivate": { "type": "boolean" },
+      "isBusinessAccount": { "type": "boolean" },
+      "businessCategory": { "type": "string" },
+      "userId": { "type": "string" }
+    },
+    "required": ["username", "fullName", "bio", "avatarUrl", "followersCount", "followingCount", "postsCount", "isVerified", "isPrivate", "isBusinessAccount", "userId"],
+    "additionalProperties": false
+  }
+}

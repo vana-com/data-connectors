@@ -1,0 +1,29 @@
+{
+  "name": "LinkedIn Experience",
+  "version": "1.0.0",
+  "scope": "linkedin.experience",
+  "dialect": "json",
+  "description": "Work experience from LinkedIn profile",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "experiences": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "title": { "type": "string" },
+            "company": { "type": "string" },
+            "duration": { "type": "string" },
+            "location": { "type": "string" },
+            "description": { "type": "string" }
+          },
+          "required": ["title", "company"],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": ["experiences"],
+    "additionalProperties": false
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "id": "instagram-playwright",
+  "version": "1.0.0",
+  "name": "Instagram",
+  "company": "Meta",
+  "description": "Exports your Instagram profile and posts using Playwright browser automation.",
+  "connectURL": "https://www.instagram.com/accounts/login/",
+  "connectSelector": "svg[aria-label='Home'], a[href='/direct/inbox/']",
+  "exportFrequency": "daily",
+  "runtime": "playwright",
+  "vectorize_config": {
+    "documents": "caption"
+  }
+}

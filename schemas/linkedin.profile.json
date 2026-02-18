@@ -1,0 +1,23 @@
+{
+  "name": "LinkedIn Profile",
+  "version": "1.0.0",
+  "scope": "linkedin.profile",
+  "dialect": "json",
+  "description": "LinkedIn user profile information",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "firstName": { "type": "string" },
+      "lastName": { "type": "string" },
+      "headline": { "type": "string" },
+      "location": { "type": "string" },
+      "about": { "type": "string" },
+      "profilePictureUrl": { "type": "string" },
+      "backgroundImageUrl": { "type": "string" },
+      "connectionsCount": { "type": "string" },
+      "profileUrl": { "type": "string" }
+    },
+    "required": ["firstName", "lastName"],
+    "additionalProperties": false
+  }
+}

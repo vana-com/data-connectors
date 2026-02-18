@@ -1,0 +1,27 @@
+{
+  "connectorId": "linkedin",
+  "displayName": "LinkedIn",
+  "scopes": [
+    {
+      "scope": "linkedin.profile",
+      "label": "Your LinkedIn profile",
+      "description": "Profile information including name, headline, and location"
+    },
+    {
+      "scope": "linkedin.experience",
+      "label": "Your work experience",
+      "description": "Work experience history from your profile"
+    },
+    {
+      "scope": "linkedin.education",
+      "label": "Your education",
+      "description": "Education history from your profile"
+    },
+    {
+      "scope": "linkedin.skills",
+      "label": "Your skills",
+      "description": "Skills and endorsements from your profile"
+    }
+  ],
+  "version": "1.0"
+}

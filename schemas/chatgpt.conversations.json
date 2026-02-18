@@ -1,0 +1,46 @@
+{
+  "name": "ChatGPT Conversations",
+  "version": "2.0.0",
+  "scope": "chatgpt.conversations",
+  "dialect": "json",
+  "description": "Conversation history from ChatGPT including full message threads with user and assistant messages",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "conversations": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "title": { "type": "string" },
+            "create_time": { "type": "string" },
+            "update_time": { "type": "string" },
+            "message_count": { "type": "number" },
+            "messages": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string" },
+                  "role": { "type": "string", "enum": ["user", "assistant"] },
+                  "content": { "type": "string" },
+                  "content_type": { "type": "string" },
+                  "create_time": { "type": ["string", "null"] },
+                  "model": { "type": ["string", "null"] }
+                },
+                "required": ["id", "role", "content"],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": ["id", "title", "create_time", "update_time", "messages"],
+          "additionalProperties": false
+        }
+      },
+      "total": { "type": "number" }
+    },
+    "required": ["conversations", "total"],
+    "additionalProperties": false
+  }
+}

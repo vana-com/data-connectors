@@ -1,13 +1,3 @@
-# Fetched connector files (downloaded from registry by scripts/fetch-connectors.js)
-**/*.js
-**/*.json
-
-# Keep TypeScript source files tracked
-!.gitignore
-
-# Legacy
-reclaim-*.js
-
 # Misc
 *.log
 .DS_Store

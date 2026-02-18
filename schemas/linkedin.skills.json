@@ -1,0 +1,26 @@
+{
+  "name": "LinkedIn Skills",
+  "version": "1.0.0",
+  "scope": "linkedin.skills",
+  "dialect": "json",
+  "description": "Skills listed on LinkedIn profile",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "skills": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "endorsementCount": { "type": "number" }
+          },
+          "required": ["name"],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": ["skills"],
+    "additionalProperties": false
+  }
+}
