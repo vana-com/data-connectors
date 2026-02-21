@@ -1,9 +1,9 @@
 {
   "name": "LinkedIn Experience",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "scope": "linkedin.experience",
   "dialect": "json",
-  "description": "Work experience from LinkedIn profile",
+  "description": "Work experience history from LinkedIn profile including job titles, companies, and dates",
   "schema": {
     "type": "object",
     "properties": {
@@ -12,13 +12,13 @@
         "items": {
           "type": "object",
           "properties": {
-            "title": { "type": "string" },
-            "company": { "type": "string" },
-            "duration": { "type": "string" },
+            "jobTitle": { "type": "string" },
+            "companyName": { "type": "string" },
+            "dates": { "type": "string" },
             "location": { "type": "string" },
             "description": { "type": "string" }
           },
-          "required": ["title", "company"],
+          "required": ["jobTitle", "companyName"],
           "additionalProperties": false
         }
       }

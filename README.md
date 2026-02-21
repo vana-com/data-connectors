@@ -6,10 +6,10 @@ Playwright-based data connectors for [DataConnect](https://github.com/vana-com/d
 
 | Platform | Company | Runtime | Scopes |
 |----------|---------|---------|--------|
-| ChatGPT | OpenAI | playwright | conversations, memories |
-| Instagram | Meta | playwright | profile, posts, liked_posts |
-| LinkedIn | LinkedIn | playwright | profile, experience, education, skills |
-| Spotify | Spotify | playwright | savedTracks, playlists |
+| ChatGPT | OpenAI | playwright | chatgpt.conversations, chatgpt.memories |
+| Instagram | Meta | playwright | instagram.profile, instagram.posts |
+| LinkedIn | LinkedIn | playwright | linkedin.profile, .experience, .education, .skills, .languages |
+| Spotify | Spotify | playwright | spotify.profile, spotify.savedTracks, spotify.playlists |
 
 ## Repository structure
 
@@ -59,6 +59,23 @@ Connectors run in a sandboxed Playwright browser managed by the DataConnect app.
 2. Fetch data via API calls, network capture, or DOM scraping
 3. Report structured progress to the UI
 4. Return the collected data with an export summary
+
+### Scoped result format
+
+Connectors return a **scoped result object** where data keys use the format `source.category` (e.g., `linkedin.profile`, `chatgpt.conversations`). The frontend auto-detects these scoped keys (any key containing a `.` that isn't a metadata field) and POSTs each scope separately to the Personal Server at `POST /v1/data/{scope}`.
+
+```javascript
+const result = {
+  'platform.scope1': { /* scope data */ },
+  'platform.scope2': { /* scope data */ },
+  exportSummary: { count, label, details },
+  timestamp: new Date().toISOString(),
+  version: '2.0.0-playwright',
+  platform: 'platform-name',
+};
+```
+
+Metadata keys (`exportSummary`, `timestamp`, `version`, `platform`) are not treated as scopes.
 
 ### Data extraction patterns
 
@@ -143,9 +160,12 @@ const checkLoginStatus = async () => {
   // ... fetch your data here ...
   const items = [];
 
-  // Build result (exportSummary is required)
+  // Build result using scoped keys (exportSummary is required)
   const result = {
-    items,
+    'platform.items': {
+      items: items,
+      total: items.length,
+    },
     exportSummary: {
       count: items.length,
       label: items.length === 1 ? 'item' : 'items',

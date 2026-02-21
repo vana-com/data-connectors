@@ -1,23 +1,21 @@
 {
   "name": "LinkedIn Profile",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "scope": "linkedin.profile",
   "dialect": "json",
-  "description": "LinkedIn user profile information",
+  "description": "Basic LinkedIn profile information including name, headline, location, and connections",
   "schema": {
     "type": "object",
     "properties": {
-      "firstName": { "type": "string" },
-      "lastName": { "type": "string" },
+      "profileUrl": { "type": "string" },
+      "fullName": { "type": "string" },
       "headline": { "type": "string" },
       "location": { "type": "string" },
-      "about": { "type": "string" },
+      "connections": { "type": "string" },
       "profilePictureUrl": { "type": "string" },
-      "backgroundImageUrl": { "type": "string" },
-      "connectionsCount": { "type": "string" },
-      "profileUrl": { "type": "string" }
+      "about": { "type": "string" }
     },
-    "required": ["firstName", "lastName"],
+    "required": ["fullName"],
     "additionalProperties": false
   }
 }

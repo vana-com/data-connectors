@@ -1,0 +1,62 @@
+{
+  "name": "Spotify Playlists",
+  "version": "1.0.0",
+  "scope": "spotify.playlists",
+  "dialect": "json",
+  "description": "User's Spotify playlists including track listings with artist and album details",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "playlists": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "description": { "type": "string" },
+            "owner": { "type": "string" },
+            "uri": { "type": "string" },
+            "followers": { "type": "number" },
+            "images": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "tracks_total": { "type": "number" },
+            "tracks": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "added_at": { "type": "string" },
+                  "added_by": { "type": "string" },
+                  "name": { "type": "string" },
+                  "artists": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": { "type": "string" }
+                      },
+                      "required": ["name"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "album": { "type": "string" },
+                  "duration_ms": { "type": "number" },
+                  "uri": { "type": "string" }
+                },
+                "required": ["name", "artists"],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": ["name", "tracks"],
+          "additionalProperties": false
+        }
+      },
+      "total": { "type": "number" }
+    },
+    "required": ["playlists", "total"],
+    "additionalProperties": false
+  }
+}

@@ -8,6 +8,10 @@
   "connectSelector": "svg[aria-label='Home'], a[href='/direct/inbox/']",
   "exportFrequency": "daily",
   "runtime": "playwright",
+  "scopes": [
+    { "scope": "instagram.profile", "label": "Your Instagram profile", "description": "Profile information including bio and follower counts" },
+    { "scope": "instagram.posts", "label": "Your Instagram posts", "description": "Published posts from your feed" }
+  ],
   "vectorize_config": {
     "documents": "caption"
   }

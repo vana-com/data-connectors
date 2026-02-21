@@ -1,9 +1,9 @@
 {
   "name": "ChatGPT Memories",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "scope": "chatgpt.memories",
   "dialect": "json",
-  "description": "Saved memories from ChatGPT",
+  "description": "Saved memories from ChatGPT including user preferences and context the model remembers",
   "schema": {
     "type": "object",
     "properties": {
@@ -14,11 +14,11 @@
           "properties": {
             "id": { "type": "string" },
             "content": { "type": "string" },
-            "createdAt": { "type": "string" },
-            "updatedAt": { "type": "string" },
+            "created_at": { "type": "string" },
+            "updated_at": { "type": "string" },
             "type": { "type": "string" }
           },
-          "required": ["id", "content", "createdAt"],
+          "required": ["id", "content", "created_at"],
           "additionalProperties": false
         }
       },

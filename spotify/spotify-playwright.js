@@ -560,9 +560,15 @@ const spClientFetch = async (path) => {
   const totalPlaylistTracks = playlists.reduce((sum, p) => sum + p.tracks.length, 0);
 
   const result = {
-    profile: state.profile,
-    savedTracks,
-    playlists,
+    'spotify.profile': state.profile,
+    'spotify.savedTracks': {
+      savedTracks: savedTracks,
+      total: savedTracks.length,
+    },
+    'spotify.playlists': {
+      playlists: playlists,
+      total: playlists.length,
+    },
     exportSummary: {
       count: savedTracks.length,
       label: savedTracks.length === 1 ? 'liked song' : 'liked songs',
@@ -580,7 +586,7 @@ const spClientFetch = async (path) => {
   await page.setData('result', result);
   await page.setData('status',
     'Complete! ' + savedTracks.length + ' liked songs, ' +
-    playlists.length + ' playlists collected for ' + state.profile.display_name
+    playlists.length + ' playlists collected for ' + result['spotify.profile'].display_name
   );
 
   return { success: true, data: result };

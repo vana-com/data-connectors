@@ -1,0 +1,60 @@
+{
+  "name": "Spotify Saved Tracks",
+  "version": "1.0.0",
+  "scope": "spotify.savedTracks",
+  "dialect": "json",
+  "description": "User's saved (liked) tracks from Spotify including artist, album, and track details",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "savedTracks": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "added_at": { "type": "string" },
+            "name": { "type": "string" },
+            "artists": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" }
+                },
+                "required": ["name"],
+                "additionalProperties": false
+              }
+            },
+            "album": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "artists": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": { "type": "string" }
+                    },
+                    "required": ["name"],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": ["name"],
+              "additionalProperties": false
+            },
+            "duration_ms": { "type": "number" },
+            "uri": { "type": "string" },
+            "explicit": { "type": "boolean" }
+          },
+          "required": ["name", "artists"],
+          "additionalProperties": false
+        }
+      },
+      "total": { "type": "number" }
+    },
+    "required": ["savedTracks", "total"],
+    "additionalProperties": false
+  }
+}

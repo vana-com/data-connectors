@@ -23,7 +23,7 @@
                 "type": "object",
                 "properties": {
                   "id": { "type": "string" },
-                  "role": { "type": "string", "enum": ["user", "assistant"] },
+                  "role": { "type": "string" },
                   "content": { "type": "string" },
                   "content_type": { "type": "string" },
                   "create_time": { "type": ["string", "null"] },
@@ -34,7 +34,7 @@
               }
             }
           },
-          "required": ["id", "title", "create_time", "update_time", "messages"],
+          "required": ["id", "title", "create_time", "update_time", "message_count", "messages"],
           "additionalProperties": false
         }
       },

@@ -503,9 +503,14 @@ const fetchConversationBatch = async (accessToken, deviceId, convIds) => {
   }));
 
   const result = {
-    email: state.email,
-    memories: transformedMemories,
-    conversations: conversations,
+    'chatgpt.conversations': {
+      conversations: conversations,
+      total: conversations.length,
+    },
+    'chatgpt.memories': {
+      memories: transformedMemories,
+      total: transformedMemories.length,
+    },
     exportSummary: {
       count: conversations.length,
       label: conversations.length === 1 ? 'conversation' : 'conversations',

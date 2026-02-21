@@ -8,5 +8,10 @@
   "connectSelector": "button[data-testid='user-widget-link']",
   "exportFrequency": "daily",
   "runtime": "playwright",
+  "scopes": [
+    { "scope": "spotify.profile", "label": "Your Spotify profile", "description": "Profile information" },
+    { "scope": "spotify.savedTracks", "label": "Your liked songs", "description": "Saved/liked tracks in your library" },
+    { "scope": "spotify.playlists", "label": "Your playlists", "description": "Playlists and their tracks" }
+  ],
   "vectorize_config": { "documents": "savedTracks" }
 }

@@ -1,9 +1,9 @@
 {
   "name": "LinkedIn Education",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "scope": "linkedin.education",
   "dialect": "json",
-  "description": "Education history from LinkedIn profile",
+  "description": "Education history from LinkedIn profile including schools, degrees, and years attended",
   "schema": {
     "type": "object",
     "properties": {
@@ -12,13 +12,13 @@
         "items": {
           "type": "object",
           "properties": {
-            "school": { "type": "string" },
+            "schoolName": { "type": "string" },
             "degree": { "type": "string" },
-            "fieldOfStudy": { "type": "string" },
-            "duration": { "type": "string" },
-            "description": { "type": "string" }
+            "years": { "type": "string" },
+            "grade": { "type": "string" },
+            "logoUrl": { "type": "string" }
           },
-          "required": ["school"],
+          "required": ["schoolName"],
           "additionalProperties": false
         }
       }

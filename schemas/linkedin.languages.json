@@ -1,26 +1,26 @@
 {
-  "name": "LinkedIn Skills",
+  "name": "LinkedIn Languages",
   "version": "2.0.0",
-  "scope": "linkedin.skills",
+  "scope": "linkedin.languages",
   "dialect": "json",
-  "description": "Skills listed on LinkedIn profile with endorsement counts",
+  "description": "Languages listed on LinkedIn profile with proficiency levels",
   "schema": {
     "type": "object",
     "properties": {
-      "skills": {
+      "languages": {
         "type": "array",
         "items": {
           "type": "object",
           "properties": {
             "name": { "type": "string" },
-            "endorsements": { "type": "string" }
+            "proficiency": { "type": "string" }
           },
           "required": ["name"],
           "additionalProperties": false
         }
       }
     },
-    "required": ["skills"],
+    "required": ["languages"],
     "additionalProperties": false
   }
 }

@@ -1,9 +1,9 @@
 {
   "name": "Instagram Posts",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "scope": "instagram.posts",
   "dialect": "json",
-  "description": "User's Instagram posts including media and engagement data",
+  "description": "User's Instagram posts including images, captions, and like engagement data",
   "schema": {
     "type": "object",
     "properties": {
@@ -12,33 +12,24 @@
         "items": {
           "type": "object",
           "properties": {
-            "id": { "type": "string" },
-            "shortcode": { "type": "string" },
+            "img_url": { "type": "string" },
             "caption": { "type": "string" },
-            "mediaType": { "type": "string", "enum": ["image", "video", "carousel"] },
-            "mediaUrl": { "type": "string" },
-            "thumbnailUrl": { "type": "string" },
-            "mediaUrls": { "type": "array", "items": { "type": "string" } },
-            "timestamp": { "type": "string" },
-            "likeCount": { "type": "number" },
-            "commentCount": { "type": "number" },
-            "location": {
-              "type": "object",
-              "properties": {
-                "id": { "type": "string" },
-                "name": { "type": "string" },
-                "slug": { "type": "string" }
-              },
-              "required": ["id", "name"],
-              "additionalProperties": false
-            },
-            "taggedUsers": { "type": "array", "items": { "type": "string" } },
-            "hashtags": { "type": "array", "items": { "type": "string" } },
-            "commentsDisabled": { "type": "boolean" },
-            "videoDuration": { "type": "number" },
-            "videoViewCount": { "type": "number" }
+            "num_of_likes": { "type": "number" },
+            "who_liked": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "profile_pic_url": { "type": "string" },
+                  "pk": { "type": "string" },
+                  "username": { "type": "string" },
+                  "id": { "type": "string" }
+                },
+                "additionalProperties": false
+              }
+            }
           },
-          "required": ["id", "shortcode", "caption", "mediaType", "mediaUrl", "timestamp", "likeCount", "commentCount", "commentsDisabled"],
+          "required": ["img_url", "caption", "num_of_likes"],
           "additionalProperties": false
         }
       }

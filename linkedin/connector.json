@@ -21,6 +21,11 @@
       "scope": "linkedin.skills",
       "label": "Your skills",
       "description": "Skills and endorsements from your profile"
+    },
+    {
+      "scope": "linkedin.languages",
+      "label": "Your languages",
+      "description": "Languages listed on your profile"
     }
   ],
   "version": "1.0"

@@ -347,19 +347,22 @@ const fetchWebInfo = async () => {
     });
 
     return {
-      username: profile.username,
-      bio: profile.biography,
-      full_name: profile.full_name,
-      follower_count: profile.follower_count,
-      following_count: profile.following_count,
-      media_count: profile.media_count,
-      profile_pic_url: profile.profile_pic_url,
-      is_private: profile.is_private,
-      is_verified: profile.is_verified,
-      is_business: profile.is_business,
-      external_url: profile.external_url,
-      posts: posts,
-      // Standard export summary for consistent UI display
+      'instagram.profile': {
+        username: profile.username,
+        full_name: profile.full_name,
+        bio: profile.biography,
+        profile_pic_url: profile.profile_pic_url,
+        external_url: profile.external_url,
+        follower_count: profile.follower_count,
+        following_count: profile.following_count,
+        media_count: profile.media_count,
+        is_private: profile.is_private,
+        is_verified: profile.is_verified,
+        is_business: profile.is_business,
+      },
+      'instagram.posts': {
+        posts: posts,
+      },
       exportSummary: {
         count: posts.length,
         label: posts.length === 1 ? 'post' : 'posts'
@@ -367,7 +370,6 @@ const fetchWebInfo = async () => {
       timestamp: new Date().toISOString(),
       version: "2.0.0-playwright",
       platform: "instagram",
-      ...(state.webInfo || {})
     };
   };
 
@@ -377,7 +379,7 @@ const fetchWebInfo = async () => {
 
   if (result) {
     await page.setData('result', result);
-    await page.setData('status', `Complete! ${result.posts?.length || 0} posts collected for @${result.username}`);
+    await page.setData('status', `Complete! ${result['instagram.posts']?.posts?.length || 0} posts collected for @${result['instagram.profile']?.username}`);
     return { success: true, data: result };
   } else {
     await page.setData('error', 'Failed to transform data');

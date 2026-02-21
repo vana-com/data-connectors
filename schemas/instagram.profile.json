@@ -1,27 +1,25 @@
 {
   "name": "Instagram Profile",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "scope": "instagram.profile",
   "dialect": "json",
-  "description": "Instagram user profile information",
+  "description": "Basic Instagram profile information including username, bio, and follower counts",
   "schema": {
     "type": "object",
     "properties": {
       "username": { "type": "string" },
-      "fullName": { "type": "string" },
+      "full_name": { "type": "string" },
       "bio": { "type": "string" },
-      "avatarUrl": { "type": "string" },
-      "externalUrl": { "type": "string" },
-      "followersCount": { "type": "number" },
-      "followingCount": { "type": "number" },
-      "postsCount": { "type": "number" },
-      "isVerified": { "type": "boolean" },
-      "isPrivate": { "type": "boolean" },
-      "isBusinessAccount": { "type": "boolean" },
-      "businessCategory": { "type": "string" },
-      "userId": { "type": "string" }
+      "profile_pic_url": { "type": "string" },
+      "external_url": { "type": "string" },
+      "follower_count": { "type": "number" },
+      "following_count": { "type": "number" },
+      "media_count": { "type": "number" },
+      "is_private": { "type": "boolean" },
+      "is_verified": { "type": "boolean" },
+      "is_business": { "type": "boolean" }
     },
-    "required": ["username", "fullName", "bio", "avatarUrl", "followersCount", "followingCount", "postsCount", "isVerified", "isPrivate", "isBusinessAccount", "userId"],
+    "required": ["username", "full_name"],
     "additionalProperties": false
   }
 }

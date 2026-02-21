@@ -654,17 +654,27 @@ const scrollToLoadContent = async () => {
   const about = state.aboutData || {};
 
   const result = {
-    profileUrl: state.profileUrl,
-    fullName: hero.fullName || '',
-    headline: hero.headline || '',
-    location: hero.location || '',
-    connections: hero.connections || '',
-    profilePictureUrl: hero.profilePictureUrl || '',
-    about: about.aboutText || '',
-    experience: state.experiences,
-    education: state.education,
-    skills: state.skills,
-    languages: state.languages,
+    'linkedin.profile': {
+      profileUrl: state.profileUrl,
+      fullName: hero.fullName || '',
+      headline: hero.headline || '',
+      location: hero.location || '',
+      connections: hero.connections || '',
+      profilePictureUrl: hero.profilePictureUrl || '',
+      about: about.aboutText || '',
+    },
+    'linkedin.experience': {
+      experiences: state.experiences,
+    },
+    'linkedin.education': {
+      education: state.education,
+    },
+    'linkedin.skills': {
+      skills: state.skills,
+    },
+    'linkedin.languages': {
+      languages: state.languages,
+    },
     exportSummary: {
       count: state.experiences.length + state.education.length + state.skills.length + state.languages.length,
       label: 'profile items',
@@ -676,15 +686,15 @@ const scrollToLoadContent = async () => {
       ].join(', ')
     },
     timestamp: new Date().toISOString(),
-    version: "1.3.0-playwright",
+    version: "2.0.0-playwright",
     platform: "linkedin"
   };
 
   state.isComplete = true;
 
-  if (result.fullName) {
+  if (result['linkedin.profile'].fullName) {
     await page.setData('result', result);
-    await page.setData('status', `Complete! Exported ${result.exportSummary.details} for ${result.fullName}`);
+    await page.setData('status', `Complete! Exported ${result.exportSummary.details} for ${result['linkedin.profile'].fullName}`);
     return { success: true, data: result };
   } else {
     await page.setData('error', 'Failed to extract profile data');
