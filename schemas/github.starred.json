@@ -1,0 +1,30 @@
+{
+  "name": "GitHub Starred Repositories",
+  "version": "1.0.0",
+  "scope": "github.starred",
+  "dialect": "json",
+  "description": "GitHub repositories starred by the user",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "starred": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "fullName": { "type": "string" },
+            "url": { "type": "string" },
+            "description": { "type": "string" },
+            "language": { "type": "string" },
+            "stars": { "type": "number" },
+            "updatedAt": { "type": ["string", "null"] }
+          },
+          "required": ["fullName", "url"],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": ["starred"],
+    "additionalProperties": false
+  }
+}
