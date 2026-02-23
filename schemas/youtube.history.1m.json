@@ -1,0 +1,32 @@
+{
+  "name": "YouTube Watch History (1 Month)",
+  "version": "1.0.0",
+  "scope": "youtube.history.1m",
+  "dialect": "json",
+  "description": "Raw watch history entries collected from YouTube History page, limited to last ~1 month (last 30 days).",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "timeWindow": { "type": "string" },
+      "history": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "watchedAtText": { "type": ["string", "null"] },
+            "videoId": { "type": "string" },
+            "videoUrl": { "type": "string" },
+            "videoTitle": { "type": "string" },
+            "channelTitle": { "type": ["string", "null"] },
+            "channelUrl": { "type": ["string", "null"] },
+            "extractedAt": { "type": "string" }
+          },
+          "required": ["videoId", "videoUrl", "videoTitle", "extractedAt"],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": ["timeWindow", "history"],
+    "additionalProperties": false
+  }
+}

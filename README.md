@@ -34,7 +34,7 @@ connectors/
 ├── spotify/
 │   ├── spotify-playwright.js
 │   └── spotify-playwright.json
-└── youtube/
+└── google/
     ├── youtube-playwright.js      # Connector script
     └── youtube-playwright.json    # Metadata
 ```
