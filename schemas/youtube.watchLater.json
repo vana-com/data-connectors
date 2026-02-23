@@ -1,0 +1,31 @@
+{
+  "name": "YouTube Watch Later",
+  "version": "1.0.0",
+  "scope": "youtube.watchLater",
+  "dialect": "json",
+  "description": "Videos saved to Watch Later.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "watchLater": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "videoId": { "type": "string" },
+            "videoUrl": { "type": "string" },
+            "videoTitle": { "type": "string" },
+            "channelTitle": { "type": ["string", "null"] },
+            "channelUrl": { "type": ["string", "null"] },
+            "durationText": { "type": ["string", "null"] },
+            "thumbnailUrl": { "type": ["string", "null"] }
+          },
+          "required": ["videoId", "videoUrl", "videoTitle"],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": ["watchLater"],
+    "additionalProperties": false
+  }
+}

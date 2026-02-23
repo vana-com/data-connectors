@@ -1,0 +1,33 @@
+{
+  "name": "YouTube Watch History (Recent)",
+  "version": "1.0.0",
+  "scope": "youtube.history.1m",
+  "dialect": "json",
+  "description": "Most recent watch history entries (top 20) collected from the YouTube History page.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "timeWindow": { "type": "string" },
+      "history": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "watchedAtText": { "type": ["string", "null"], "description": "Section date header e.g. Today, Yesterday, Jan 23 2026" },
+            "videoId":       { "type": ["string", "null"] },
+            "videoUrl":      { "type": "string" },
+            "videoTitle":    { "type": ["string", "null"] },
+            "channelTitle":  { "type": ["string", "null"] },
+            "views":         { "type": ["string", "null"], "description": "Raw view count text e.g. '97k views'" },
+            "description":   { "type": ["string", "null"], "description": "Short video description snippet shown in history" },
+            "extractedAt":   { "type": "string" }
+          },
+          "required": ["videoUrl", "extractedAt"],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": ["timeWindow", "history"],
+    "additionalProperties": false
+  }
+}

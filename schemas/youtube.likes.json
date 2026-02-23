@@ -1,0 +1,31 @@
+{
+  "name": "YouTube Liked Videos",
+  "version": "1.0.0",
+  "scope": "youtube.likes",
+  "dialect": "json",
+  "description": "Videos liked by the user (Liked videos).",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "likedVideos": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "videoId": { "type": "string" },
+            "videoUrl": { "type": "string" },
+            "videoTitle": { "type": "string" },
+            "channelTitle": { "type": ["string", "null"] },
+            "channelUrl": { "type": ["string", "null"] },
+            "durationText": { "type": ["string", "null"] },
+            "thumbnailUrl": { "type": ["string", "null"] }
+          },
+          "required": ["videoId", "videoUrl", "videoTitle"],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": ["likedVideos"],
+    "additionalProperties": false
+  }
+}

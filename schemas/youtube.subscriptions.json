@@ -1,0 +1,34 @@
+{
+  "name": "YouTube Subscriptions",
+  "version": "1.0.0",
+  "scope": "youtube.subscriptions",
+  "dialect": "json",
+  "description": "Channels the user is subscribed to.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "subscriptions": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "channelTitle":        { "type": "string" },
+            "channelUrl":          { "type": "string" },
+            "handle":              { "type": ["string", "null"] },
+            "channelId":           { "type": ["string", "null"] },
+            "avatarUrl":           { "type": ["string", "null"] },
+            "subscriberCountText": { "type": ["string", "null"], "description": "Raw text e.g. '5.3m subscribers'" },
+            "subscriberCount":     { "type": ["number", "null"], "description": "Parsed integer subscriber count" },
+            "description":         { "type": ["string", "null"] },
+            "isVerified":          { "type": "boolean" },
+            "isBellNotification":  { "type": "boolean", "description": "True when 'All notifications' bell is active" }
+          },
+          "required": ["channelTitle", "channelUrl"],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": ["subscriptions"],
+    "additionalProperties": false
+  }
+}
