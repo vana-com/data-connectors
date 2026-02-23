@@ -36,8 +36,7 @@ connectors/
 │   └── spotify-playwright.json
 └── youtube/
     ├── youtube-playwright.js      # Connector script
-    ├── youtube-playwright.json    # Metadata
-    └── local-harness.youtube.js  # Local test harness (see below)
+    └── youtube-playwright.json    # Metadata
 ```
 
 Each connector consists of two files inside a `<company>/` directory:
