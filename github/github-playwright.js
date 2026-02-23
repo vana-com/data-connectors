@@ -15,70 +15,84 @@ const state = {
   isComplete: false,
 };
 
-const checkLoginStatus = async () => {
+const GITHUB_USERNAME_REGEX = /^[a-zA-Z0-9-]+$/;
+
+const isValidGitHubUsername = (value) =>
+  typeof value === "string" &&
+  value.length > 0 &&
+  GITHUB_USERNAME_REGEX.test(value);
+
+const TO_INT_HELPER = `
+const toInt = (raw) => {
+  const text = (raw || "").toLowerCase().replace(/,/g, "").replace(/\\s+/g, "").trim();
+  if (!text) return 0;
+
+  const compact = text.match(/^([0-9]+(?:[.][0-9]+)?)([km])?$/);
+  if (compact) {
+    let value = parseFloat(compact[1]);
+    if (Number.isNaN(value)) return 0;
+    if (compact[2] === "k") value *= 1_000;
+    if (compact[2] === "m") value *= 1_000_000;
+    return Math.round(value);
+  }
+
+  const digits = text.replace(/[^0-9]/g, "");
+  if (!digits) return 0;
+  return parseInt(digits, 10);
+};
+`;
+
+const isLoggedIn = async () => {
   try {
-    const result = await page.evaluate(`
+    return await page.evaluate(`
       (() => {
-        const userMeta = document.querySelector('meta[name="user-login"]');
-        const username = userMeta?.getAttribute('content')?.trim() || '';
+        const userMeta = document.querySelector("meta[name='user-login']");
+        const username = userMeta?.getAttribute("content")?.trim() || "";
         const signedOut = !!document.querySelector('a[href="/login"], form[action="/session"]');
         const hasAvatarMenu = !!document.querySelector('summary[aria-label*="View profile and more"]');
-        return {
-          loggedIn: Boolean(username) || (!signedOut && hasAvatarMenu),
-          username: username || null
-        };
+        return Boolean(username) || (!signedOut && hasAvatarMenu);
       })()
     `);
-    return result;
   } catch {
-    return { loggedIn: false, username: null };
+    return false;
+  }
+};
+
+const readLoggedInUsername = async () => {
+  try {
+    return await page.evaluate(`
+      (() => {
+        const userMeta = document.querySelector("meta[name='user-login']");
+        const username = userMeta?.getAttribute("content")?.trim() || "";
+        return username || null;
+      })()
+    `);
+  } catch {
+    return null;
   }
 };
 
 const resolveUsername = async () => {
-  const current = await checkLoginStatus();
-  if (current.username) return current.username;
+  const current = await readLoggedInUsername();
+  if (isValidGitHubUsername(current)) return current;
 
   await page.goto("https://github.com/settings/profile");
-  await page.sleep(1200);
+  await page.sleep(1500);
 
-  const fromSettings = await checkLoginStatus();
-  return fromSettings.username;
+  const fromSettings = await readLoggedInUsername();
+  return isValidGitHubUsername(fromSettings) ? fromSettings : null;
 };
 
 const extractProfile = async (username) => {
+  if (!isValidGitHubUsername(username)) return null;
+
   await page.goto(`https://github.com/${username}`);
-  await page.sleep(1200);
+  await page.sleep(1500);
 
   try {
     return await page.evaluate(`
       (() => {
-        const toInt = (raw) => {
-          const text = (raw || '').toLowerCase().replace(/,/g, '').trim();
-          if (!text) return 0;
-
-          const compact = text.match(/^(\\d+(?:\\.\\d+)?)([km])$/);
-          if (compact) {
-            let value = parseFloat(compact[1]);
-            if (Number.isNaN(value)) return 0;
-            if (compact[2] === 'k') value *= 1_000;
-            if (compact[2] === 'm') value *= 1_000_000;
-            return Math.round(value);
-          }
-
-          const digits = text.replace(/[^0-9]/g, '');
-          if (!digits) return 0;
-
-          // GitHub counters can render duplicated screen-reader text (e.g. "104104").
-          if (digits.length % 2 === 0) {
-            const half = digits.length / 2;
-            if (digits.slice(0, half) === digits.slice(half)) {
-              return parseInt(digits.slice(0, half), 10);
-            }
-          }
-
-          return parseInt(digits, 10);
-        };
+        ${TO_INT_HELPER}
 
         const username = (document.querySelector('span.p-nickname')?.textContent || '').trim();
         const fullName = (document.querySelector('span.p-name')?.textContent || '').trim();
@@ -113,6 +127,8 @@ const extractProfile = async (username) => {
 };
 
 const extractRepositories = async (username) => {
+  if (!isValidGitHubUsername(username)) return [];
+
   const all = [];
   const seen = new Set();
   const maxPages = 60;
@@ -124,17 +140,7 @@ const extractRepositories = async (username) => {
     try {
       const pageResult = await page.evaluate(`
         (() => {
-          const toInt = (raw) => {
-            const text = (raw || '').toLowerCase().replace(/,/g, '').trim();
-            if (!text) return 0;
-            const match = text.match(/(\\d+(?:\\.\\d+)?)\\s*([km]?)/);
-            if (!match) return 0;
-            let value = parseFloat(match[1]);
-            if (Number.isNaN(value)) return 0;
-            if (match[2] === 'k') value *= 1_000;
-            if (match[2] === 'm') value *= 1_000_000;
-            return Math.round(value);
-          };
+          ${TO_INT_HELPER}
 
           const list = [];
           const rows = document.querySelectorAll('#user-repositories-list li');
@@ -194,6 +200,8 @@ const extractRepositories = async (username) => {
 };
 
 const extractStarred = async (username) => {
+  if (!isValidGitHubUsername(username)) return [];
+
   const all = [];
   const seen = new Set();
   const maxPages = 60;
@@ -205,17 +213,7 @@ const extractStarred = async (username) => {
     try {
       const pageResult = await page.evaluate(`
         (() => {
-          const toInt = (raw) => {
-            const text = (raw || '').toLowerCase().replace(/,/g, '').trim();
-            if (!text) return 0;
-            const match = text.match(/(\\d+(?:\\.\\d+)?)\\s*([km]?)/);
-            if (!match) return 0;
-            let value = parseFloat(match[1]);
-            if (Number.isNaN(value)) return 0;
-            if (match[2] === 'k') value *= 1_000;
-            if (match[2] === 'm') value *= 1_000_000;
-            return Math.round(value);
-          };
+          ${TO_INT_HELPER}
 
           const list = [];
           const rows = document.querySelectorAll('#user-starred-repos li');
@@ -273,22 +271,25 @@ const extractStarred = async (username) => {
   await page.goto("https://github.com/");
   await page.sleep(1500);
 
-  let login = await checkLoginStatus();
+  let loggedIn = await isLoggedIn();
 
-  if (!login.loggedIn) {
+  if (!loggedIn) {
     await page.showBrowser("https://github.com/login");
+    await page.sleep(2000);
     await page.setData("status", "Please log in to GitHub...");
 
     await page.promptUser(
       "Please log in to GitHub. Click 'Done' after the homepage loads.",
-      async () => {
-        const result = await checkLoginStatus();
-        return result.loggedIn;
-      },
+      async () => await isLoggedIn(),
       2000,
     );
 
-    login = await checkLoginStatus();
+    loggedIn = await isLoggedIn();
+  }
+
+  if (!loggedIn) {
+    await page.setData("error", "GitHub login could not be confirmed.");
+    return;
   }
 
   await page.setData("status", "Login confirmed. Collecting data in background...");
@@ -299,9 +300,9 @@ const extractStarred = async (username) => {
     message: "Resolving account...",
   });
 
-  const username = login.username || (await resolveUsername());
-  if (!username) {
-    await page.setData("error", "Could not resolve GitHub username after login.");
+  const username = await resolveUsername();
+  if (!isValidGitHubUsername(username)) {
+    await page.setData("error", "Could not resolve a valid GitHub username after login.");
     return;
   }
   state.username = username;
@@ -330,20 +331,19 @@ const extractStarred = async (username) => {
 
   state.starred = await extractStarred(username);
 
+  const totalItems = state.repositories.length + state.starred.length;
   const result = {
     profile: state.profile,
     repositories: state.repositories,
     starred: state.starred,
     exportSummary: {
-      count: state.repositories.length + state.starred.length,
-      label: "items",
+      count: totalItems,
+      label: totalItems === 1 ? "item" : "items",
       details: `${state.repositories.length} repositories, ${state.starred.length} starred`,
     },
     timestamp: new Date().toISOString(),
     version: "1.1.2-playwright",
     platform: "github",
-    company: "GitHub",
-    exportedAt: new Date().toISOString(),
   };
 
   state.isComplete = true;
