@@ -1,9 +1,9 @@
 {
   "name": "YouTube Watch History (Recent)",
   "version": "1.0.0",
-  "scope": "youtube.history.1m",
+  "scope": "youtube.history",
   "dialect": "json",
-  "description": "Most recent watch history entries (top 20) collected from the YouTube History page.",
+  "description": "Most recent watch history entries (top 50) collected from the YouTube History page.",
   "schema": {
     "type": "object",
     "properties": {
@@ -19,10 +19,9 @@
             "videoTitle":    { "type": ["string", "null"] },
             "channelTitle":  { "type": ["string", "null"] },
             "views":         { "type": ["string", "null"], "description": "Raw view count text e.g. '97k views'" },
-            "description":   { "type": ["string", "null"], "description": "Short video description snippet shown in history" },
-            "extractedAt":   { "type": "string" }
+            "description":   { "type": ["string", "null"], "description": "Short video description snippet shown in history" }
           },
-          "required": ["videoUrl", "extractedAt"],
+          "required": ["videoUrl"],
           "additionalProperties": false
         }
       }

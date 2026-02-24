@@ -12,7 +12,7 @@
         "items": {
           "type": "object",
           "properties": {
-            "videoId": { "type": "string" },
+            "videoId": { "type": ["string", "null"] },
             "videoUrl": { "type": "string" },
             "videoTitle": { "type": "string" },
             "channelTitle": { "type": ["string", "null"] },
@@ -20,7 +20,7 @@
             "durationText": { "type": ["string", "null"] },
             "thumbnailUrl": { "type": ["string", "null"] }
           },
-          "required": ["videoId", "videoUrl", "videoTitle"],
+          "required": ["videoUrl", "videoTitle"],
           "additionalProperties": false
         }
       }

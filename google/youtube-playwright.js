@@ -11,7 +11,7 @@
  *   - youtube.playlistItems
  *   - youtube.likes        (Liked Videos playlist: list=LL)
  *   - youtube.watchLater   (Watch Later playlist:  list=WL)
- *   - youtube.history.1m   (last ~30 days, with watchedAtText from date headers)
+ *   - youtube.history      (top 50 most recent entries, with watchedAtText from date headers)
  */
 
 // ─── State ────────────────────────────────────────────────────
@@ -33,11 +33,21 @@ const MAX_SUBS = 20;
 const MAX_SCROLLS_PLAYLISTS = 5;
 const MAX_SCROLLS_PLAYLIST_ITEMS = 20;
 const MAX_SCROLLS_HISTORY = 4;
-const MAX_HISTORY_ITEMS = 20;
+const MAX_HISTORY_ITEMS = 50;
 const MAX_PLAYLISTS = 50;
 
 // ─── Helpers ──────────────────────────────────────────────────
-const sleep = (ms) => page.sleep(ms);
+
+// Parse human-readable count strings (e.g. "5.3M subscribers", "1,234 views") → integer
+const parseCount = (text) => {
+  if (!text) return null;
+  const t = String(text).replace(/,/g, '');
+  const m = t.match(/([\d.]+)\s*([KkMmBb]?)/);
+  if (!m) return null;
+  const num = parseFloat(m[1]);
+  const mult = { K: 1e3, M: 1e6, B: 1e9 }[m[2].toUpperCase()] || 1;
+  return isNaN(num) ? null : Math.round(num * mult);
+};
 
 // ─── Login Detection ─────────────────────────────────────────
 
@@ -68,7 +78,7 @@ const extractEmail = async () => {
         if (avatarBtn) avatarBtn.click();
       })()
     `);
-    await sleep(1500);
+    await page.sleep(1500);
 
     const scanForEmail = `
       (() => {
@@ -86,14 +96,6 @@ const extractEmail = async () => {
             if (match) return match[0];
           }
         }
-        const allEls = document.querySelectorAll('p, span, div');
-        for (const el of allEls) {
-          if (el.children.length > 0) continue;
-          const text = (el.textContent || '').trim();
-          if (text.length < 5 || text.length > 120) continue;
-          const match = text.match(emailRegex);
-          if (match) return match[0];
-        }
         return null;
       })()
     `;
@@ -107,7 +109,7 @@ const extractEmail = async () => {
           const btns = Array.from(document.querySelectorAll('button, a, yt-button-shape, ytd-button-renderer'));
           for (const btn of btns) {
             const text = (btn.textContent || '').trim().toLowerCase();
-            if (text === 'switch account' || text === 'add account') {
+            if (text === 'switch account') {
               btn.click();
               return true;
             }
@@ -116,14 +118,14 @@ const extractEmail = async () => {
         })()
       `);
       if (switched) {
-        await sleep(1000);
+        await page.sleep(1000);
         emailText = await page.evaluate(scanForEmail);
       }
     }
 
     // Close menu
     await page.evaluate(`(() => { document.body.click(); })()`);
-    await sleep(500);
+    await page.sleep(500);
 
     return emailText || null;
   } catch (err) {
@@ -141,7 +143,7 @@ const getChannelUrlFromMenu = async () => {
       if (btn) btn.click();
     })()
   `);
-  await sleep(1500);
+  await page.sleep(1500);
 
   const channelUrl = await page.evaluate(`
     (() => {
@@ -178,7 +180,7 @@ const getChannelUrlFromMenu = async () => {
 
   // Close menu
   await page.evaluate(`(() => { document.body.click(); })()`);
-  await sleep(300);
+  await page.sleep(300);
 
   return channelUrl;
 };
@@ -187,7 +189,7 @@ const getChannelUrlFromMenu = async () => {
 
 const extractChannelProfile = async (channelUrl) => {
   await page.goto(channelUrl);
-  await sleep(2000);
+  await page.sleep(2000);
 
   const baseData = await page.evaluate(`
     (() => {
@@ -247,14 +249,14 @@ const extractChannelProfile = async (channelUrl) => {
       await page.goto(aboutUrl);
     }
 
-    await sleep(2000);
+    await page.sleep(2000);
 
     const aboutExtracted = await page.evaluate(`
       (() => {
         let joinedDate = null;
-        let subscriberCount = null;
-        let viewCount = null;
-        let videoCount = null;
+        let subscriberCountRaw = null;
+        let viewCountRaw = null;
+        let videoCountRaw = null;
         let country = null;
         let description = null;
 
@@ -271,21 +273,14 @@ const extractChannelProfile = async (channelUrl) => {
           if (!joinedDate && /^joined/i.test(t)) {
             joinedDate = t.replace(/^joined\\s*/i, '').trim();
           }
-          if (!subscriberCount && /subscriber/i.test(t)) {
-            const raw = t.replace(/[^0-9.KMB]/gi, '');
-            const num = parseFloat(raw) *
-              (/K/i.test(raw) ? 1e3 : /M/i.test(raw) ? 1e6 : /B/i.test(raw) ? 1e9 : 1);
-            if (!isNaN(num) && num > 0) subscriberCount = Math.round(num);
+          if (!subscriberCountRaw && /subscriber/i.test(t)) {
+            subscriberCountRaw = t;
           }
-          if (!viewCount && /view/i.test(t) && /\\d/.test(t)) {
-            const raw = t.replace(/[^0-9.KMB]/gi, '');
-            const num = parseFloat(raw) *
-              (/K/i.test(raw) ? 1e3 : /M/i.test(raw) ? 1e6 : /B/i.test(raw) ? 1e9 : 1);
-            if (!isNaN(num) && num > 0) viewCount = Math.round(num);
+          if (!viewCountRaw && /view/i.test(t) && /\\d/.test(t)) {
+            viewCountRaw = t;
           }
-          if (!videoCount && /video/i.test(t) && /\\d/.test(t)) {
-            const num = parseInt(t.replace(/[^0-9]/g, ''));
-            if (!isNaN(num) && num > 0) videoCount = num;
+          if (!videoCountRaw && /video/i.test(t) && /\\d/.test(t)) {
+            videoCountRaw = t;
           }
         }
 
@@ -314,11 +309,18 @@ const extractChannelProfile = async (channelUrl) => {
           }
         }
 
-        return { joinedDate, subscriberCount, viewCount, videoCount, country, description };
+        return { joinedDate, subscriberCountRaw, viewCountRaw, videoCountRaw, country, description };
       })()
     `);
 
-    Object.assign(aboutData, aboutExtracted);
+    Object.assign(aboutData, {
+      joinedDate: aboutExtracted.joinedDate,
+      description: aboutExtracted.description,
+      country: aboutExtracted.country,
+      subscriberCount: parseCount(aboutExtracted.subscriberCountRaw),
+      viewCount: parseCount(aboutExtracted.viewCountRaw),
+      videoCount: parseCount(aboutExtracted.videoCountRaw)
+    });
   } catch (err) {
     // Silently continue with null stats
   }
@@ -328,26 +330,15 @@ const extractChannelProfile = async (channelUrl) => {
 
 // ─── Subscriptions ────────────────────────────────────────────
 
-// Parse a human-readable subscriber string like "5.3m subscribers" into a number
-const parseSubscriberCount = (text) => {
-  if (!text) return null;
-  const t = text.replace(/,/g, '');
-  const match = t.match(/([\d.]+)\s*([KkMmBb]?)/);
-  if (!match) return null;
-  const num = parseFloat(match[1]);
-  const suffix = match[2].toUpperCase();
-  const mult = suffix === 'K' ? 1e3 : suffix === 'M' ? 1e6 : suffix === 'B' ? 1e9 : 1;
-  return isNaN(num) ? null : Math.round(num * mult);
-};
 
 const scrapeSubscriptions = async () => {
   await page.goto('https://www.youtube.com/feed/channels');
-  await sleep(2000);
+  await page.sleep(2000);
 
   // Scroll just enough to ensure the first MAX_SUBS items are rendered
   for (let i = 0; i < 3; i++) {
     await page.evaluate(`window.scrollBy(0, window.innerHeight * 2)`);
-    await sleep(800);
+    await page.sleep(800);
   }
 
   const raw = await page.evaluate(`
@@ -436,7 +427,7 @@ const scrapeSubscriptions = async () => {
   // Attach parsed numeric subscriberCount in Node (avoids duplicating parse logic in evaluate)
   return (raw || []).map(item => ({
     ...item,
-    subscriberCount: parseSubscriberCount(item.subscriberCountText)
+    subscriberCount: parseCount(item.subscriberCountText)
   }));
 };
 
@@ -444,12 +435,12 @@ const scrapeSubscriptions = async () => {
 
 const scrapePlaylists = async () => {
   await page.goto('https://www.youtube.com/feed/playlists');
-  await sleep(2000);
+  await page.sleep(2000);
 
   // Scroll to ensure at least MAX_PLAYLISTS cards are rendered
   for (let i = 0; i < MAX_SCROLLS_PLAYLISTS; i++) {
     await page.evaluate(`window.scrollBy(0, window.innerHeight * 2)`);
-    await sleep(1000);
+    await page.sleep(1000);
   }
 
   // Step 1: collect up to MAX_PLAYLISTS playlist URLs from the list page
@@ -495,7 +486,7 @@ const scrapePlaylists = async () => {
   for (const { playlistId, url } of playlistLinks) {
     try {
       await page.goto(url);
-      await sleep(1500);
+      await page.sleep(1500);
 
       const meta = await page.evaluate(`
         (() => {
@@ -524,28 +515,20 @@ const scrapePlaylists = async () => {
           ).map(el => (el.textContent || '').trim()).filter(Boolean);
 
           let privacy = null;
-          let videoCount = null;
-          let views = null;
+          let videoCountRaw = null;
+          let viewsText = null;
 
           for (const t of metaTexts) {
             if (!privacy && /^(public|private|unlisted)$/i.test(t)) {
               privacy = t.charAt(0).toUpperCase() + t.slice(1).toLowerCase();
-            } else if (videoCount === null && /\\d/.test(t) && /video/i.test(t)) {
-              const n = parseInt(t.replace(/[^0-9]/g, ''), 10);
-              if (!isNaN(n)) videoCount = n;
-            } else if (views === null && /view/i.test(t)) {
-              if (/no views/i.test(t)) {
-                views = 0;
-              } else {
-                const raw = t.replace(/[^0-9.KkMmBb]/g, '');
-                const num = parseFloat(raw) *
-                  (/[Kk]/.test(raw) ? 1e3 : /[Mm]/.test(raw) ? 1e6 : /[Bb]/.test(raw) ? 1e9 : 1);
-                if (!isNaN(num)) views = Math.round(num);
-              }
+            } else if (videoCountRaw == null && /\\d/.test(t) && /video/i.test(t)) {
+              videoCountRaw = t;
+            } else if (viewsText == null && /view/i.test(t)) {
+              viewsText = t;
             }
           }
 
-          return { title, owner, ownerUrl, privacy, videoCount, views };
+          return { title, owner, ownerUrl, privacy, videoCountRaw, viewsText };
         })()
       `);
 
@@ -556,8 +539,10 @@ const scrapePlaylists = async () => {
         owner: meta.owner,
         ownerUrl: meta.ownerUrl,
         privacy: meta.privacy,
-        videoCount: meta.videoCount,
-        views: meta.views
+        videoCount: parseCount(meta.videoCountRaw),
+        views: meta.viewsText != null
+          ? (/no views/i.test(meta.viewsText) ? 0 : parseCount(meta.viewsText))
+          : null
       });
     } catch (_) {
       allPlaylists.push({
@@ -576,7 +561,7 @@ const scrapePlaylists = async () => {
 
 const scrapePlaylistPage = async (playlistUrl, maxScrolls) => {
   await page.goto(playlistUrl);
-  await sleep(2000);
+  await page.sleep(2000);
 
   const seen = new Set();
   const allItems = [];
@@ -656,7 +641,7 @@ const scrapePlaylistPage = async (playlistUrl, maxScrolls) => {
     }
 
     await page.evaluate(`window.scrollBy(0, window.innerHeight * 2)`);
-    await sleep(1500);
+    await page.sleep(1500);
   }
 
   return allItems;
@@ -666,18 +651,17 @@ const scrapePlaylistPage = async (playlistUrl, maxScrolls) => {
 
 const scrapeHistory = async () => {
   await page.goto('https://www.youtube.com/feed/history');
-  await sleep(2000);
+  await page.sleep(2000);
 
   // Scroll a few times to render enough items
   for (let i = 0; i < MAX_SCROLLS_HISTORY; i++) {
     await page.evaluate(`window.scrollBy(0, window.innerHeight * 2)`);
-    await sleep(800);
+    await page.sleep(800);
   }
 
   const items = await page.evaluate(`
     (() => {
       const results = [];
-      const now = new Date().toISOString();
       const seen = new Set();
 
       const sections = document.querySelectorAll('ytd-item-section-renderer');
@@ -771,8 +755,7 @@ const scrapeHistory = async () => {
             videoTitle,
             channelTitle,
             views,
-            description,
-            extractedAt: now
+            description
           });
         }
       }
@@ -793,13 +776,13 @@ const scrapeHistory = async () => {
     // ═══ Login Phase ═══
     await page.setData('status', 'Checking login status...');
     await page.goto('https://www.youtube.com/');
-    await sleep(2000);
+    await page.sleep(2000);
 
     state.isLoggedIn = await checkLoginStatus();
 
     if (!state.isLoggedIn) {
       await page.showBrowser('https://www.youtube.com/');
-      await sleep(1000);
+      await page.sleep(2000);
 
       await page.promptUser(
         'Please log in to YouTube (Google account). Click "Done" once you are logged in.',
@@ -985,10 +968,10 @@ const scrapeHistory = async () => {
       count: state.watchLater.length,
     });
 
-    // ═══ Phase 8: Watch History (last ~30 days) ═══
+    // ═══ Phase 8: Watch History (top 50) ═══
     await page.setProgress({
       phase: { step: 8, total: TOTAL_PHASES, label: 'Fetching watch history' },
-      message: 'Loading watch history (last 30 days)...',
+      message: `Loading top ${MAX_HISTORY_ITEMS} history items...`,
     });
 
     try {
@@ -1030,19 +1013,30 @@ const scrapeHistory = async () => {
           watchLater: state.watchLater
         },
         'youtube.history': {
-          timeWindow: 'last 20',
+          timeWindow: `top ${MAX_HISTORY_ITEMS} most recent items`,
           history: state.history
         },
-        exportSummary: {
-          profile: state.profile ? 'collected' : 'not_available',
-          subscriptions: state.subscriptions.length,
-          playlists: state.playlists.length,
-          playlistItems: totalPlaylistItems,
-          likes: state.likes.length,
-          watchLater: state.watchLater.length,
-          history: state.history.length,
-          label: 'YouTube data export'
-        },
+        exportSummary: (() => {
+          const totalItems =
+            state.subscriptions.length +
+            state.playlists.length +
+            totalPlaylistItems +
+            state.likes.length +
+            state.watchLater.length +
+            state.history.length;
+          return {
+            count: totalItems,
+            label: totalItems === 1 ? 'item' : 'items',
+            details: [
+              state.subscriptions.length + ' subscriptions',
+              state.playlists.length + ' playlists',
+              totalPlaylistItems + ' playlist items',
+              state.likes.length + ' liked videos',
+              state.watchLater.length + ' watch later',
+              state.history.length + ' history items'
+            ].join(', ')
+          };
+        })(),
         timestamp: new Date().toISOString(),
         version: '1.0.0-playwright',
         platform: 'youtube'
