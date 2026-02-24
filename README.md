@@ -7,6 +7,7 @@ Playwright-based data connectors for [DataConnect](https://github.com/vana-com/d
 | Platform | Company | Runtime | Scopes |
 |----------|---------|---------|--------|
 | ChatGPT | OpenAI | playwright | chatgpt.conversations, chatgpt.memories |
+| GitHub | GitHub | playwright | github.profile, github.repositories, github.starred |
 | Instagram | Meta | playwright | instagram.profile, instagram.posts |
 | LinkedIn | LinkedIn | playwright | linkedin.profile, .experience, .education, .skills, .languages |
 | Spotify | Spotify | playwright | spotify.profile, spotify.savedTracks, spotify.playlists |
@@ -25,6 +26,9 @@ connectors/
 ├── openai/
 │   ├── chatgpt-playwright.js      # Connector script
 │   └── chatgpt-playwright.json    # Metadata
+├── github/
+│   ├── github-playwright.js
+│   └── github-playwright.json
 ├── linkedin/
 │   ├── linkedin-playwright.js
 │   └── linkedin-playwright.json

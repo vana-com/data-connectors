@@ -1,0 +1,25 @@
+{
+  "name": "GitHub Profile",
+  "version": "1.0.0",
+  "scope": "github.profile",
+  "dialect": "json",
+  "description": "GitHub user profile information",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "username": { "type": "string" },
+      "fullName": { "type": "string" },
+      "bio": { "type": "string" },
+      "company": { "type": "string" },
+      "location": { "type": "string" },
+      "website": { "type": "string" },
+      "avatarUrl": { "type": "string" },
+      "followers": { "type": "number" },
+      "following": { "type": "number" },
+      "repositoryCount": { "type": "number" },
+      "profileUrl": { "type": "string" }
+    },
+    "required": ["username", "profileUrl"],
+    "additionalProperties": false
+  }
+}

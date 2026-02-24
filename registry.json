@@ -19,6 +19,21 @@
       }
     },
     {
+      "id": "github-playwright",
+      "company": "github",
+      "version": "1.1.3",
+      "name": "GitHub",
+      "description": "Exports your GitHub profile, repositories, and starred repositories using Playwright browser automation.",
+      "files": {
+        "script": "github/github-playwright.js",
+        "metadata": "github/github-playwright.json"
+      },
+      "checksums": {
+        "script": "sha256:602a3abbad89207c7f7ed1827765f152620e9c086ff090530e9eb70a65c14941",
+        "metadata": "sha256:01b55f6d857f8bfa554bb91be4a8cb117f7a728139da2812abe6b4e533a2a5da"
+      }
+    },
+    {
       "id": "instagram-playwright",
       "company": "meta",
       "version": "1.0.0",
