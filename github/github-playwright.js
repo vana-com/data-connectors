@@ -207,40 +207,124 @@ const extractStarred = async (username) => {
   const maxPages = 60;
 
   for (let pageIndex = 1; pageIndex <= maxPages; pageIndex++) {
-    await page.goto(`https://github.com/${username}?page=${pageIndex}&tab=stars`);
-    await page.sleep(1000);
+    let pageResult = { list: [], hasNext: false };
+    const pageUrls = [
+      `https://github.com/${username}?page=${pageIndex}&tab=stars`,
+      `https://github.com/stars/${username}?page=${pageIndex}`,
+    ];
 
     try {
-      const pageResult = await page.evaluate(`
-        (() => {
-          ${TO_INT_HELPER}
+      for (const pageUrl of pageUrls) {
+        await page.goto(pageUrl);
+        await page.sleep(1200);
 
-          const list = [];
-          const rows = document.querySelectorAll('#user-starred-repos li');
-          for (const row of rows) {
-            const link = row.querySelector('h3 a');
-            if (!link) continue;
+        const candidate = await page.evaluate(`
+          (() => {
+            ${TO_INT_HELPER}
 
-            const fullName = (link.textContent || '').replace(/\\s+/g, ' ').trim();
-            const description = (row.querySelector('p')?.textContent || '').trim();
-            const language = (row.querySelector('[itemprop="programmingLanguage"]')?.textContent || '').trim();
-            const starsRaw = (row.querySelector('a[href$="/stargazers"]')?.textContent || '').trim();
-            const updatedAt = row.querySelector('relative-time')?.getAttribute('datetime') || null;
+            const repoPathFromHref = (href) => {
+              try {
+                const url = new URL(href, window.location.origin);
+                const parts = url.pathname.split('/').filter(Boolean);
+                if (parts.length !== 2) return null;
+                const blocked = new Set([
+                  "features",
+                  "topics",
+                  "collections",
+                  "organizations",
+                  "orgs",
+                  "users",
+                  "marketplace",
+                  "settings",
+                  "login",
+                  "logout",
+                  "notifications",
+                  "explore",
+                  "stars"
+                ]);
+                if (blocked.has(parts[0].toLowerCase())) return null;
+                return { owner: parts[0], repo: parts[1] };
+              } catch {
+                return null;
+              }
+            };
 
-            list.push({
-              fullName,
-              url: link.href,
-              description,
-              language,
-              stars: toInt(starsRaw),
-              updatedAt
-            });
-          }
+            const list = [];
+            const rowSelectors = [
+              "#user-starred-repos li",
+              "#user-profile-frame li",
+              "main li"
+            ];
+            const rows = Array.from(
+              new Set(
+                rowSelectors.flatMap((selector) =>
+                  Array.from(document.querySelectorAll(selector))
+                )
+              )
+            );
 
-          const hasNext = !!document.querySelector('a.next_page[rel="next"]');
-          return { list, hasNext };
-        })()
-      `);
+            for (const row of rows) {
+              const linkCandidates = Array.from(
+                row.querySelectorAll("h3 a[href], a[href]")
+              );
+              let repoInfo = null;
+              let repoLink = null;
+              for (const link of linkCandidates) {
+                const parsed = repoPathFromHref(link.getAttribute("href") || "");
+                if (parsed) {
+                  repoInfo = parsed;
+                  repoLink = link;
+                  break;
+                }
+              }
+              if (!repoInfo || !repoLink) continue;
+
+              const fullName =
+                (repoLink.textContent || "")
+                  .replace(/\\s+/g, " ")
+                  .trim() || (repoInfo.owner + "/" + repoInfo.repo);
+              const canonicalUrl =
+                "https://github.com/" + repoInfo.owner + "/" + repoInfo.repo;
+              const description =
+                (row.querySelector("p")?.textContent || "").trim();
+              const language = (
+                row.querySelector('[itemprop="programmingLanguage"], [data-ga-click*="Repository, language"]')
+                  ?.textContent || ""
+              ).trim();
+              const starsRaw = (
+                row.querySelector('a[href$="/stargazers"]')?.textContent || ""
+              ).trim();
+              const updatedAt =
+                row.querySelector("relative-time")?.getAttribute("datetime") || null;
+
+              list.push({
+                fullName,
+                url: canonicalUrl,
+                description,
+                language,
+                stars: toInt(starsRaw),
+                updatedAt
+              });
+            }
+
+            const hasNext = !!document.querySelector(
+              'a.next_page[rel="next"], a[rel="next"][href*="page="]'
+            );
+            return { list, hasNext };
+          })()
+        `);
+
+        const candidateItems = Array.isArray(candidate?.list)
+          ? candidate.list
+          : [];
+        if (candidateItems.length > 0 || candidate?.hasNext) {
+          pageResult = {
+            list: candidateItems,
+            hasNext: Boolean(candidate?.hasNext),
+          };
+          break;
+        }
+      }
 
       const pageItems = Array.isArray(pageResult?.list) ? pageResult.list : [];
       for (const repo of pageItems) {
@@ -342,7 +426,7 @@ const extractStarred = async (username) => {
       details: `${state.repositories.length} repositories, ${state.starred.length} starred`,
     },
     timestamp: new Date().toISOString(),
-    version: "1.1.2-playwright",
+    version: "1.1.3-playwright",
     platform: "github",
   };
 
