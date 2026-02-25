@@ -92,6 +92,21 @@
         "script": "sha256:c5c6ea5f96610a87f21dc508c09399d3661ab7d1174b6b6933fbe38b0f217e2d",
         "metadata": "sha256:782ae351c4b9e86235e39511172bf6eddc08a3aa14f7e5a260b6c4b755ac1dab"
       }
+    },
+    {
+      "id": "shop-playwright",
+      "company": "shopify",
+      "version": "1.0.0",
+      "name": "Shop",
+      "description": "Exports your Shop app order history using Playwright browser automation.",
+      "files": {
+        "script": "shopify/shop-playwright.js",
+        "metadata": "shopify/shop-playwright.json"
+      },
+      "checksums": {
+        "script": "sha256:184f8db284e107e46cd5bc5e6a5b90734f2b99175393338cceba494f44a285b3",
+        "metadata": "sha256:7341aedbe59844155bee329b098f8d1194fc7a4510d4a496a3c51283df40fb70"
+      }
     }
   ]
 }
