@@ -43,11 +43,13 @@ const isLoggedIn = async () => {
   try {
     return await page.evaluate(`
       (() => {
+        const hasLoggedInNav = !!document.querySelector(
+          '[data-testid="AppTabBar_Home_Link"], [data-testid="AppTabBar_Profile_Link"], [data-testid="SideNav_NewTweet_Button"]'
+        );
         const hasProfileTab = !!document.querySelector('[data-testid="AppTabBar_Profile_Link"]');
         const hasAccountSwitcher = !!document.querySelector('[data-testid="SideNav_AccountSwitcher_Button"]');
         const hasHome = !!document.querySelector('a[href="/home"]');
-        const hasLoginInputs = !!document.querySelector('input[autocomplete="username"], input[name="text"]');
-        return (hasProfileTab || hasAccountSwitcher || hasHome) && !hasLoginInputs;
+        return hasLoggedInNav || hasProfileTab || hasAccountSwitcher || hasHome;
       })()
     `);
   } catch {
@@ -79,6 +81,11 @@ const readLoggedInUsername = async () => {
         const profileLink = document.querySelector('[data-testid="AppTabBar_Profile_Link"][href]');
         const fromProfileTab = parseUsername(profileLink?.getAttribute('href'));
         if (fromProfileTab) return fromProfileTab;
+
+        const accountSwitcherText =
+          document.querySelector('[data-testid="SideNav_AccountSwitcher_Button"]')?.textContent || '';
+        const fromAccountSwitcher = (accountSwitcherText.match(/@([A-Za-z0-9_]{1,15})/) || [])[1] || '';
+        if (fromAccountSwitcher) return fromAccountSwitcher;
 
         const statusLink = document.querySelector('a[href*="/status/"]');
         const fromStatus = parseUsername(statusLink?.getAttribute('href'));
@@ -288,6 +295,7 @@ const extractPosts = async (username) => {
       2000
     );
 
+    await page.sleep(2000);
     loggedIn = await isLoggedIn();
   }
 
@@ -296,20 +304,27 @@ const extractPosts = async (username) => {
     return;
   }
 
-  await page.setData('status', 'Login confirmed. Collecting data in background...');
-  await page.goHeadless();
+  await page.setData('status', 'Login confirmed. Resolving account...');
+
+  let username = await readLoggedInUsername();
+  if (!isValidXUsername(username)) {
+    await page.goto('https://x.com/home');
+    await page.sleep(2500);
+    username = await readLoggedInUsername();
+  }
 
   await page.setProgress({
     phase: { step: 1, total: 2, label: 'Profile' },
     message: 'Resolving account...',
   });
 
-  const username = await readLoggedInUsername();
   if (!isValidXUsername(username)) {
     await page.setData('error', 'Could not resolve a valid X username after login.');
     return;
   }
   state.username = username;
+
+  await page.goHeadless();
 
   await page.setProgress({
     phase: { step: 1, total: 2, label: 'Profile' },
@@ -347,7 +362,7 @@ const extractPosts = async (username) => {
       details: `${state.posts.length} recent posts`,
     },
     timestamp: new Date().toISOString(),
-    version: '1.0.0-playwright',
+    version: '1.0.1-playwright',
     platform: 'x',
   };
 

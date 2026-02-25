@@ -1,6 +1,6 @@
 {
   "id": "x-playwright",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "name": "X",
   "company": "X",
   "description": "Exports your X profile and recent posts using Playwright browser automation.",
