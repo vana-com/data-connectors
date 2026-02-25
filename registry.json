@@ -1,6 +1,6 @@
 {
   "version": "2.0.0",
-  "lastUpdated": "2026-02-21T00:00:00Z",
+  "lastUpdated": "2026-02-25T00:00:00Z",
   "baseUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main",
   "connectors": [
     {
@@ -61,6 +61,21 @@
       "checksums": {
         "script": "sha256:26f5aa145e5ef6d7ce6abd791287d6e0ad2e2d68aa2769a938ff47d40b7e952c",
         "metadata": "sha256:e68b0367d1b5527338b65f4930ac433cc6caa342a31880dd587074b2ee5a6b3e"
+      }
+    },
+    {
+      "id": "x-playwright",
+      "company": "x",
+      "version": "1.0.0",
+      "name": "X",
+      "description": "Exports your X profile and recent posts using Playwright browser automation.",
+      "files": {
+        "script": "x/x-playwright.js",
+        "metadata": "x/x-playwright.json"
+      },
+      "checksums": {
+        "script": "sha256:aa800f68b14d291607f9aeecac55776e767100b156a303fa3b0225269c4fc7ed",
+        "metadata": "sha256:26ed3bdf3afae66a8607d65a1238e9fdd612f25816e84fda4b16552b7fb049be"
       }
     }
   ]
