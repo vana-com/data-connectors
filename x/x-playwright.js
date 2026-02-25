@@ -164,20 +164,36 @@ const extractVisiblePosts = async () => {
           if (!href) return null;
           try {
             const url = new URL(href, window.location.origin);
-            const match = url.pathname.match(/^\/([^/]+)\/status\/(\d+)/);
-            if (!match) return null;
-            return { username: match[1], id: match[2] };
+            const pathname = url.pathname || '';
+            let match = pathname.match(/^\/([^/]+)\/status\/(\d+)/);
+            if (match) return { username: match[1], id: match[2] };
+
+            match = pathname.match(/^\/i\/web\/status\/(\d+)/);
+            if (match) return { username: null, id: match[1] };
+
+            return null;
           } catch {
             return null;
           }
         };
 
-        const metricValue = (article, testId) => {
-          const node = article.querySelector('[data-testid="' + testId + '"]');
-          return toInt((node?.textContent || '').trim());
+        const metricValue = (article, testIds) => {
+          for (const testId of testIds) {
+            const node = article.querySelector('[data-testid="' + testId + '"]');
+            const value = toInt((node?.textContent || '').trim());
+            if (value > 0) return value;
+          }
+          return 0;
         };
 
-        const articles = Array.from(document.querySelectorAll('article[data-testid="tweet"]'));
+        const articleCandidates = Array.from(
+          document.querySelectorAll(
+            'article[data-testid="tweet"], main article, [data-testid="primaryColumn"] article'
+          )
+        );
+        const articles = articleCandidates.filter((article, index, list) => {
+          return article && list.indexOf(article) === index;
+        });
         const posts = [];
 
         for (const article of articles) {
@@ -185,9 +201,25 @@ const extractVisiblePosts = async () => {
           let parsed = null;
           let statusUrl = null;
           for (const anchor of statusAnchors) {
-            parsed = parseStatusLink(anchor.getAttribute('href') || '');
-            if (parsed) {
+            const nextParsed = parseStatusLink(anchor.getAttribute('href') || '');
+            if (!nextParsed) continue;
+
+            const fallbackAuthor = (Array.from(article.querySelectorAll('a[href^="/"]'))
+              .map((a) => (a.getAttribute('href') || '').match(/^\/([A-Za-z0-9_]{1,15})$/))
+              .find(Boolean) || [])[1] || null;
+
+            parsed = {
+              id: nextParsed.id,
+              username: nextParsed.username || fallbackAuthor,
+            };
+
+            if (parsed.id && parsed.username) {
               statusUrl = 'https://x.com/' + parsed.username + '/status/' + parsed.id;
+              break;
+            }
+
+            if (parsed.id) {
+              statusUrl = 'https://x.com/i/web/status/' + parsed.id;
               break;
             }
           }
@@ -209,14 +241,14 @@ const extractVisiblePosts = async () => {
           posts.push({
             id: parsed.id,
             url: statusUrl,
-            authorUsername: parsed.username,
+            authorUsername: parsed.username || '',
             text,
             createdAt,
-            replyCount: metricValue(article, 'reply'),
-            repostCount: metricValue(article, 'retweet'),
-            likeCount: metricValue(article, 'like'),
-            bookmarkCount: metricValue(article, 'bookmark'),
-            viewCount: metricValue(article, 'viewCount'),
+            replyCount: metricValue(article, ['reply']),
+            repostCount: metricValue(article, ['retweet', 'unretweet']),
+            likeCount: metricValue(article, ['like', 'unlike']),
+            bookmarkCount: metricValue(article, ['bookmark', 'removeBookmark']),
+            viewCount: metricValue(article, ['viewCount']),
             isPinned,
             isReply,
             lang,
@@ -238,7 +270,8 @@ const extractPosts = async (username) => {
   if (!isValidXUsername(username)) return [];
 
   await page.goto(`https://x.com/${username}`);
-  await page.sleep(3000);
+  await page.sleep(4500);
+  await page.evaluate(`window.scrollTo(0, 0)`);
 
   const all = [];
   const seen = new Set();
@@ -272,7 +305,7 @@ const extractPosts = async (username) => {
     if (stagnantScrolls >= 3) break;
 
     await page.evaluate(`window.scrollBy(0, Math.round(window.innerHeight * 0.9))`);
-    await page.sleep(1800);
+    await page.sleep(2000);
   }
 
   return all;
@@ -362,7 +395,7 @@ const extractPosts = async (username) => {
       details: `${state.posts.length} recent posts`,
     },
     timestamp: new Date().toISOString(),
-    version: '1.0.1-playwright',
+    version: '1.0.2-playwright',
     platform: 'x',
   };
 
