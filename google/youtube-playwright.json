@@ -1,0 +1,51 @@
+{
+  "id": "youtube-playwright",
+  "version": "1.0.0",
+  "name": "YouTube",
+  "company": "Google",
+  "description": "Exports your YouTube profile, subscriptions, playlists, playlist items, liked videos, watch later list, and top 50 recent watch history entries using Playwright browser automation.",
+  "connectURL": "https://www.youtube.com/",
+  "connectSelector": "button#avatar-btn, ytd-topbar-menu-button-renderer button#avatar-btn",
+  "exportFrequency": "weekly",
+  "runtime": "playwright",
+  "scopes": [
+    {
+      "scope": "youtube.profile",
+      "label": "Your YouTube profile",
+      "description": "Email, channel URL, handle, and joined date (plus optional channel fields like title, avatar, and stats)"
+    },
+    {
+      "scope": "youtube.subscriptions",
+      "label": "Your subscriptions",
+      "description": "Channels you are subscribed to"
+    },
+    {
+      "scope": "youtube.playlists",
+      "label": "Your playlists",
+      "description": "Playlists visible in your YouTube Library"
+    },
+    {
+      "scope": "youtube.playlistItems",
+      "label": "Your playlist items",
+      "description": "Videos inside your playlists, including titles and URLs"
+    },
+    {
+      "scope": "youtube.likes",
+      "label": "Your liked videos",
+      "description": "Videos you have liked"
+    },
+    {
+      "scope": "youtube.watchLater",
+      "label": "Your watch later list",
+      "description": "Videos saved to Watch Later"
+    },
+    {
+      "scope": "youtube.history",
+      "label": "Your watch history (top 50 recent items)",
+      "description": "Raw watch history entries for the top 50 most recent items"
+    }
+  ],
+  "vectorize_config": {
+    "documents": "history"
+  }
+}

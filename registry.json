@@ -1,6 +1,6 @@
 {
   "version": "2.0.0",
-  "lastUpdated": "2026-02-22T00:00:00Z",
+  "lastUpdated": "2026-02-25T00:00:00Z",
   "baseUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main",
   "connectors": [
     {
@@ -76,6 +76,21 @@
       "checksums": {
         "script": "sha256:26f5aa145e5ef6d7ce6abd791287d6e0ad2e2d68aa2769a938ff47d40b7e952c",
         "metadata": "sha256:e68b0367d1b5527338b65f4930ac433cc6caa342a31880dd587074b2ee5a6b3e"
+      }
+    },
+    {
+      "id": "youtube-playwright",
+      "company": "google",
+      "version": "1.0.0",
+      "name": "YouTube",
+      "description": "Exports your YouTube profile, subscriptions, playlists, playlist items, liked videos, watch later list, and recent watch history using Playwright browser automation.",
+      "files": {
+        "script": "google/youtube-playwright.js",
+        "metadata": "google/youtube-playwright.json"
+      },
+      "checksums": {
+        "script": "sha256:c5c6ea5f96610a87f21dc508c09399d3661ab7d1174b6b6933fbe38b0f217e2d",
+        "metadata": "sha256:782ae351c4b9e86235e39511172bf6eddc08a3aa14f7e5a260b6c4b755ac1dab"
       }
     }
   ]

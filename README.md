@@ -11,6 +11,7 @@ Playwright-based data connectors for [DataConnect](https://github.com/vana-com/d
 | Instagram | Meta | playwright | instagram.profile, instagram.posts |
 | LinkedIn | LinkedIn | playwright | linkedin.profile, .experience, .education, .skills, .languages |
 | Spotify | Spotify | playwright | spotify.profile, spotify.savedTracks, spotify.playlists |
+| YouTube | Google | playwright | youtube.profile, youtube.subscriptions, youtube.playlists, youtube.playlistItems, youtube.likes, youtube.watchLater, youtube.history (top 50 recent items) |
 
 ## Repository structure
 
@@ -34,9 +35,12 @@ connectors/
 ├── meta/
 │   ├── instagram-playwright.js
 │   └── instagram-playwright.json
-└── spotify/
-    ├── spotify-playwright.js
-    └── spotify-playwright.json
+├── spotify/
+│   ├── spotify-playwright.js
+│   └── spotify-playwright.json
+└── google/
+    ├── youtube-playwright.js      # Connector script
+    └── youtube-playwright.json    # Metadata
 ```
 
 Each connector consists of two files inside a `<company>/` directory:
