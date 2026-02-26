@@ -1,22 +1,24 @@
 /**
- * LinkedIn Connector (Playwright)
+ * LinkedIn Connector (Playwright) — API Data Extraction
  *
  * Uses Playwright for real browser control to extract profile data.
  * Requires the playwright-runner sidecar.
  *
- * LinkedIn uses obfuscated/hashed CSS class names that change frequently.
- * This connector avoids class names entirely, finding data by:
- *   1. Isolating the content section (main > div > div > div:first-child)
- *   2. Drilling through single-child wrappers to reach entry containers
- *   3. Parsing P element text positionally with content-based heuristics
+ * Extracts data from LinkedIn's Voyager API responses instead of the rendered DOM.
+ * Two extraction methods:
+ *   1. <code> element extraction — LinkedIn embeds Voyager API responses in
+ *      <code id="bpr-guid-XXX"> elements as JSON. Parse these directly.
+ *   2. captureNetwork interception — Register URL patterns before navigating
+ *      to detail pages, capture the API responses LinkedIn's frontend makes.
  *
- * Navigates to /details/ subpages to get complete data (experience, skills,
- * education, languages) beyond what's visible on the main profile.
+ * Both methods are immune to DOM layout changes because they read structured
+ * JSON data, not rendered HTML.
  */
 
 // State management
 const state = {
   profileUrl: null,
+  miniProfile: null,
   heroData: null,
   aboutData: null,
   experiences: [],
@@ -51,56 +53,185 @@ const checkLoginStatus = async () => {
   }
 };
 
+// ─── API Data Extraction Helpers ─────────────────────────────
+
+// Step 1: Extract data from <code id="bpr-guid-XXX"> elements
+const extractFromCodeElements = async (urlFilter) => {
+  const filterStr = JSON.stringify(urlFilter);
+  return await page.evaluate(`
+    (() => {
+      const results = [];
+      const codeEls = document.querySelectorAll('code[id^="bpr-guid-"]');
+      for (const el of codeEls) {
+        const dataletEl = document.getElementById('datalet-' + el.id);
+        if (!dataletEl) continue;
+        try {
+          const meta = JSON.parse(dataletEl.textContent);
+          if (${filterStr} && !meta.request.includes(${filterStr})) continue;
+          const body = JSON.parse(el.textContent);
+          results.push({ request: meta.request, data: body });
+        } catch(e) { continue; }
+      }
+      return results;
+    })()
+  `);
+};
+
+// Step 2: Collect unique entities from API responses (runs in Node.js)
+const collectIncludedEntities = (apiResponses) => {
+  const seen = new Set();
+  const entities = [];
+  for (const resp of apiResponses) {
+    const included = resp?.data?.included || resp?.included || [];
+    for (const entity of included) {
+      const urn = entity.entityUrn;
+      if (urn && seen.has(urn)) continue;
+      if (urn) seen.add(urn);
+      entities.push(entity);
+    }
+  }
+  return entities;
+};
+
+// Step 3: Wait for a network capture to arrive
+const waitForCapture = async (key, maxAttempts = 15) => {
+  for (let i = 0; i < maxAttempts; i++) {
+    const captured = await page.getCapturedResponse(key);
+    if (captured) return captured;
+    await page.sleep(1000);
+  }
+  return null;
+};
+
+// Step 4: Profile picture URL builder and date formatter
+const buildProfilePictureUrl = (pictureData) => {
+  // Handle both MiniProfile format and full Profile format
+  const vecImage = pictureData?.displayImageReferenceResolutionResult?.vectorImage || pictureData;
+  if (!vecImage?.rootUrl || !vecImage?.artifacts?.length) return '';
+  const largest = vecImage.artifacts[vecImage.artifacts.length - 1];
+  return vecImage.rootUrl + largest.fileIdentifyingUrlPathSegment;
+};
+
+const formatDateRange = (startDate, endDate) => {
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const fmt = (d) => d ? (d.month ? MONTHS[d.month - 1] + ' ' : '') + d.year : '';
+  const start = fmt(startDate);
+  const end = endDate ? fmt(endDate) : 'Present';
+  if (!start) return '';
+  return start + ' - ' + end;
+};
+
+// Recursive text extraction from topComponents structures
+const extractTextsFromComponents = (obj) => {
+  const texts = [];
+  const walk = (o) => {
+    if (!o || typeof o !== 'object') return;
+    if (o.text && typeof o.text === 'object' && o.text.text) {
+      texts.push(o.text.text);
+    } else if (o.text && typeof o.text === 'string') {
+      texts.push(o.text);
+    }
+    if (o.title && typeof o.title === 'object' && o.title.text) {
+      texts.push(o.title.text);
+    }
+    if (Array.isArray(o)) {
+      for (const item of o) walk(item);
+    } else {
+      for (const key of Object.keys(o)) {
+        if (typeof o[key] === 'object') walk(o[key]);
+      }
+    }
+  };
+  walk(obj);
+  return texts;
+};
+
 // ─── Profile Navigation ─────────────────────────────────────
 
+// Step 5: Get profile URL from API data
 const getProfileUrl = async () => {
   try {
+    // Primary: extract from <code> elements
+    const meResponses = await extractFromCodeElements('/voyager/api/me');
+    if (meResponses.length > 0) {
+      const meData = meResponses[0].data;
+      const included = meData.included || [];
+      const miniProfile = included.find(e =>
+        e.publicIdentifier && e.firstName
+      );
+      if (miniProfile) {
+        state.miniProfile = miniProfile; // Cache for later use
+        return 'https://www.linkedin.com/in/' + miniProfile.publicIdentifier + '/';
+      }
+    }
+
+    // Fallback: in-browser fetch
     const result = await page.evaluate(`
-      (() => {
-        const profileLinks = document.querySelectorAll('a[href*="/in/"]');
-        for (const link of profileLinks) {
-          const href = link.href;
-          if (href.includes('/in/') && !href.includes('/in/edit') && !href.includes('/in/me')) {
-            return href;
+      (async () => {
+        try {
+          const csrfToken = (document.cookie.match(/JSESSIONID="?([^";]+)/) || [])[1] || '';
+          const resp = await fetch('/voyager/api/me', {
+            headers: { 'csrf-token': csrfToken },
+            credentials: 'include'
+          });
+          if (!resp.ok) return null;
+          const data = await resp.json();
+          const mini = (data.included || []).find(e => e.publicIdentifier);
+          if (mini) {
+            return { url: 'https://www.linkedin.com/in/' + mini.publicIdentifier + '/', miniProfile: mini };
           }
-        }
-        return null;
+          return null;
+        } catch(e) { return null; }
       })()
     `);
-    return result;
+    if (result) {
+      state.miniProfile = result.miniProfile;
+      return result.url;
+    }
+    return null;
   } catch (err) {
     return null;
   }
 };
 
-// ─── Detail Page Helpers ────────────────────────────────────
+// ─── Detail Page Navigation ──────────────────────────────────
 
-// Navigate to a detail page and click "Load more" until all entries are visible.
+// Step 8: Navigate to detail page with network capture
 const navigateToDetailPage = async (baseUrl, section, progressStep, totalSteps, label) => {
-  // Ensure baseUrl ends with /
   const base = baseUrl.endsWith('/') ? baseUrl : baseUrl + '/';
   const detailUrl = base + 'details/' + section + '/';
 
+  // Clear previous captures and register for this section
+  await page.clearNetworkCaptures();
+  await page.captureNetwork({
+    urlPattern: '/voyager/api',
+    key: section + '_initial'
+  });
+
   await page.setProgress({
     phase: { step: progressStep, total: totalSteps, label },
-    message: `Loading ${section} details page...`,
+    message: 'Loading ' + section + ' details page...',
   });
 
   await page.goto(detailUrl);
   await page.sleep(3000);
 
-  // Click "Load more" repeatedly until all content is loaded
+  // Handle "Load more" with capture per page
   let loadMoreAttempts = 0;
-  const MAX_LOAD_MORE = 20; // safety limit
+  const MAX_LOAD_MORE = 20;
   while (loadMoreAttempts < MAX_LOAD_MORE) {
+    await page.clearNetworkCaptures();
+    await page.captureNetwork({
+      urlPattern: '/voyager/api',
+      key: section + '_page'
+    });
+
     const clicked = await page.evaluate(`
       (() => {
         const buttons = document.querySelectorAll('button');
         for (const btn of buttons) {
           if (btn.textContent.trim() === 'Load more') {
-            btn.scrollIntoView();
-            btn.click();
-            return true;
+            btn.scrollIntoView(); btn.click(); return true;
           }
         }
         return false;
@@ -112,111 +243,168 @@ const navigateToDetailPage = async (baseUrl, section, progressStep, totalSteps, 
 
     await page.setProgress({
       phase: { step: progressStep, total: totalSteps, label },
-      message: `Loading more ${section}... (page ${loadMoreAttempts})`,
+      message: 'Loading more ' + section + '... (page ' + loadMoreAttempts + ')',
     });
   }
 
   // Scroll to bottom to trigger any remaining lazy loads
-  await page.evaluate(`
-    (async () => {
-      window.scrollTo(0, document.body.scrollHeight);
-      await new Promise(r => setTimeout(r, 1000));
-    })()
-  `);
+  await page.evaluate(`window.scrollTo(0, document.body.scrollHeight)`);
   await page.sleep(500);
 };
 
 // ─── Data Extraction: Hero + About (from main profile) ──────
 
+// Step 9: Generic detail page entity extractor
+const extractDetailPageEntities = async () => {
+  const allResponses = await extractFromCodeElements('/voyager/api');
+  return collectIncludedEntities(allResponses);
+};
+
+// Step 6: Extract hero section from API data
 const extractHeroSection = async () => {
   try {
-    const result = await page.evaluate(`
-      (() => {
-        const data = {
-          fullName: '',
-          headline: '',
-          location: '',
-          connections: '',
-          profilePictureUrl: ''
-        };
+    const data = { fullName: '', headline: '', location: '', connections: '', profilePictureUrl: '' };
 
-        const firstSection = document.querySelector('main section');
-        if (!firstSection) return data;
+    // Primary: extract from <code> elements
+    const profileResponses = await extractFromCodeElements('voyagerIdentityDashProfiles');
+    let entities = [];
+    if (profileResponses.length > 0) {
+      entities = collectIncludedEntities(profileResponses);
+    }
 
-        const h2 = firstSection.querySelector('h2');
-        if (h2) data.fullName = h2.textContent.trim();
+    // Fallback: try captured network response
+    if (entities.length === 0) {
+      const captured = await page.getCapturedResponse('profileGraphQL');
+      if (captured) {
+        entities = collectIncludedEntities([captured]);
+      }
+    }
 
-        const img = firstSection.querySelector('img');
-        if (img && img.src) data.profilePictureUrl = img.src;
+    // Fallback: use miniProfile from /api/me (cached in getProfileUrl)
+    if (entities.length === 0 && state.miniProfile) {
+      data.fullName = ((state.miniProfile.firstName || '') + ' ' + (state.miniProfile.lastName || '')).trim();
+      data.headline = state.miniProfile.occupation || '';
+      if (state.miniProfile.picture) {
+        data.profilePictureUrl = buildProfilePictureUrl(state.miniProfile.picture);
+      }
+      return data;
+    }
 
-        const ps = [];
-        firstSection.querySelectorAll('p').forEach(p => {
-          const t = p.textContent.trim();
-          if (t.length > 1 && t !== '\\u00b7' && t !== '\\u00B7') {
-            ps.push({ text: t, visible: p.offsetHeight > 0 });
-          }
-        });
+    // Parse Profile entity
+    const profile = entities.find(e =>
+      (e['$type'] || '').includes('identity.profile.Profile') && e.firstName
+    );
+    if (profile) {
+      data.fullName = ((profile.firstName || '') + ' ' + (profile.lastName || '')).trim();
+      data.headline = profile.headline || '';
+      if (profile.profilePicture) {
+        data.profilePictureUrl = buildProfilePictureUrl(profile.profilePicture);
+      }
+    }
 
-        const visiblePs = ps.filter(p => p.visible);
-        if (visiblePs.length > 0) data.headline = visiblePs[0].text;
+    // Resolve location from Geo entity
+    if (profile?.geoLocation?.['*geo']) {
+      const geoUrn = profile.geoLocation['*geo'];
+      const geoEntity = entities.find(e => e.entityUrn === geoUrn);
+      if (geoEntity) {
+        data.location = geoEntity.defaultLocalizedName || '';
+      }
+    }
 
-        for (const p of visiblePs) {
-          if (p.text.includes('connections') || p.text.includes('followers')) {
-            data.connections = p.text;
-            break;
-          }
-        }
-
-        const skipPatterns = ['connections', 'followers', 'Contact info', 'Open to',
-          'Show details', 'Get started', 'Add titles', 'Tell non-profits'];
-        for (let i = 1; i < visiblePs.length; i++) {
-          const t = visiblePs[i].text;
-          if (t === data.headline) continue;
-          if (t === data.connections) break;
-          if (skipPatterns.some(pat => t.includes(pat))) continue;
-          if (t.length < 80) {
-            data.location = t;
-            break;
-          }
-        }
-
-        return data;
-      })()
-    `);
-    return result;
+    return data;
   } catch (err) {
     return null;
   }
 };
 
+// Step 7: Extract about section with multi-level fallback
 const extractAboutSection = async () => {
   try {
-    const result = await page.evaluate(`
+    // Level 1: Check profile API data for summary field
+    const allResponses = await extractFromCodeElements('/voyager/api');
+    const allEntities = collectIncludedEntities(allResponses);
+    for (const entity of allEntities) {
+      if (entity.summary && entity.summary.length > 10) {
+        return { aboutText: entity.summary };
+      }
+    }
+
+    // Level 2: Scroll page to trigger lazy loads, then re-check
+    await scrollToLoadContent();
+    await page.sleep(1000);
+    const newResponses = await extractFromCodeElements('/voyager/api');
+    const newEntities = collectIncludedEntities(newResponses);
+    for (const entity of newEntities) {
+      if (entity.summary && entity.summary.length > 10) {
+        return { aboutText: entity.summary };
+      }
+    }
+
+    // Level 3: Check for About in topComponents of profile cards
+    for (const entity of newEntities) {
+      if (entity.topComponents && Array.isArray(entity.topComponents)) {
+        for (const comp of entity.topComponents) {
+          const textComp = comp?.components?.textComponent;
+          if (textComp?.text?.text?.length > 50) {
+            return { aboutText: textComp.text.text };
+          }
+        }
+      }
+    }
+
+    // Level 4: In-browser fetch to profileView endpoint
+    const vanityName = state.profileUrl ? (state.profileUrl.match(/\/in\/([^/]+)/)?.[1] || '') : '';
+    if (vanityName) {
+      const vanityNameStr = JSON.stringify(vanityName);
+      const result = await page.evaluate(`
+        (async () => {
+          try {
+            const csrfToken = (document.cookie.match(/JSESSIONID="?([^";]+)/) || [])[1] || '';
+            const resp = await fetch('/voyager/api/identity/profiles/' + ${vanityNameStr} + '/profileView', {
+              headers: { 'csrf-token': csrfToken },
+              credentials: 'include'
+            });
+            if (!resp.ok) return null;
+            const data = await resp.json();
+            const entities = data.included || [];
+            for (const e of entities) {
+              if (e.summary && e.summary.length > 10) return { aboutText: e.summary };
+            }
+            return null;
+          } catch(e) { return null; }
+        })()
+      `);
+      if (result) return result;
+    }
+
+    // Level 5: Minimal DOM fallback — look for section with "about" id
+    const domResult = await page.evaluate(`
       (() => {
-        const sections = document.querySelectorAll('main section');
+        // Try section with about ID
+        const aboutSection = document.querySelector('section#about, section[id*="about"], div#about');
+        if (aboutSection) {
+          const spans = aboutSection.querySelectorAll('span');
+          for (const span of spans) {
+            const t = span.textContent.trim();
+            if (t.length > 20 && !t.includes('About')) return { aboutText: t };
+          }
+        }
+        // Try the old approach as final fallback
+        const sections = document.querySelectorAll('main section, section');
         for (const section of sections) {
           const h2 = section.querySelector('h2');
           if (h2 && h2.textContent.trim() === 'About') {
             const spans = section.querySelectorAll('span');
             for (const span of spans) {
               const t = span.textContent.trim();
-              if (t.length > 20 && !t.includes('About')) {
-                return { aboutText: t };
-              }
-            }
-            const ps = section.querySelectorAll('p');
-            for (const p of ps) {
-              const t = p.textContent.trim();
-              if (t.length > 20 && !t.includes('About')) {
-                return { aboutText: t };
-              }
+              if (t.length > 20 && !t.includes('About')) return { aboutText: t };
             }
           }
         }
         return null;
       })()
     `);
-    return result;
+    return domResult;
   } catch (err) {
     return null;
   }
@@ -224,286 +412,191 @@ const extractAboutSection = async () => {
 
 // ─── Data Extraction: Detail Pages ──────────────────────────
 
-// All detail page extractors share the same container-finding strategy:
-//  1. Isolate content section: main > div > div > div:first-child
-//     (excludes sidebar ads and footer — the root cause of previous mismatches)
-//  2. Walk within content section to find the container with the most
-//     entry-like child divs (divs containing P elements).
-//     This is safe because step 1 already excluded non-content areas.
-//
-// The shared JS snippet is inlined in each evaluate() call to keep each
-// function self-contained (page.evaluate receives a string, not closures).
-
+// Step 10: Extract experiences from detail page API data
 const extractExperiencesFromDetailPage = async () => {
   try {
-    const result = await page.evaluate(`
-      (() => {
-        const experiences = [];
-        const DATE_RE = /\\b(19|20)\\d{2}\\b/;
-        const DURATION_ONLY_RE = /^\\d+\\s*(yr|mos|mo)s?/;
-        const EMPLOYMENT_RE = /^(Full-time|Part-time|Contract|Permanent|Internship|Self-employed|Freelance|Temporary|Apprenticeship|Seasonal)/i;
-        const SKILLS_RE = /(and \\+\\d+ skill|^Skills:)/;
-        const HEADINGS = ['Experience', 'Education', 'Skills', 'Languages'];
-        const SKIP_TEXT = ['Private to you', 'Visit our', 'Go to your', 'Recommendation transparency'];
+    const entities = await extractDetailPageEntities();
+    const experiences = [];
+    const seen = new Set();
 
-        // Find entries container within content section
-        const contentSection = document.querySelector('main > div > div > div:first-child');
-        if (!contentSection) return experiences;
-        let container = null;
-        let bestScore = 0;
-        const walk = (el, depth) => {
-          if (depth > 15) return;
-          let score = 0;
-          for (const c of el.children) {
-            if (c.tagName === 'DIV' && c.querySelectorAll('p').length >= 2) score++;
+    // Approach 1: Look for Position-like entities (have title + companyName)
+    for (const entity of entities) {
+      if (entity.title && entity.companyName) {
+        const urn = entity.entityUrn || '';
+        if (seen.has(urn) && urn) continue;
+        if (urn) seen.add(urn);
+        const tp = entity.timePeriod || {};
+        experiences.push({
+          jobTitle: entity.title,
+          companyName: entity.companyName,
+          dates: formatDateRange(tp.startDate, tp.endDate),
+          location: entity.locationName || '',
+          description: entity.description || ''
+        });
+      }
+    }
+
+    // Approach 2: Parse from topComponents if Approach 1 found nothing
+    if (experiences.length === 0) {
+      for (const entity of entities) {
+        const topComps = entity.topComponents;
+        if (!Array.isArray(topComps) || topComps.length < 2) continue;
+        // Skip section header cards
+        const entityUrn = entity.entityUrn || '';
+        if (entityUrn.includes('EXPERIENCE') && !entityUrn.includes('profilePosition')) continue;
+
+        const texts = extractTextsFromComponents(topComps);
+
+        if (texts.length >= 2) {
+          const DATE_RE = /\b(19|20)\d{2}\b/;
+          const role = { jobTitle: texts[0], companyName: '', dates: '', location: '', description: '' };
+          for (let i = 1; i < texts.length; i++) {
+            const t = texts[i];
+            if (!role.companyName && !DATE_RE.test(t) && t.length < 80) { role.companyName = t; continue; }
+            if (!role.dates && DATE_RE.test(t)) { role.dates = t; continue; }
+            if (!role.description && t.length > 20) { role.description = t; continue; }
           }
-          if (score > bestScore) { bestScore = score; container = el; }
-          for (const c of el.children) {
-            if (c.tagName === 'DIV' || c.tagName === 'SECTION') walk(c, depth + 1);
-          }
-        };
-        walk(contentSection, 0);
-        if (!container) return experiences;
-
-        for (const child of container.children) {
-          if (child.tagName !== 'DIV') continue;
-          const ps = Array.from(child.querySelectorAll('p'))
-            .map(p => p.textContent.trim()).filter(t => t.length > 0);
-          if (ps.length < 2) continue;
-          if (ps.length === 1 && HEADINGS.includes(ps[0])) continue;
-          if (ps.every(t => SKIP_TEXT.some(s => t.includes(s)))) continue;
-
-          // Detect company group: first P is company name, second is duration-only
-          const isCompanyGroup = ps.length >= 3 && DURATION_ONLY_RE.test(ps[1]);
-
-          if (isCompanyGroup) {
-            // Date-anchored parsing: find all date lines (contain \\u00b7),
-            // then work backwards for title and forwards for description.
-            const companyName = ps[0];
-            const dateIndices = [];
-            for (let i = 2; i < ps.length; i++) {
-              if (DATE_RE.test(ps[i]) && !SKILLS_RE.test(ps[i]) && !EMPLOYMENT_RE.test(ps[i]) && ps[i].includes('\\u00b7')) {
-                dateIndices.push(i);
-              }
-            }
-
-            for (let di = 0; di < dateIndices.length; di++) {
-              const dateIdx = dateIndices[di];
-              const prevBound = di > 0 ? dateIndices[di - 1] : 1;
-              let titleIdx = -1;
-              for (let j = dateIdx - 1; j > prevBound; j--) {
-                if (EMPLOYMENT_RE.test(ps[j]) || SKILLS_RE.test(ps[j])) continue;
-                if (DATE_RE.test(ps[j]) && ps[j].includes('\\u00b7')) break;
-                titleIdx = j;
-                break;
-              }
-
-              const nextDateIdx = di + 1 < dateIndices.length ? dateIndices[di + 1] : ps.length;
-              let description = '';
-              for (let j = dateIdx + 1; j < nextDateIdx; j++) {
-                if (SKILLS_RE.test(ps[j]) || EMPLOYMENT_RE.test(ps[j])) continue;
-                let isNextTitle = false;
-                for (let k = j + 1; k <= j + 2 && k < ps.length; k++) {
-                  if (EMPLOYMENT_RE.test(ps[k]) || SKILLS_RE.test(ps[k])) continue;
-                  if (DATE_RE.test(ps[k]) && ps[k].includes('\\u00b7')) { isNextTitle = true; break; }
-                  break;
-                }
-                if (isNextTitle) break;
-                description = ps[j];
-                break;
-              }
-
-              const role = {
-                jobTitle: titleIdx >= 0 ? ps[titleIdx] : '',
-                companyName,
-                dates: ps[dateIdx],
-                location: '',
-                description
-              };
-              if (role.jobTitle) experiences.push(role);
-            }
-          } else {
-            // Individual entry: title, company, dates, [location], [description], [skills]
-            const role = { jobTitle: ps[0], companyName: ps[1] || '', dates: '', location: '', description: '' };
-
-            for (let i = 2; i < ps.length; i++) {
-              const t = ps[i];
-              if (SKILLS_RE.test(t)) continue;
-              if (EMPLOYMENT_RE.test(t)) continue;
-              if (!role.dates && DATE_RE.test(t)) { role.dates = t; continue; }
-              if (role.dates && !role.location && t.length < 60 && t.includes(',')) { role.location = t; continue; }
-              if (!role.description && t.length > 15 && !DATE_RE.test(t)) role.description = t;
-            }
-
-            if (role.jobTitle) experiences.push(role);
-          }
+          if (role.jobTitle) experiences.push(role);
         }
+      }
+    }
 
-        return experiences;
-      })()
-    `);
-    return result || [];
+    return experiences;
   } catch (err) {
     return [];
   }
 };
 
+// Step 11: Extract education from detail page API data
 const extractEducationFromDetailPage = async () => {
   try {
-    const result = await page.evaluate(`
-      (() => {
-        const education = [];
-        const DATE_RE = /\\b(19|20)\\d{2}\\b/;
-        const HEADINGS = ['Experience', 'Education', 'Skills', 'Languages'];
-        const SKIP_TEXT = ['Private to you', 'Visit our', 'Go to your', 'Recommendation transparency'];
+    const entities = await extractDetailPageEntities();
+    const education = [];
+    const seen = new Set();
 
-        const contentSection = document.querySelector('main > div > div > div:first-child');
-        if (!contentSection) return education;
-        let container = null;
-        let bestScore = 0;
-        const walk = (el, depth) => {
-          if (depth > 15) return;
-          let score = 0;
-          for (const c of el.children) {
-            if (c.tagName === 'DIV' && c.querySelectorAll('p').length >= 1) score++;
+    // Approach 1: Direct entity fields
+    for (const entity of entities) {
+      if (entity.schoolName) {
+        const urn = entity.entityUrn || '';
+        if (seen.has(urn) && urn) continue;
+        if (urn) seen.add(urn);
+        const tp = entity.timePeriod || {};
+        education.push({
+          schoolName: entity.schoolName,
+          degree: [entity.degreeName, entity.fieldOfStudy].filter(Boolean).join(', '),
+          years: formatDateRange(tp.startDate, tp.endDate),
+          grade: entity.grade || '',
+          logoUrl: ''
+        });
+      }
+    }
+
+    // Approach 2: Parse from topComponents
+    if (education.length === 0) {
+      for (const entity of entities) {
+        const topComps = entity.topComponents;
+        if (!Array.isArray(topComps) || topComps.length < 2) continue;
+
+        const texts = extractTextsFromComponents(topComps);
+
+        if (texts.length >= 1) {
+          const DATE_RE = /\b(19|20)\d{2}\b/;
+          const entry = { schoolName: texts[0], degree: '', years: '', grade: '', logoUrl: '' };
+          for (let i = 1; i < texts.length; i++) {
+            const t = texts[i];
+            if (!entry.years && DATE_RE.test(t)) { entry.years = t; continue; }
+            if (t.toLowerCase().startsWith('grade')) { entry.grade = t; continue; }
+            if (!entry.degree) { entry.degree = t; continue; }
           }
-          if (score > bestScore) { bestScore = score; container = el; }
-          for (const c of el.children) {
-            if (c.tagName === 'DIV' || c.tagName === 'SECTION') walk(c, depth + 1);
-          }
-        };
-        walk(contentSection, 0);
-        if (!container) return education;
-
-        for (const child of container.children) {
-          if (child.tagName !== 'DIV') continue;
-          const ps = Array.from(child.querySelectorAll('p'))
-            .map(p => p.textContent.trim()).filter(t => t.length > 0);
-          if (ps.length === 0) continue;
-          if (ps.length === 1 && (HEADINGS.includes(ps[0]) || ps[0].length < 20)) continue;
-          if (ps.every(t => SKIP_TEXT.some(s => t.includes(s)))) continue;
-
-          const img = child.querySelector('img');
-          const entry = {
-            schoolName: ps[0] || '',
-            degree: '',
-            years: '',
-            grade: '',
-            logoUrl: img ? img.src : ''
-          };
-
-          for (let i = 1; i < ps.length; i++) {
-            const t = ps[i];
-            if (!entry.years && DATE_RE.test(t)) entry.years = t;
-            else if (t.toLowerCase().startsWith('grade:') || t.toLowerCase().startsWith('grade :')) entry.grade = t;
-            else if (!entry.degree && t.length > 0) entry.degree = t;
-          }
-
           if (entry.schoolName) education.push(entry);
         }
+      }
+    }
 
-        return education;
-      })()
-    `);
-    return result || [];
+    return education;
   } catch (err) {
     return [];
   }
 };
 
+// Step 12: Extract skills from detail page API data
 const extractSkillsFromDetailPage = async () => {
   try {
-    const result = await page.evaluate(`
-      (() => {
-        const skills = [];
-        const HEADINGS = ['Experience', 'Education', 'Skills', 'Languages'];
-        const SKIP_TEXT = ['Private to you', 'Visit our', 'Go to your', 'Recommendation transparency'];
+    const entities = await extractDetailPageEntities();
+    const skills = [];
+    const seen = new Set();
 
-        const contentSection = document.querySelector('main > div > div > div:first-child');
-        if (!contentSection) return skills;
-        let container = null;
-        let bestScore = 0;
-        const walk = (el, depth) => {
-          if (depth > 15) return;
-          let score = 0;
-          for (const c of el.children) {
-            if (c.tagName === 'DIV' && c.querySelectorAll('p').length >= 1) score++;
+    // Approach 1: Skill entities with name field
+    for (const entity of entities) {
+      const type = entity['$type'] || '';
+      if (entity.name && (type.includes('Skill') || type.includes('skill'))) {
+        if (seen.has(entity.name)) continue;
+        seen.add(entity.name);
+        skills.push({ name: entity.name, endorsements: '' });
+      }
+    }
+
+    // Approach 2: topComponents extraction
+    if (skills.length === 0) {
+      for (const entity of entities) {
+        const topComps = entity.topComponents;
+        if (!Array.isArray(topComps)) continue;
+
+        const texts = extractTextsFromComponents(topComps);
+
+        // Skills are typically single-text entries
+        if (texts.length >= 1 && texts[0].length < 100) {
+          const name = texts[0];
+          if (!seen.has(name)) {
+            seen.add(name);
+            skills.push({ name, endorsements: texts.length > 1 ? texts.slice(1).join('; ') : '' });
           }
-          if (score > bestScore) { bestScore = score; container = el; }
-          for (const c of el.children) {
-            if (c.tagName === 'DIV' || c.tagName === 'SECTION') walk(c, depth + 1);
-          }
-        };
-        walk(contentSection, 0);
-        if (!container) return skills;
-
-        for (const child of container.children) {
-          if (child.tagName !== 'DIV') continue;
-          const ps = Array.from(child.querySelectorAll('p'))
-            .map(p => p.textContent.trim()).filter(t => t.length > 0);
-          if (ps.length === 0) continue;
-          if (ps.length === 1 && (HEADINGS.includes(ps[0]) || ps[0].length < 3)) continue;
-          if (ps.every(t => SKIP_TEXT.some(s => t.includes(s)))) continue;
-
-          skills.push({
-            name: ps[0],
-            endorsements: ps.length > 1 ? ps.slice(1).join('; ') : ''
-          });
         }
+      }
+    }
 
-        return skills;
-      })()
-    `);
-    return result || [];
+    return skills;
   } catch (err) {
     return [];
   }
 };
 
+// Step 13: Extract languages from detail page API data
 const extractLanguagesFromDetailPage = async () => {
   try {
-    const result = await page.evaluate(`
-      (() => {
-        const languages = [];
-        const HEADINGS = ['Experience', 'Education', 'Skills', 'Languages'];
-        const SKIP_TEXT = ['Private to you', 'Visit our', 'Go to your', 'Recommendation transparency'];
+    const entities = await extractDetailPageEntities();
+    const languages = [];
+    const seen = new Set();
 
-        const contentSection = document.querySelector('main > div > div > div:first-child');
-        if (!contentSection) return languages;
-        let container = null;
-        let bestScore = 0;
-        const walk = (el, depth) => {
-          if (depth > 15) return;
-          let score = 0;
-          for (const c of el.children) {
-            if (c.tagName === 'DIV' && c.querySelectorAll('p').length >= 1) score++;
+    // Approach 1: Language entities
+    for (const entity of entities) {
+      const type = entity['$type'] || '';
+      if (entity.name && (type.includes('Language') || type.includes('language') || entity.proficiency)) {
+        if (seen.has(entity.name)) continue;
+        seen.add(entity.name);
+        languages.push({ name: entity.name, proficiency: entity.proficiency || '' });
+      }
+    }
+
+    // Approach 2: topComponents
+    if (languages.length === 0) {
+      for (const entity of entities) {
+        const topComps = entity.topComponents;
+        if (!Array.isArray(topComps)) continue;
+
+        const texts = extractTextsFromComponents(topComps);
+
+        if (texts.length >= 1 && texts[0].length < 50) {
+          const name = texts[0];
+          if (!seen.has(name)) {
+            seen.add(name);
+            languages.push({ name, proficiency: texts.length > 1 ? texts[1] : '' });
           }
-          if (score > bestScore) { bestScore = score; container = el; }
-          for (const c of el.children) {
-            if (c.tagName === 'DIV' || c.tagName === 'SECTION') walk(c, depth + 1);
-          }
-        };
-        walk(contentSection, 0);
-        if (!container) return languages;
-
-        for (const child of container.children) {
-          if (child.tagName !== 'DIV') continue;
-          const ps = Array.from(child.querySelectorAll('p'))
-            .map(p => p.textContent.trim()).filter(t => t.length > 0);
-          if (ps.length === 0) continue;
-          if (ps.length === 1 && (HEADINGS.includes(ps[0]) || ps[0].length < 3)) continue;
-          if (ps.every(t => SKIP_TEXT.some(s => t.includes(s)))) continue;
-
-          languages.push({
-            name: ps[0],
-            proficiency: ps.length > 1 ? ps[1] : ''
-          });
         }
+      }
+    }
 
-        return languages;
-      })()
-    `);
-    return result || [];
+    return languages;
   } catch (err) {
     return [];
   }
@@ -571,6 +664,12 @@ const scrollToLoadContent = async () => {
   await page.sleep(3000);
 
   const profileUrl = await getProfileUrl();
+
+  // Step 14: Register network capture before profile navigation
+  await page.captureNetwork({
+    urlPattern: 'voyagerIdentityDashProfiles',
+    key: 'profileGraphQL'
+  });
 
   if (!profileUrl) {
     await page.setData('status', 'Navigating to your profile...');
@@ -686,7 +785,7 @@ const scrollToLoadContent = async () => {
       ].join(', ')
     },
     timestamp: new Date().toISOString(),
-    version: "2.0.0-playwright",
+    version: "3.0.0-playwright",
     platform: "linkedin"
   };
 
