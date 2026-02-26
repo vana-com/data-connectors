@@ -39,12 +39,30 @@ const checkLoginStatus = async () => {
                             !!document.querySelector('#username');
         if (hasLoginForm) return false;
 
-        // Check for elements that appear when logged in
-        const hasNav = !!document.querySelector('nav') || !!document.querySelector('header');
+        // Check for challenge/verification pages (code entry, captcha, etc.)
+        const url = window.location.href;
+        const isChallenge = url.includes('/checkpoint/') ||
+                           url.includes('/challenge/') ||
+                           url.includes('/uas/') ||
+                           url.includes('/authwall');
+        if (isChallenge) return false;
+
+        // Also check for verification input fields in the DOM
+        const hasVerificationInput = !!document.querySelector('input[name="pin"]') ||
+                                     !!document.querySelector('#input__email_verification_pin') ||
+                                     !!document.querySelector('input[name="verification_code"]') ||
+                                     !!document.querySelector('.pin-verification') ||
+                                     !!document.querySelector('[data-litms-control-urn*="checkpoint"]');
+        if (hasVerificationInput) return false;
+
+        // Require definitive proof of being logged in — profile or feed links
+        // (nav/header alone is too loose, challenge pages have those too)
         const hasProfileLink = !!document.querySelector('a[href*="/in/"]');
         const hasFeedLink = !!document.querySelector('a[href*="/feed"]');
+        const hasFeedModule = !!document.querySelector('.feed-identity-module');
+        const hasGlobalNav = !!document.querySelector('.global-nav__me');
 
-        return hasProfileLink || hasFeedLink || hasNav;
+        return hasProfileLink || hasFeedLink || hasFeedModule || hasGlobalNav;
       })()
     `);
     return result;
