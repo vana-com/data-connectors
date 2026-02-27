@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "name": "Spotify",
   "company": "Spotify",
+  "iconURL": "icons/spotify.svg",
   "description": "Exports your Spotify library, playlists, listening history, and preferences using Playwright browser automation.",
   "connectURL": "https://open.spotify.com/",
   "connectSelector": "button[data-testid='user-widget-link']",
