@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "name": "YouTube",
   "company": "Google",
+  "iconURL": "icons/youtube.svg",
   "description": "Exports your YouTube profile, subscriptions, playlists, playlist items, liked videos, watch later list, and top 50 recent watch history entries using Playwright browser automation.",
   "connectURL": "https://www.youtube.com/",
   "connectSelector": "button#avatar-btn, ytd-topbar-menu-button-renderer button#avatar-btn",

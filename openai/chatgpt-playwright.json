@@ -3,6 +3,7 @@
   "version": "2.0.0",
   "name": "ChatGPT",
   "company": "OpenAI",
+  "iconURL": "icons/chatgpt.svg",
   "description": "Exports your email, memories, and all conversations from ChatGPT.",
   "connectURL": "https://chatgpt.com/",
   "connectSelector": "nav a[href^='/c/']",

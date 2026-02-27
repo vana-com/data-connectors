@@ -3,6 +3,7 @@
   "version": "3.0.0",
   "name": "LinkedIn",
   "company": "LinkedIn",
+  "iconURL": "icons/linkedin.svg",
   "description": "Exports your LinkedIn profile including experience, education, and skills using Playwright browser automation.",
   "connectURL": "https://www.linkedin.com/login",
   "connectSelector": "a[href*='/feed/'], .feed-identity-module, .global-nav__me",
