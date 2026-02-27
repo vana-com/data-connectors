@@ -531,26 +531,72 @@ const extractExperiencesFromDetailPage = async () => {
       const domExperiences = await page.evaluate(`
         (() => {
           const results = [];
-          // LinkedIn detail pages use list items for each entry
-          const items = document.querySelectorAll('li.pvs-list__paged-list-item, li.artdeco-list__item, main li');
-          for (const item of items) {
-            const spans = item.querySelectorAll('span[aria-hidden="true"]');
+          const DATE_RE = /\\b(19|20)\\d{2}\\b/;
+          const SKIP_RE = /^(Someone at |Endorsed by |\\d+ endorsement)/i;
+          const EMPLOYMENT_RE = /^(Full-time|Part-time|Self-employed|Freelance|Contract|Internship|Apprenticeship|Seasonal)$/i;
+
+          const mainEl = document.querySelector('main');
+          if (!mainEl) return results;
+
+          // Only top-level list items (skip nested children of grouped entries)
+          const allItems = mainEl.querySelectorAll('li.pvs-list__paged-list-item');
+          const topItems = [];
+          for (const item of allItems) {
+            const parentItem = item.parentElement?.closest('li.pvs-list__paged-list-item');
+            if (!parentItem) topItems.push(item);
+          }
+
+          const extractTexts = (el, excludeEl) => {
             const texts = [];
-            for (const span of spans) {
+            for (const span of el.querySelectorAll('span[aria-hidden="true"]')) {
+              if (excludeEl && excludeEl.contains(span)) continue;
               const t = span.textContent.trim();
-              if (t && t.length > 0 && t.length < 500) texts.push(t);
-            }
-            if (texts.length >= 2) {
-              const DATE_RE = /\\b(19|20)\\d{2}\\b/;
-              const role = { jobTitle: texts[0], companyName: '', dates: '', location: '', description: '' };
-              for (let i = 1; i < texts.length; i++) {
-                const t = texts[i];
-                if (!role.companyName && !DATE_RE.test(t) && t.length < 80) { role.companyName = t; continue; }
-                if (!role.dates && DATE_RE.test(t)) { role.dates = t; continue; }
-                if (!role.location && t.includes(',') && t.length < 60) { role.location = t; continue; }
-                if (!role.description && t.length > 30) { role.description = t; continue; }
+              if (t && t.length > 0 && t.length < 500 && !SKIP_RE.test(t) && !EMPLOYMENT_RE.test(t)) {
+                texts.push(t);
               }
-              if (role.jobTitle && (role.companyName || role.dates)) results.push(role);
+            }
+            return texts;
+          };
+
+          for (const item of topItems) {
+            // Detect grouped entry (multiple roles at same company): nested ul with role items
+            const nestedUl = item.querySelector('ul');
+            const nestedLis = nestedUl ? [...nestedUl.querySelectorAll(':scope > li')].filter(
+              li => li.querySelectorAll('span[aria-hidden="true"]').length >= 2
+            ) : [];
+
+            if (nestedLis.length > 0) {
+              // Grouped: parent spans = company name, children = individual roles
+              const parentTexts = extractTexts(item, nestedUl);
+              const companyName = parentTexts[0] || '';
+
+              for (const child of nestedLis) {
+                const texts = extractTexts(child);
+                if (texts.length >= 1) {
+                  const role = { jobTitle: texts[0], companyName, dates: '', location: '', description: '' };
+                  for (let i = 1; i < texts.length; i++) {
+                    const t = texts[i];
+                    if (!role.dates && DATE_RE.test(t)) { role.dates = t; continue; }
+                    if (!role.location && t.includes(',') && t.length < 60 && !DATE_RE.test(t)) { role.location = t; continue; }
+                    if (!role.description && t.length > 30) { role.description = t; continue; }
+                  }
+                  if (role.jobTitle) results.push(role);
+                }
+              }
+            } else {
+              // Single entry
+              const texts = extractTexts(item);
+              if (texts.length >= 2) {
+                const role = { jobTitle: texts[0], companyName: '', dates: '', location: '', description: '' };
+                for (let i = 1; i < texts.length; i++) {
+                  const t = texts[i];
+                  if (!role.companyName && !DATE_RE.test(t) && t.length < 80) { role.companyName = t; continue; }
+                  if (!role.dates && DATE_RE.test(t)) { role.dates = t; continue; }
+                  if (!role.location && t.includes(',') && t.length < 60 && !DATE_RE.test(t)) { role.location = t; continue; }
+                  if (!role.description && t.length > 30) { role.description = t; continue; }
+                }
+                if (role.jobTitle && (role.companyName || role.dates)) results.push(role);
+              }
             }
           }
           return results;
@@ -618,16 +664,27 @@ const extractEducationFromDetailPage = async () => {
       const domEducation = await page.evaluate(`
         (() => {
           const results = [];
-          const items = document.querySelectorAll('li.pvs-list__paged-list-item, li.artdeco-list__item, main li');
-          for (const item of items) {
+          const DATE_RE = /\\b(19|20)\\d{2}\\b/;
+          const SKIP_RE = /^(Someone at |Endorsed by |Activities and societies)/i;
+
+          const mainEl = document.querySelector('main');
+          if (!mainEl) return results;
+
+          const allItems = mainEl.querySelectorAll('li.pvs-list__paged-list-item');
+          const topItems = [];
+          for (const item of allItems) {
+            const parentItem = item.parentElement?.closest('li.pvs-list__paged-list-item');
+            if (!parentItem) topItems.push(item);
+          }
+
+          for (const item of topItems) {
             const spans = item.querySelectorAll('span[aria-hidden="true"]');
             const texts = [];
             for (const span of spans) {
               const t = span.textContent.trim();
-              if (t && t.length > 0 && t.length < 500) texts.push(t);
+              if (t && t.length > 0 && t.length < 500 && !SKIP_RE.test(t)) texts.push(t);
             }
             if (texts.length >= 1) {
-              const DATE_RE = /\\b(19|20)\\d{2}\\b/;
               const entry = { schoolName: texts[0], degree: '', years: '', grade: '', logoUrl: '' };
               for (let i = 1; i < texts.length; i++) {
                 const t = texts[i];
@@ -694,19 +751,31 @@ const extractSkillsFromDetailPage = async () => {
         (() => {
           const results = [];
           const seen = new Set();
-          const items = document.querySelectorAll('li.pvs-list__paged-list-item, li.artdeco-list__item, main li');
-          for (const item of items) {
+          const SKIP_RE = /^(Someone at |Endorsed by |\\d+ endorsement|See all )/i;
+
+          const mainEl = document.querySelector('main');
+          if (!mainEl) return results;
+
+          const allItems = mainEl.querySelectorAll('li.pvs-list__paged-list-item');
+          const topItems = [];
+          for (const item of allItems) {
+            const parentItem = item.parentElement?.closest('li.pvs-list__paged-list-item');
+            if (!parentItem) topItems.push(item);
+          }
+
+          for (const item of topItems) {
             const spans = item.querySelectorAll('span[aria-hidden="true"]');
             const texts = [];
             for (const span of spans) {
               const t = span.textContent.trim();
-              if (t && t.length > 0 && t.length < 200) texts.push(t);
+              if (t && t.length > 0 && t.length < 200 && !SKIP_RE.test(t)) texts.push(t);
             }
             if (texts.length >= 1 && texts[0].length < 100) {
               const name = texts[0];
               if (!seen.has(name)) {
                 seen.add(name);
-                results.push({ name, endorsements: texts.length > 1 ? texts.slice(1).join('; ') : '' });
+                const extra = texts.slice(1).filter(t => !SKIP_RE.test(t));
+                results.push({ name, endorsements: extra.length > 0 ? extra.join('; ') : '' });
               }
             }
           }
@@ -765,13 +834,24 @@ const extractLanguagesFromDetailPage = async () => {
         (() => {
           const results = [];
           const seen = new Set();
-          const items = document.querySelectorAll('li.pvs-list__paged-list-item, li.artdeco-list__item, main li');
-          for (const item of items) {
+          const SKIP_RE = /^(Someone at |Endorsed by )/i;
+
+          const mainEl = document.querySelector('main');
+          if (!mainEl) return results;
+
+          const allItems = mainEl.querySelectorAll('li.pvs-list__paged-list-item');
+          const topItems = [];
+          for (const item of allItems) {
+            const parentItem = item.parentElement?.closest('li.pvs-list__paged-list-item');
+            if (!parentItem) topItems.push(item);
+          }
+
+          for (const item of topItems) {
             const spans = item.querySelectorAll('span[aria-hidden="true"]');
             const texts = [];
             for (const span of spans) {
               const t = span.textContent.trim();
-              if (t && t.length > 0 && t.length < 200) texts.push(t);
+              if (t && t.length > 0 && t.length < 200 && !SKIP_RE.test(t)) texts.push(t);
             }
             if (texts.length >= 1 && texts[0].length < 50) {
               const name = texts[0];
