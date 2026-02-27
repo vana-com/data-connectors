@@ -139,6 +139,35 @@ const formatDateRange = (startDate, endDate) => {
   return start + ' - ' + end;
 };
 
+// Helper: get vanity name from profile URL
+const getVanityName = () => {
+  if (!state.profileUrl) return null;
+  const match = state.profileUrl.match(/\/in\/([^/?#]+)/);
+  return match ? match[1] : null;
+};
+
+// Helper: in-browser Voyager API fetch with CSRF token
+const fetchVoyagerApi = async (endpoint) => {
+  const endpointStr = JSON.stringify(endpoint);
+  try {
+    return await page.evaluate(`
+      (async () => {
+        try {
+          const csrfToken = (document.cookie.match(/JSESSIONID="?([^";]+)/) || [])[1] || '';
+          const resp = await fetch(${endpointStr}, {
+            headers: { 'csrf-token': csrfToken },
+            credentials: 'include'
+          });
+          if (!resp.ok) return null;
+          return await resp.json();
+        } catch(e) { return null; }
+      })()
+    `);
+  } catch (e) {
+    return null;
+  }
+};
+
 // Recursive text extraction from topComponents structures
 const extractTextsFromComponents = (obj) => {
   const texts = [];
@@ -184,29 +213,30 @@ const getProfileUrl = async () => {
     }
 
     // Fallback: in-browser fetch
-    const result = await page.evaluate(`
-      (async () => {
-        try {
-          const csrfToken = (document.cookie.match(/JSESSIONID="?([^";]+)/) || [])[1] || '';
-          const resp = await fetch('/voyager/api/me', {
-            headers: { 'csrf-token': csrfToken },
-            credentials: 'include'
-          });
-          if (!resp.ok) return null;
-          const data = await resp.json();
-          const mini = (data.included || []).find(e => e.publicIdentifier);
-          if (mini) {
-            return { url: 'https://www.linkedin.com/in/' + mini.publicIdentifier + '/', miniProfile: mini };
-          }
-          return null;
-        } catch(e) { return null; }
+    const fetchResult = await fetchVoyagerApi('/voyager/api/me');
+    if (fetchResult) {
+      const mini = (fetchResult.included || []).find(e => e.publicIdentifier);
+      if (mini) {
+        state.miniProfile = mini;
+        return 'https://www.linkedin.com/in/' + mini.publicIdentifier + '/';
+      }
+    }
+
+    // Fallback: extract profile URL from page DOM (feed page has profile links)
+    const domResult = await page.evaluate(`
+      (() => {
+        // Look for profile link in the feed sidebar or nav
+        const links = document.querySelectorAll('a[href*="/in/"]');
+        for (const link of links) {
+          const href = link.getAttribute('href') || '';
+          if (href.includes('/in/me')) continue;
+          const match = href.match(/\\/in\\/([a-z0-9][a-z0-9-]+[a-z0-9])/i);
+          if (match) return 'https://www.linkedin.com/in/' + match[1] + '/';
+        }
+        return null;
       })()
     `);
-    if (result) {
-      state.miniProfile = result.miniProfile;
-      return result.url;
-    }
-    return null;
+    return domResult;
   } catch (err) {
     return null;
   }
@@ -223,7 +253,7 @@ const navigateToDetailPage = async (baseUrl, section, progressStep, totalSteps, 
   await page.clearNetworkCaptures();
   await page.captureNetwork({
     urlPattern: '/voyager/api',
-    key: section + '_initial'
+    key: section + '_capture'
   });
 
   await page.setProgress({
@@ -234,16 +264,10 @@ const navigateToDetailPage = async (baseUrl, section, progressStep, totalSteps, 
   await page.goto(detailUrl);
   await page.sleep(3000);
 
-  // Handle "Load more" with capture per page
+  // Handle "Load more" — don't clear captures, keep accumulating
   let loadMoreAttempts = 0;
   const MAX_LOAD_MORE = 20;
   while (loadMoreAttempts < MAX_LOAD_MORE) {
-    await page.clearNetworkCaptures();
-    await page.captureNetwork({
-      urlPattern: '/voyager/api',
-      key: section + '_page'
-    });
-
     const clicked = await page.evaluate(`
       (() => {
         const buttons = document.querySelectorAll('button');
@@ -272,10 +296,33 @@ const navigateToDetailPage = async (baseUrl, section, progressStep, totalSteps, 
 
 // ─── Data Extraction: Hero + About (from main profile) ──────
 
-// Step 9: Generic detail page entity extractor
-const extractDetailPageEntities = async () => {
-  const allResponses = await extractFromCodeElements('/voyager/api');
-  return collectIncludedEntities(allResponses);
+// Step 9: Generic detail page entity extractor (multi-method)
+const extractDetailPageEntities = async (section) => {
+  // Method 1: <code> elements (LinkedIn embeds API data in DOM)
+  const codeResponses = await extractFromCodeElements('/voyager/api');
+  let entities = collectIncludedEntities(codeResponses);
+  if (entities.length > 0) return entities;
+
+  // Method 2: captured network response from page navigation
+  const captured = await page.getCapturedResponse(section + '_capture');
+  if (captured) {
+    entities = collectIncludedEntities([captured]);
+    if (entities.length > 0) return entities;
+  }
+
+  // Method 3: in-browser fetch to Voyager API profileView endpoint
+  const vanityName = getVanityName();
+  if (vanityName) {
+    const data = await fetchVoyagerApi(
+      '/voyager/api/identity/profiles/' + encodeURIComponent(vanityName) + '/profileView'
+    );
+    if (data) {
+      entities = collectIncludedEntities([data]);
+      if (entities.length > 0) return entities;
+    }
+  }
+
+  return entities;
 };
 
 // Step 6: Extract hero section from API data
@@ -433,7 +480,7 @@ const extractAboutSection = async () => {
 // Step 10: Extract experiences from detail page API data
 const extractExperiencesFromDetailPage = async () => {
   try {
-    const entities = await extractDetailPageEntities();
+    const entities = await extractDetailPageEntities('experience');
     const experiences = [];
     const seen = new Set();
 
@@ -479,6 +526,41 @@ const extractExperiencesFromDetailPage = async () => {
       }
     }
 
+    // Approach 3: DOM scraping fallback
+    if (experiences.length === 0) {
+      const domExperiences = await page.evaluate(`
+        (() => {
+          const results = [];
+          // LinkedIn detail pages use list items for each entry
+          const items = document.querySelectorAll('li.pvs-list__paged-list-item, li.artdeco-list__item, main li');
+          for (const item of items) {
+            const spans = item.querySelectorAll('span[aria-hidden="true"]');
+            const texts = [];
+            for (const span of spans) {
+              const t = span.textContent.trim();
+              if (t && t.length > 0 && t.length < 500) texts.push(t);
+            }
+            if (texts.length >= 2) {
+              const DATE_RE = /\\b(19|20)\\d{2}\\b/;
+              const role = { jobTitle: texts[0], companyName: '', dates: '', location: '', description: '' };
+              for (let i = 1; i < texts.length; i++) {
+                const t = texts[i];
+                if (!role.companyName && !DATE_RE.test(t) && t.length < 80) { role.companyName = t; continue; }
+                if (!role.dates && DATE_RE.test(t)) { role.dates = t; continue; }
+                if (!role.location && t.includes(',') && t.length < 60) { role.location = t; continue; }
+                if (!role.description && t.length > 30) { role.description = t; continue; }
+              }
+              if (role.jobTitle && (role.companyName || role.dates)) results.push(role);
+            }
+          }
+          return results;
+        })()
+      `);
+      if (domExperiences && domExperiences.length > 0) {
+        experiences.push(...domExperiences);
+      }
+    }
+
     return experiences;
   } catch (err) {
     return [];
@@ -488,7 +570,7 @@ const extractExperiencesFromDetailPage = async () => {
 // Step 11: Extract education from detail page API data
 const extractEducationFromDetailPage = async () => {
   try {
-    const entities = await extractDetailPageEntities();
+    const entities = await extractDetailPageEntities('education');
     const education = [];
     const seen = new Set();
 
@@ -531,6 +613,39 @@ const extractEducationFromDetailPage = async () => {
       }
     }
 
+    // Approach 3: DOM scraping fallback
+    if (education.length === 0) {
+      const domEducation = await page.evaluate(`
+        (() => {
+          const results = [];
+          const items = document.querySelectorAll('li.pvs-list__paged-list-item, li.artdeco-list__item, main li');
+          for (const item of items) {
+            const spans = item.querySelectorAll('span[aria-hidden="true"]');
+            const texts = [];
+            for (const span of spans) {
+              const t = span.textContent.trim();
+              if (t && t.length > 0 && t.length < 500) texts.push(t);
+            }
+            if (texts.length >= 1) {
+              const DATE_RE = /\\b(19|20)\\d{2}\\b/;
+              const entry = { schoolName: texts[0], degree: '', years: '', grade: '', logoUrl: '' };
+              for (let i = 1; i < texts.length; i++) {
+                const t = texts[i];
+                if (!entry.years && DATE_RE.test(t)) { entry.years = t; continue; }
+                if (t.toLowerCase().startsWith('grade')) { entry.grade = t; continue; }
+                if (!entry.degree) { entry.degree = t; continue; }
+              }
+              if (entry.schoolName) results.push(entry);
+            }
+          }
+          return results;
+        })()
+      `);
+      if (domEducation && domEducation.length > 0) {
+        education.push(...domEducation);
+      }
+    }
+
     return education;
   } catch (err) {
     return [];
@@ -540,7 +655,7 @@ const extractEducationFromDetailPage = async () => {
 // Step 12: Extract skills from detail page API data
 const extractSkillsFromDetailPage = async () => {
   try {
-    const entities = await extractDetailPageEntities();
+    const entities = await extractDetailPageEntities('skills');
     const skills = [];
     const seen = new Set();
 
@@ -573,6 +688,36 @@ const extractSkillsFromDetailPage = async () => {
       }
     }
 
+    // Approach 3: DOM scraping fallback
+    if (skills.length === 0) {
+      const domSkills = await page.evaluate(`
+        (() => {
+          const results = [];
+          const seen = new Set();
+          const items = document.querySelectorAll('li.pvs-list__paged-list-item, li.artdeco-list__item, main li');
+          for (const item of items) {
+            const spans = item.querySelectorAll('span[aria-hidden="true"]');
+            const texts = [];
+            for (const span of spans) {
+              const t = span.textContent.trim();
+              if (t && t.length > 0 && t.length < 200) texts.push(t);
+            }
+            if (texts.length >= 1 && texts[0].length < 100) {
+              const name = texts[0];
+              if (!seen.has(name)) {
+                seen.add(name);
+                results.push({ name, endorsements: texts.length > 1 ? texts.slice(1).join('; ') : '' });
+              }
+            }
+          }
+          return results;
+        })()
+      `);
+      if (domSkills && domSkills.length > 0) {
+        skills.push(...domSkills);
+      }
+    }
+
     return skills;
   } catch (err) {
     return [];
@@ -582,7 +727,7 @@ const extractSkillsFromDetailPage = async () => {
 // Step 13: Extract languages from detail page API data
 const extractLanguagesFromDetailPage = async () => {
   try {
-    const entities = await extractDetailPageEntities();
+    const entities = await extractDetailPageEntities('languages');
     const languages = [];
     const seen = new Set();
 
@@ -611,6 +756,36 @@ const extractLanguagesFromDetailPage = async () => {
             languages.push({ name, proficiency: texts.length > 1 ? texts[1] : '' });
           }
         }
+      }
+    }
+
+    // Approach 3: DOM scraping fallback
+    if (languages.length === 0) {
+      const domLanguages = await page.evaluate(`
+        (() => {
+          const results = [];
+          const seen = new Set();
+          const items = document.querySelectorAll('li.pvs-list__paged-list-item, li.artdeco-list__item, main li');
+          for (const item of items) {
+            const spans = item.querySelectorAll('span[aria-hidden="true"]');
+            const texts = [];
+            for (const span of spans) {
+              const t = span.textContent.trim();
+              if (t && t.length > 0 && t.length < 200) texts.push(t);
+            }
+            if (texts.length >= 1 && texts[0].length < 50) {
+              const name = texts[0];
+              if (!seen.has(name)) {
+                seen.add(name);
+                results.push({ name, proficiency: texts.length > 1 ? texts[1] : '' });
+              }
+            }
+          }
+          return results;
+        })()
+      `);
+      if (domLanguages && domLanguages.length > 0) {
+        languages.push(...domLanguages);
       }
     }
 
@@ -700,6 +875,28 @@ const scrollToLoadContent = async () => {
   }
 
   state.profileUrl = await page.evaluate(`window.location.href`);
+
+  // If URL is still /in/me/, try to resolve the actual vanity URL
+  if (state.profileUrl.includes('/in/me')) {
+    // Wait for potential client-side redirect
+    await page.sleep(2000);
+    const resolvedUrl = await page.evaluate(`window.location.href`);
+    if (!resolvedUrl.includes('/in/me')) {
+      state.profileUrl = resolvedUrl;
+    } else {
+      // Try to extract canonical URL from the page
+      const canonical = await page.evaluate(`
+        (() => {
+          const link = document.querySelector('link[rel="canonical"]');
+          if (link && link.href && link.href.includes('/in/') && !link.href.includes('/in/me'))
+            return link.href;
+          return null;
+        })()
+      `);
+      if (canonical) state.profileUrl = canonical;
+    }
+  }
+
   // Normalize: remove trailing hash/query, ensure trailing slash
   const profileBase = state.profileUrl.split('?')[0].split('#')[0].replace(/\/+$/, '') + '/';
 
