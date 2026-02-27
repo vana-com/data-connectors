@@ -15,7 +15,7 @@
       },
       "checksums": {
         "script": "sha256:96836d093a74f111831aae5f20373f315c750af02afad7e9c9fdc50e7ae4c3d1",
-        "metadata": "sha256:8063c35a23001521430fe1f49f149da78080845f13a3c4b2823df778dd46b3d7"
+        "metadata": "sha256:fac97ec68120203746863e6bb7592b9cb2c7c0f0721afe4ede75eb43bde5fd43"
       }
     },
     {
@@ -30,7 +30,7 @@
       },
       "checksums": {
         "script": "sha256:602a3abbad89207c7f7ed1827765f152620e9c086ff090530e9eb70a65c14941",
-        "metadata": "sha256:01b55f6d857f8bfa554bb91be4a8cb117f7a728139da2812abe6b4e533a2a5da"
+        "metadata": "sha256:27d81822ccf23eb3f4bf9f9868ade02a1141c78a2999cd081047da692b3f64ff"
       }
     },
     {
@@ -45,7 +45,7 @@
       },
       "checksums": {
         "script": "sha256:da0711993fb252e51b1f729c2148feb340d776a598435203875ea780b7cc7e65",
-        "metadata": "sha256:b00015e3599195f931f8227f1be8789784ac7f1394305bc3e2aba49da30a69ad"
+        "metadata": "sha256:8d6ac7141ea9e7a06caf3a359fab2097f3fa89e7312c480fb867b8db13612eac"
       }
     },
     {
@@ -60,7 +60,7 @@
       },
       "checksums": {
         "script": "sha256:ad97141e35eec7e132c705b8eccb553778226b18d220e01e6a7d925e86b8a436",
-        "metadata": "sha256:4d8e4103092a2de60ab8a5e3eba35c5b49a16fc9de6ef40a8742a7404db94b89"
+        "metadata": "sha256:89e40af5d6a02f2fe5022235449842217f87e4a7de88daba2bb5526ec05c962c"
       }
     },
     {
@@ -75,7 +75,7 @@
       },
       "checksums": {
         "script": "sha256:26f5aa145e5ef6d7ce6abd791287d6e0ad2e2d68aa2769a938ff47d40b7e952c",
-        "metadata": "sha256:e68b0367d1b5527338b65f4930ac433cc6caa342a31880dd587074b2ee5a6b3e"
+        "metadata": "sha256:f2d6a4cdf12069e8f4993faee97e31fa1fa9e4b039c7d9e1bd1e3447c6a3cd09"
       }
     },
     {
@@ -89,8 +89,8 @@
         "metadata": "google/youtube-playwright.json"
       },
       "checksums": {
-        "script": "sha256:c5c6ea5f96610a87f21dc508c09399d3661ab7d1174b6b6933fbe38b0f217e2d",
-        "metadata": "sha256:782ae351c4b9e86235e39511172bf6eddc08a3aa14f7e5a260b6c4b755ac1dab"
+        "script": "sha256:e854b5681de1bf2622bac48351108e3f150610f1b563dd25e4a19789c119352f",
+        "metadata": "sha256:c40624e50b86812f5a295ffcb99d175eb763d6de9029a4278fb026cfd67faa3f"
       }
     },
     {
@@ -104,8 +104,8 @@
         "metadata": "shopify/shop-playwright.json"
       },
       "checksums": {
-        "script": "sha256:184f8db284e107e46cd5bc5e6a5b90734f2b99175393338cceba494f44a285b3",
-        "metadata": "sha256:7341aedbe59844155bee329b098f8d1194fc7a4510d4a496a3c51283df40fb70"
+        "script": "sha256:ecb31dd5c1ae1d9ff37895644ac453a90bc15f3e9c598e648388b3932094a34f",
+        "metadata": "sha256:e0d1161c4186ea9106ac2ef0fd76b4076646b1edd597ac39812ea79d2a3fe6a8"
       }
     }
   ]
