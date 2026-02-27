@@ -1,6 +1,6 @@
 {
   "version": "2.0.0",
-  "lastUpdated": "2026-02-25T00:00:00Z",
+  "lastUpdated": "2026-02-27T00:00:00Z",
   "baseUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main",
   "connectors": [
     {
@@ -51,7 +51,7 @@
     {
       "id": "linkedin-playwright",
       "company": "linkedin",
-      "version": "1.0.0",
+      "version": "3.0.0",
       "name": "LinkedIn",
       "description": "Exports your LinkedIn profile including experience, education, and skills using Playwright browser automation.",
       "files": {
@@ -59,8 +59,8 @@
         "metadata": "linkedin/linkedin-playwright.json"
       },
       "checksums": {
-        "script": "sha256:3e04c767b03bdfe79e7614fc6c5b44be193f80ac30668f2df7550cec0764282a",
-        "metadata": "sha256:a21b8ff9517c099ca7392f9e381c76bba8e9a327d38e0ca75ffe0dc8e2413639"
+        "script": "sha256:ad97141e35eec7e132c705b8eccb553778226b18d220e01e6a7d925e86b8a436",
+        "metadata": "sha256:4d8e4103092a2de60ab8a5e3eba35c5b49a16fc9de6ef40a8742a7404db94b89"
       }
     },
     {
