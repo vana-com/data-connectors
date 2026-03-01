@@ -51,7 +51,7 @@
     {
       "id": "linkedin-playwright",
       "company": "linkedin",
-      "version": "3.0.0",
+      "version": "4.0.0",
       "name": "LinkedIn",
       "description": "Exports your LinkedIn profile including experience, education, and skills using Playwright browser automation.",
       "files": {
@@ -59,8 +59,8 @@
         "metadata": "linkedin/linkedin-playwright.json"
       },
       "checksums": {
-        "script": "sha256:ad97141e35eec7e132c705b8eccb553778226b18d220e01e6a7d925e86b8a436",
-        "metadata": "sha256:89e40af5d6a02f2fe5022235449842217f87e4a7de88daba2bb5526ec05c962c"
+        "script": "sha256:804a4eb26872341104fe2fb6830a0a1c72a00050620e6f50b839da50f4cedf61",
+        "metadata": "sha256:f1b944a7582d48027e74e3027db530184f6a06472de4cd465a49ebc5e28601e5"
       }
     },
     {
