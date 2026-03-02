@@ -66,7 +66,7 @@
     {
       "id": "x-playwright",
       "company": "x",
-      "version": "1.0.2",
+      "version": "1.0.6",
       "name": "X",
       "description": "Exports your X profile and recent posts using Playwright browser automation.",
       "files": {
@@ -74,8 +74,8 @@
         "metadata": "x/x-playwright.json"
       },
       "checksums": {
-        "script": "sha256:1275453662190b51ad78a825ecc573917d131fdc8efa4aa45b1845a2be56096a",
-        "metadata": "sha256:eeb4e317c07133649748cf0d87d66e24e78a752f52a604723989c143cfe04723"
+        "script": "sha256:1035039436b8260d28b3ead28b0c72068877359d30a61a3b804110aa0a959678",
+        "metadata": "sha256:8507aa1be1071e8664d5368b0cbc664762533e0da1de714ddb93915ef3ac4c0a"
       }
     }
   ]
