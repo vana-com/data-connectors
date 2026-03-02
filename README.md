@@ -10,7 +10,6 @@ Playwright-based data connectors for [DataConnect](https://github.com/vana-com/d
 | GitHub | GitHub | playwright | github.profile, github.repositories, github.starred |
 | Instagram | Meta | playwright | instagram.profile, instagram.posts |
 | LinkedIn | LinkedIn | playwright | linkedin.profile, .experience, .education, .skills, .languages |
-| Shop | Shopify | playwright | shop.orders |
 | Spotify | Spotify | playwright | spotify.profile, spotify.savedTracks, spotify.playlists |
 | X (Twitter) | X | playwright | x.profile, x.posts |
 | YouTube | Google | playwright | youtube.profile, youtube.subscriptions, youtube.playlists, youtube.playlistItems, youtube.likes, youtube.watchLater, youtube.history (top 50 recent items) |
@@ -44,9 +43,6 @@ connectors/
 ├── google/
 │   ├── youtube-playwright.js      # Connector script
 │   └── youtube-playwright.json    # Metadata
-├── shopify/
-│   ├── shop-playwright.js
-│   └── shop-playwright.json
 └── x/
     ├── x-playwright.js
     └── x-playwright.json
