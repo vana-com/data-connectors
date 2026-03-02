@@ -1,0 +1,26 @@
+{
+  "id": "x-playwright",
+  "version": "1.0.6",
+  "name": "X",
+  "company": "X",
+  "description": "Exports your X profile and recent posts using Playwright browser automation.",
+  "connectURL": "https://x.com/i/flow/login",
+  "connectSelector": "[data-testid='AppTabBar_Profile_Link'], [data-testid='SideNav_AccountSwitcher_Button']",
+  "exportFrequency": "daily",
+  "runtime": "playwright",
+  "scopes": [
+    {
+      "scope": "x.profile",
+      "label": "Your X profile",
+      "description": "Profile information including bio and follower/following counts"
+    },
+    {
+      "scope": "x.posts",
+      "label": "Your recent posts",
+      "description": "Recent posts visible on your profile timeline with text, metrics, and media URLs"
+    }
+  ],
+  "vectorize_config": {
+    "documents": "text"
+  }
+}

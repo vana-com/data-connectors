@@ -1,0 +1,41 @@
+{
+  "name": "X Posts",
+  "version": "1.0.0",
+  "scope": "x.posts",
+  "dialect": "json",
+  "description": "Recent posts from the user's X profile timeline",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "posts": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "url": { "type": "string" },
+            "authorUsername": { "type": "string" },
+            "text": { "type": "string" },
+            "createdAt": { "type": ["string", "null"] },
+            "replyCount": { "type": "number" },
+            "repostCount": { "type": "number" },
+            "likeCount": { "type": "number" },
+            "bookmarkCount": { "type": "number" },
+            "viewCount": { "type": "number" },
+            "isPinned": { "type": "boolean" },
+            "isReply": { "type": "boolean" },
+            "lang": { "type": "string" },
+            "mediaUrls": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "required": ["id", "url", "text"],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": ["posts"],
+    "additionalProperties": false
+  }
+}

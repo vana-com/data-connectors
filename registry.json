@@ -107,6 +107,21 @@
         "script": "sha256:ecb31dd5c1ae1d9ff37895644ac453a90bc15f3e9c598e648388b3932094a34f",
         "metadata": "sha256:e0d1161c4186ea9106ac2ef0fd76b4076646b1edd597ac39812ea79d2a3fe6a8"
       }
+    },
+    {
+      "id": "x-playwright",
+      "company": "x",
+      "version": "1.0.6",
+      "name": "X",
+      "description": "Exports your X profile and recent posts using Playwright browser automation.",
+      "files": {
+        "script": "x/x-playwright.js",
+        "metadata": "x/x-playwright.json"
+      },
+      "checksums": {
+        "script": "sha256:1035039436b8260d28b3ead28b0c72068877359d30a61a3b804110aa0a959678",
+        "metadata": "sha256:8507aa1be1071e8664d5368b0cbc664762533e0da1de714ddb93915ef3ac4c0a"
+      }
     }
   ]
 }
