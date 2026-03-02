@@ -1,0 +1,15 @@
+{
+  "id": "shop-playwright",
+  "version": "1.0.0",
+  "name": "Shop",
+  "company": "Shopify",
+  "iconURL": "icons/shop.svg",
+  "description": "Exports your Shop app order history using Playwright browser automation.",
+  "connectURL": "https://shop.app/account/order-history",
+  "connectSelector": "main h1, main h2, [data-test*=\"order\"], [data-testid*=\"order\"]",
+  "exportFrequency": "weekly",
+  "runtime": "playwright",
+  "vectorize_config": {
+    "documents": "orders"
+  }
+}

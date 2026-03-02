@@ -7,16 +7,20 @@ Playwright-based data connectors for [DataConnect](https://github.com/vana-com/d
 | Platform | Company | Runtime | Scopes |
 |----------|---------|---------|--------|
 | ChatGPT | OpenAI | playwright | chatgpt.conversations, chatgpt.memories |
+| GitHub | GitHub | playwright | github.profile, github.repositories, github.starred |
 | Instagram | Meta | playwright | instagram.profile, instagram.posts |
 | LinkedIn | LinkedIn | playwright | linkedin.profile, .experience, .education, .skills, .languages |
+| Shop | Shopify | playwright | shop.orders |
 | Spotify | Spotify | playwright | spotify.profile, spotify.savedTracks, spotify.playlists |
 | X (Twitter) | X | playwright | x.profile, x.posts |
+| YouTube | Google | playwright | youtube.profile, youtube.subscriptions, youtube.playlists, youtube.playlistItems, youtube.likes, youtube.watchLater, youtube.history (top 50 recent items) |
 
 ## Repository structure
 
 ```
 connectors/
 ├── registry.json                  # Central registry (checksums, versions)
+├── test-connector.cjs             # Standalone test runner (see Testing locally)
 ├── types/
 │   └── connector.d.ts             # TypeScript type definitions
 ├── schemas/                       # JSON schemas for exported data
@@ -25,6 +29,9 @@ connectors/
 ├── openai/
 │   ├── chatgpt-playwright.js      # Connector script
 │   └── chatgpt-playwright.json    # Metadata
+├── github/
+│   ├── github-playwright.js
+│   └── github-playwright.json
 ├── linkedin/
 │   ├── linkedin-playwright.js
 │   └── linkedin-playwright.json
@@ -34,6 +41,12 @@ connectors/
 ├── spotify/
 │   ├── spotify-playwright.js
 │   └── spotify-playwright.json
+├── google/
+│   ├── youtube-playwright.js      # Connector script
+│   └── youtube-playwright.json    # Metadata
+├── shopify/
+│   ├── shop-playwright.js
+│   └── shop-playwright.json
 └── x/
     ├── x-playwright.js
     └── x-playwright.json
@@ -319,6 +332,28 @@ This copies your connector files to `~/.dataconnect/connectors/` where the runni
 2. Run `node scripts/sync-connectors-dev.js` (from the DataConnect repo)
 3. Click the connector in the app to test
 4. Check logs in `~/Library/Logs/DataConnect/` (macOS) for debugging
+
+### Standalone test runner
+
+You can test connectors directly without starting the full DataConnect app using the included test runner. It spawns the playwright-runner as a child process and pretty-prints the JSON protocol messages.
+
+**Prerequisites:** The [DataConnect](https://github.com/vana-com/data-connect) repo cloned alongside this one (the runner auto-detects `../data-dt-app/playwright-runner`), or set `PLAYWRIGHT_RUNNER_DIR` to point to the playwright-runner directory.
+
+```bash
+# Run a connector in headed mode (browser visible — default)
+node test-connector.cjs ./linkedin/linkedin-playwright.js
+
+# Run headless (no visible browser)
+node test-connector.cjs ./linkedin/linkedin-playwright.js --headless
+
+# Override the initial URL
+node test-connector.cjs ./linkedin/linkedin-playwright.js --url https://linkedin.com/feed
+
+# Save result to a custom path (default: ./connector-result.json)
+node test-connector.cjs ./linkedin/linkedin-playwright.js --output ./my-result.json
+```
+
+The runner reads the connector's sibling `.json` metadata to automatically resolve the `connectURL`. In headed mode, the browser stays visible throughout the run (the `goHeadless()` call becomes a no-op), making it easy to observe what the connector is doing.
 
 ---
 

@@ -1,0 +1,32 @@
+{
+  "id": "github-playwright",
+  "version": "1.1.3",
+  "name": "GitHub",
+  "company": "GitHub",
+  "iconURL": "icons/github.svg",
+  "description": "Exports your GitHub profile, repositories, and starred repositories using Playwright browser automation.",
+  "connectURL": "https://github.com/login",
+  "connectSelector": "meta[name='user-login'][content], summary[aria-label*='View profile and more']",
+  "exportFrequency": "daily",
+  "runtime": "playwright",
+  "scopes": [
+    {
+      "scope": "github.profile",
+      "label": "Your GitHub profile",
+      "description": "Account profile information such as name, bio, location, and follower counts"
+    },
+    {
+      "scope": "github.repositories",
+      "label": "Your repositories",
+      "description": "Your repository list with metadata like language, stars, and update time"
+    },
+    {
+      "scope": "github.starred",
+      "label": "Your starred repositories",
+      "description": "Repositories you have starred on GitHub"
+    }
+  ],
+  "vectorize_config": {
+    "documents": "description"
+  }
+}

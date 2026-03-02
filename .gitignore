@@ -2,3 +2,6 @@
 *.log
 .DS_Store
 .fetch-cache.json
+
+# Test runner output
+connector-result.json

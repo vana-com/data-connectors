@@ -1,0 +1,32 @@
+{
+  "name": "YouTube Playlists",
+  "version": "1.0.0",
+  "scope": "youtube.playlists",
+  "dialect": "json",
+  "description": "User-created playlists (excludes Liked Videos and Watch Later).",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "playlists": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "playlistId":  { "type": "string" },
+            "url":         { "type": "string" },
+            "title":       { "type": ["string", "null"] },
+            "owner":       { "type": ["string", "null"], "description": "Display name of playlist owner" },
+            "ownerUrl":    { "type": ["string", "null"], "description": "Channel URL of owner" },
+            "privacy":     { "type": ["string", "null"], "enum": ["Public", "Private", "Unlisted", null] },
+            "videoCount":  { "type": ["number", "null"] },
+            "views":       { "type": ["number", "null"], "description": "0 for 'No views'" }
+          },
+          "required": ["playlistId", "url"],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": ["playlists"],
+    "additionalProperties": false
+  }
+}
