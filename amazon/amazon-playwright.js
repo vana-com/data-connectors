@@ -81,7 +81,11 @@ const verifySession = async () => {
 
 const extractProfile = async () => {
   try {
-    // Extract name and Prime status from nav bar (present on any Amazon page)
+    // Navigate to Amazon so the nav bar loads (after goHeadless, the page is blank)
+    await page.goto('https://www.amazon.com');
+    await page.sleep(2000);
+
+    // Extract name and Prime status from nav bar
     const profile = await page.evaluate(`
       (() => {
         const greetingSpan = document.querySelector('#nav-link-accountList .nav-line-1');
