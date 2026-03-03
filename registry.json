@@ -134,8 +134,8 @@
         "metadata": "amazon/amazon-playwright.json"
       },
       "checksums": {
-        "script": "sha256:4622ceebef38272e8a02b440fa821f3ef762c2458e51b1fbd4b9a39b7ff0f014",
-        "metadata": "sha256:8750489772353ccb3cc80a1983c78172da17280b5fabd3b2e2b2c1adc1c9204f"
+        "script": "sha256:aa048ce2ac49f273d1813fae97b2f7f48d0f37676365d9b634b6d91f63bc3da9",
+        "metadata": "sha256:8427eb8dd0a8bd588b3f579923c6294e6897aef9d45f83bc6fd9bdce96499f77"
       }
     }
   ]

@@ -3,12 +3,11 @@
   "version": "1.0.0",
   "scope": "amazon.profile",
   "dialect": "json",
-  "description": "Amazon account profile information including name, email, and Prime membership status",
+  "description": "Amazon account profile information including name and Prime membership status",
   "schema": {
     "type": "object",
     "properties": {
       "name": { "type": "string" },
-      "email": { "type": "string" },
       "isPrime": { "type": "boolean" }
     },
     "required": ["name"],

@@ -2,7 +2,7 @@
  * Amazon Connector (Playwright)
  *
  * Exports:
- * - amazon.profile  — Account name, email, Prime status
+ * - amazon.profile  — Account name, Prime status
  * - amazon.orders   — Order history with items, prices, dates, and status
  *
  * Extraction method: DOM scraping (Amazon uses server-rendered HTML, no clean JSON APIs)
@@ -81,68 +81,26 @@ const verifySession = async () => {
 
 const extractProfile = async () => {
   try {
-    // Navigate to account settings page — has both name and email
-    await page.goto('https://www.amazon.com/gp/css/homepage.html');
-    await page.sleep(2000);
-
+    // Extract name and Prime status from nav bar (present on any Amazon page)
     const profile = await page.evaluate(`
       (() => {
-        let name = '';
-        let email = '';
-        let isPrime = false;
-
-        // ── Name extraction ──
-        // Strategy 1: nav bar greeting "Hello, <Name>"
         const greetingSpan = document.querySelector('#nav-link-accountList .nav-line-1');
         const greeting = (greetingSpan?.textContent || '').trim();
         const nameMatch = greeting.match(/Hello,\\s*(.+)/);
-        if (nameMatch) name = nameMatch[1].trim();
+        const name = nameMatch ? nameMatch[1].trim() : '';
 
-        // Strategy 2: account settings page shows name in a section
-        if (!name) {
-          const pageText = document.body.innerText || '';
-          // Look for "Name:\\n<actual name>" or "Name<newline>SomeName" pattern
-          const namePatterns = [
-            /(?:^|\\n)\\s*Name[:\\s]*\\n\\s*([A-Z][a-zA-Z]+(?:\\s+[A-Z][a-zA-Z]+)*)/m,
-            /(?:^|\\n)\\s*([A-Z][a-zA-Z]+(?:\\s+[A-Z][a-zA-Z]+)+)\\s*(?:\\n|Edit)/m,
-          ];
-          for (const pattern of namePatterns) {
-            const m = pageText.match(pattern);
-            if (m && m[1] && m[1].length > 1 && m[1].length < 60) {
-              name = m[1].trim();
-              break;
-            }
-          }
-        }
+        // Prime: look for membership indicators, not promotional "Try Prime"
+        const primeLink = document.querySelector('#nav-prime-menu, #navbar-prime');
+        const primeLinkText = (primeLink?.textContent || '').toLowerCase();
+        const isPrime = primeLinkText.includes('your prime') ||
+                        primeLinkText.includes('prime benefits');
 
-        // ── Email extraction ──
-        // Strategy 1: search all text nodes for an isolated email address
-        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-        while (walker.nextNode()) {
-          const text = walker.currentNode.textContent.trim();
-          const match = text.match(/^[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}$/);
-          if (match) { email = match[0]; break; }
-        }
-
-        // Strategy 2: scan innerText lines for an email
-        if (!email) {
-          const bodyText = document.body.innerText || '';
-          const emailMatch = bodyText.match(/[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}/);
-          if (emailMatch) email = emailMatch[0];
-        }
-
-        // ── Prime status ──
-        isPrime = !!document.querySelector('#nav-prime-menu') ||
-                  !!document.querySelector('a[href*="/prime"] img') ||
-                  !!document.querySelector('#navbar-prime, [data-nav-ref="nav_prime_try"]');
-
-        return { name, email, isPrime };
+        return { name, isPrime };
       })()
     `);
 
     return {
       name: profile?.name || '',
-      email: profile?.email || '',
       isPrime: profile?.isPrime || false,
     };
   } catch (e) {
@@ -504,7 +462,6 @@ const extractOrdersForYear = async (year, stepLabel) => {
   const result = {
     'amazon.profile': state.profile || {
       name: '',
-      email: '',
       isPrime: false,
     },
     'amazon.orders': {

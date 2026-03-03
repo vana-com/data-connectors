@@ -13,7 +13,7 @@
     {
       "scope": "amazon.profile",
       "label": "Your Amazon profile",
-      "description": "Account name, email, and Prime membership status"
+      "description": "Account name and Prime membership status"
     },
     {
       "scope": "amazon.orders",
