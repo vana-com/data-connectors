@@ -122,6 +122,21 @@
         "script": "sha256:d98a7b9bcb85a871fbc5164c34ac36369f1b7745f90bd97ae5f02c880ccacab6",
         "metadata": "sha256:d3ff5230a6ebe6ff3f655546d834e7ed59f741febdc540dd2f89894b6e5baa7a"
       }
+    },
+    {
+      "id": "amazon-playwright",
+      "company": "amazon",
+      "version": "1.0.0",
+      "name": "Amazon",
+      "description": "Exports your Amazon order history and profile information using Playwright browser automation.",
+      "files": {
+        "script": "amazon/amazon-playwright.js",
+        "metadata": "amazon/amazon-playwright.json"
+      },
+      "checksums": {
+        "script": "sha256:4622ceebef38272e8a02b440fa821f3ef762c2458e51b1fbd4b9a39b7ff0f014",
+        "metadata": "sha256:8750489772353ccb3cc80a1983c78172da17280b5fabd3b2e2b2c1adc1c9204f"
+      }
     }
   ]
 }

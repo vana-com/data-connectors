@@ -1,0 +1,27 @@
+{
+  "id": "amazon-playwright",
+  "version": "1.0.0",
+  "name": "Amazon",
+  "company": "Amazon",
+  "iconURL": "icons/amazon.svg",
+  "description": "Exports your Amazon order history and profile information using Playwright browser automation.",
+  "connectURL": "https://www.amazon.com",
+  "connectSelector": "#nav-link-accountList span.nav-line-1",
+  "exportFrequency": "weekly",
+  "runtime": "playwright",
+  "scopes": [
+    {
+      "scope": "amazon.profile",
+      "label": "Your Amazon profile",
+      "description": "Account name, email, and Prime membership status"
+    },
+    {
+      "scope": "amazon.orders",
+      "label": "Your Amazon orders",
+      "description": "Order history including items, prices, dates, and delivery status"
+    }
+  ],
+  "vectorize_config": {
+    "documents": "orders"
+  }
+}
