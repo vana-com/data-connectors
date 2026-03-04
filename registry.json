@@ -36,16 +36,16 @@
     {
       "id": "instagram-playwright",
       "company": "meta",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "name": "Instagram",
-      "description": "Exports your Instagram profile and posts using Playwright browser automation.",
+      "description": "Exports your Instagram profile, posts, and ad interests using Playwright browser automation.",
       "files": {
         "script": "meta/instagram-playwright.js",
         "metadata": "meta/instagram-playwright.json"
       },
       "checksums": {
-        "script": "sha256:da0711993fb252e51b1f729c2148feb340d776a598435203875ea780b7cc7e65",
-        "metadata": "sha256:8d6ac7141ea9e7a06caf3a359fab2097f3fa89e7312c480fb867b8db13612eac"
+        "script": "sha256:71b23ac4fa59141c3cc4205172b95334d21967b4f76fcb8f5aa13352043af974",
+        "metadata": "sha256:52e18cea6927de37cab8a31dec53976fa0a0452388acf743e3bbb143f878583e"
       }
     },
     {
