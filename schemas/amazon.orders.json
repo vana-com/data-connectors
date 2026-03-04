@@ -30,7 +30,7 @@
               }
             }
           },
-          "required": ["orderId", "items"],
+          "required": ["items"],
           "additionalProperties": false
         }
       },

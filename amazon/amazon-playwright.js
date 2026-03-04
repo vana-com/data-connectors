@@ -15,7 +15,6 @@
 const state = {
   profile: null,
   orders: [],
-  isComplete: false,
 };
 
 // ─── Login Detection ──────────────────────────────────────
@@ -304,7 +303,7 @@ const fetchOrderPrices = async (orderId) => {
 };
 
 // Enrich a batch of orders with per-item prices from their detail pages
-const enrichOrdersWithPrices = async (orders, progressPrefix) => {
+const enrichOrdersWithPrices = async (orders) => {
   for (let i = 0; i < orders.length; i++) {
     const order = orders[i];
     if (!order.orderId) continue;
@@ -475,14 +474,13 @@ const extractOrdersForYear = async (year, stepLabel) => {
     exportSummary: {
       count: allOrders.length,
       label: allOrders.length === 1 ? 'order' : 'orders',
-      details: `${allOrders.length} orders (${totalItems} items) across ${yearSpan} years`,
+      details: `${allOrders.length} orders (${totalItems} items) across ${yearSpan} ${yearSpan === 1 ? 'year' : 'years'}`,
     },
     timestamp: new Date().toISOString(),
     version: '1.0.0-playwright',
     platform: 'amazon',
   };
 
-  state.isComplete = true;
   await page.setData('result', result);
   await page.setData('status',
     `Complete! ${allOrders.length} orders (${totalItems} items) collected${state.profile?.name ? ' for ' + state.profile.name : ''}.`

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Amazon box / package icon with orange smile -->
+  <path fill="#FF9900" d="M12 2L2 7v10l10 5 10-5V7L12 2zm0 2.18L19.67 8 12 11.82 4.33 8 12 4.18zM4 9.45l7 3.5V20l-7-3.5V9.45zm9 10.05v-7.1l7-3.5v7.1l-7 3.5z"/>
+  <path fill="#FF9900" d="M6.5 17.5c3.5 1.5 7 1.5 10.5 0-.3.8-2.5 2-5.25 2S6.8 18.3 6.5 17.5z"/>
+</svg>
