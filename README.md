@@ -8,8 +8,11 @@ Playwright-based data connectors for [DataConnect](https://github.com/vana-com/d
 |----------|---------|---------|--------|
 | ChatGPT | OpenAI | playwright | chatgpt.conversations, chatgpt.memories |
 | GitHub | GitHub | playwright | github.profile, github.repositories, github.starred |
-| Instagram | Meta | playwright | instagram.profile, instagram.posts |
+| [H-E-B](heb/) | HEB | playwright | heb.profile, heb.orders, heb.nutrition |
+| Instagram | Meta | playwright | instagram.profile, instagram.posts, instagram.ads |
 | LinkedIn | LinkedIn | playwright | linkedin.profile, .experience, .education, .skills, .languages |
+| Oura Ring | Oura | playwright | oura.readiness, oura.sleep, oura.activity |
+| Shop | Shopify | playwright | shop.orders |
 | Spotify | Spotify | playwright | spotify.profile, spotify.savedTracks, spotify.playlists |
 | YouTube | Google | playwright | youtube.profile, youtube.subscriptions, youtube.playlists, youtube.playlistItems, youtube.likes, youtube.watchLater, youtube.history (top 50 recent items) |
 
@@ -24,6 +27,10 @@ connectors/
 ├── schemas/                       # JSON schemas for exported data
 │   ├── chatgpt.conversations.json
 │   └── ...
+├── heb/
+│   ├── heb-playwright.js          # Connector script
+│   ├── heb-playwright.json        # Metadata
+│   └── README.md                  # Setup (USDA API key)
 ├── openai/
 │   ├── chatgpt-playwright.js      # Connector script
 │   └── chatgpt-playwright.json    # Metadata
