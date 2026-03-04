@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "name": "H-E-B",
   "company": "HEB",
-  "iconURL": "icons/heb.svg",
+  "iconURL": "icons/heb.png",
   "description": "Exports your H-E-B account profile, order history, and product nutrition data using Playwright browser automation.",
   "connectURL": "https://www.heb.com/my-account/your-orders",
   "connectSelector": "button[aria-label='My account']",
