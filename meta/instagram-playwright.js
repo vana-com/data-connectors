@@ -12,8 +12,10 @@ const state = {
   timelineEdges: [],
   pageInfo: null,
   totalFetched: 0,
+  adsData: { advertisers: [], ad_topics: [] },
   isProfileComplete: false,
   isTimelineComplete: false,
+  isAdsComplete: false,
   isComplete: false
 };
 
@@ -123,7 +125,7 @@ const fetchWebInfo = async () => {
 
   // ═══ PHASE 1: Profile Data ═══
   await page.setProgress({
-    phase: { step: 1, total: 2, label: 'Fetching profile' },
+    phase: { step: 1, total: 3, label: 'Fetching profile' },
     message: 'Setting up network capture...',
   });
 
@@ -144,7 +146,7 @@ const fetchWebInfo = async () => {
 
   // Navigate to user's profile
   await page.setProgress({
-    phase: { step: 1, total: 2, label: 'Fetching profile' },
+    phase: { step: 1, total: 3, label: 'Fetching profile' },
     message: `Navigating to profile: @${username}`,
   });
   await page.goto(`https://www.instagram.com/${username}/`);
@@ -152,7 +154,7 @@ const fetchWebInfo = async () => {
 
   // Wait for profile data
   await page.setProgress({
-    phase: { step: 1, total: 2, label: 'Fetching profile' },
+    phase: { step: 1, total: 3, label: 'Fetching profile' },
     message: 'Waiting for profile data...',
   });
   let profileData = null;
@@ -168,7 +170,7 @@ const fetchWebInfo = async () => {
       profileData = await page.getCapturedResponse('profileResponse');
       if (profileData) {
         await page.setProgress({
-          phase: { step: 1, total: 2, label: 'Fetching profile' },
+          phase: { step: 1, total: 3, label: 'Fetching profile' },
           message: 'Profile data captured!',
         });
 
@@ -212,7 +214,7 @@ const fetchWebInfo = async () => {
       postsData = await page.getCapturedResponse('postsResponse');
       if (postsData) {
         await page.setProgress({
-          phase: { step: 1, total: 2, label: 'Fetching profile' },
+          phase: { step: 1, total: 3, label: 'Fetching profile' },
           message: 'Posts data captured!',
         });
       }
@@ -222,7 +224,7 @@ const fetchWebInfo = async () => {
   // If we didn't get posts data, try scrolling to trigger loading
   if (!postsData) {
     await page.setProgress({
-      phase: { step: 2, total: 2, label: 'Fetching posts' },
+      phase: { step: 2, total: 3, label: 'Fetching posts' },
       message: 'Scrolling to load posts...',
       count: 0,
     });
@@ -243,7 +245,7 @@ const fetchWebInfo = async () => {
         const mediaCount = state.profileData?.media_count;
 
         await page.setProgress({
-          phase: { step: 2, total: 2, label: 'Fetching posts' },
+          phase: { step: 2, total: 3, label: 'Fetching posts' },
           message: mediaCount
             ? `Captured ${state.totalFetched} of ${mediaCount} posts`
             : `Captured ${state.totalFetched} posts`,
@@ -293,7 +295,7 @@ const fetchWebInfo = async () => {
                   state.totalFetched = state.timelineEdges.length;
 
                   await page.setProgress({
-                    phase: { step: 2, total: 2, label: 'Fetching posts' },
+                    phase: { step: 2, total: 3, label: 'Fetching posts' },
                     message: mediaCount
                       ? `Captured ${state.totalFetched} of ${mediaCount} posts`
                       : `Captured ${state.totalFetched} posts`,
@@ -315,6 +317,88 @@ const fetchWebInfo = async () => {
       }
     }
   }
+
+  // ═══ PHASE 3: Ad Interests ═══
+  // Scrapes from Accounts Center. DOM uses stable ARIA roles:
+  //   dialog > list > listitem (textContent = name)
+  // "See all advertisers" opens a dialog; "See all ad topics" navigates to /ads/ad_topics/ dialog.
+
+  await page.setProgress({
+    phase: { step: 3, total: 3, label: 'Fetching ad interests' },
+    message: 'Navigating to ad preferences...',
+  });
+
+  await page.goto('https://accountscenter.instagram.com/ads/');
+  await page.sleep(4000);
+
+  // Helper: extract names from listitem elements inside a dialog
+  const scrapeDialogList = async () => {
+    return await page.evaluate(`
+      (() => {
+        const dialog = document.querySelector('[role="dialog"]');
+        if (!dialog) return [];
+        const items = dialog.querySelectorAll('[role="list"] [role="listitem"]');
+        return Array.from(items).map(el => el.textContent.trim()).filter(t => t.length > 0);
+      })()
+    `);
+  };
+
+  // 1. Advertisers — click "See all" button to open dialog
+  await page.setProgress({
+    phase: { step: 3, total: 3, label: 'Fetching ad interests' },
+    message: 'Collecting advertisers...',
+  });
+
+  await page.evaluate(`
+    (() => {
+      const btn = document.querySelector('[role="button"][aria-label*="advertiser" i]');
+      if (btn) btn.click();
+    })()
+  `);
+  await page.sleep(2000);
+
+  const advertiserNames = await scrapeDialogList();
+  state.adsData.advertisers = advertiserNames.map(name => ({ name }));
+
+  // Close dialog
+  await page.evaluate(`
+    (() => {
+      const dialog = document.querySelector('[role="dialog"]');
+      const close = dialog?.querySelector('[aria-label="Close" i]');
+      if (close) close.click();
+    })()
+  `);
+  await page.sleep(1000);
+
+  await page.setProgress({
+    phase: { step: 3, total: 3, label: 'Fetching ad interests' },
+    message: `Found ${state.adsData.advertisers.length} advertisers. Collecting ad topics...`,
+  });
+
+  // 2. Ad topics — navigate to sub-page which opens its own dialog
+  await page.goto('https://accountscenter.instagram.com/ads/ad_topics/');
+  await page.sleep(3000);
+
+  const topicNames = await page.evaluate(`
+    (() => {
+      const dialog = document.querySelector('[role="dialog"]');
+      if (!dialog) return [];
+      // "Your activity-based topics" section has a heading followed by a generic with topic text,
+      // or list items. Collect all listitem texts from the dialog, filtering out non-topic entries.
+      const items = dialog.querySelectorAll('[role="list"] [role="listitem"]');
+      return Array.from(items)
+        .map(el => el.textContent.trim())
+        .filter(t => t.length > 0 && !t.toLowerCase().includes('special topic') && !t.toLowerCase().includes('see less'));
+    })()
+  `);
+  state.adsData.ad_topics = topicNames.map(name => ({ name }));
+
+  state.isAdsComplete = state.adsData.advertisers.length > 0 || state.adsData.ad_topics.length > 0;
+
+  await page.setProgress({
+    phase: { step: 3, total: 3, label: 'Fetching ad interests' },
+    message: `Ad interests: ${state.adsData.advertisers.length} advertisers, ${state.adsData.ad_topics.length} topics`,
+  });
 
   // Transform data to schema format
   const transformDataForSchema = () => {
@@ -363,6 +447,10 @@ const fetchWebInfo = async () => {
       'instagram.posts': {
         posts: posts,
       },
+      'instagram.ads': {
+        advertisers: state.adsData.advertisers,
+        ad_topics: state.adsData.ad_topics,
+      },
       exportSummary: {
         count: posts.length,
         label: posts.length === 1 ? 'post' : 'posts'
@@ -379,7 +467,10 @@ const fetchWebInfo = async () => {
 
   if (result) {
     await page.setData('result', result);
-    await page.setData('status', `Complete! ${result['instagram.posts']?.posts?.length || 0} posts collected for @${result['instagram.profile']?.username}`);
+    const postCount = result['instagram.posts']?.posts?.length || 0;
+    const adCount = result['instagram.ads']?.advertisers?.length || 0;
+    const topicCount = result['instagram.ads']?.ad_topics?.length || 0;
+    await page.setData('status', `Complete! ${postCount} posts, ${adCount} advertisers, ${topicCount} ad topics collected for @${result['instagram.profile']?.username}`);
     return { success: true, data: result };
   } else {
     await page.setData('error', 'Failed to transform data');
