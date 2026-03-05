@@ -662,9 +662,24 @@ const scrapeAmazonNutrition = async (productUrl, productId) => {
       // Look for "Nutrition Facts" or "Nutrition Information" section
       const allText = document.body.innerText;
 
-      // Extract product hero image
-      const heroImg = document.querySelector('#landingImage, #imgBlkFront, #main-image-container img, img.a-dynamic-image');
-      const imageUrl = heroImg?.src || '';
+      // Extract product hero image (prefer highest-res from data-a-dynamic-image)
+      const heroImg = document.querySelector('#landingImage, #imgBlkFront');
+      let imageUrl = '';
+      if (heroImg) {
+        const dynData = heroImg.getAttribute('data-a-dynamic-image');
+        if (dynData) {
+          try {
+            const urls = JSON.parse(dynData);
+            let best = '', bestArea = 0;
+            for (const [url, dims] of Object.entries(urls)) {
+              const area = (dims[0] || 0) * (dims[1] || 0);
+              if (area > bestArea) { best = url; bestArea = area; }
+            }
+            if (best) imageUrl = best;
+          } catch {}
+        }
+        if (!imageUrl) imageUrl = heroImg.src || '';
+      }
 
       // Extract UPC from product details table
       let upc = null;
