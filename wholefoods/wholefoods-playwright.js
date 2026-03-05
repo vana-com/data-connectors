@@ -192,10 +192,6 @@ const scrapeOrderDetail = async (orderId, orderUrl) => {
         if (seen.has(href)) return;
         seen.add(href);
 
-        // Skip non-WF items (Amazon sidebar recommendations)
-        // Real WF product links contain almBrandId or fpw=alm
-        if (!href.includes('almBrandId') && !href.includes('fpw=alm')) return;
-
         // Extract ASIN from URL
         const asinMatch = href.match(/\\/(?:dp|gp\\/product)\\/([A-Z0-9]{10})/);
         const productId = asinMatch ? asinMatch[1] : null;
