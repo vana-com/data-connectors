@@ -1,0 +1,33 @@
+{
+  "id": "wholefoods-playwright",
+  "version": "1.0.0",
+  "name": "Whole Foods Market",
+  "company": "wholefoods",
+  "iconURL": "icons/wholefoods.svg",
+  "description": "Exports your Whole Foods Market order history (via Amazon) and product nutrition data using Playwright browser automation.",
+  "connectURL": "https://www.amazon.com/gp/your-account/order-history",
+  "connectSelector": "a[href*='/gp/css/homepage.html'], span[id='nav-link-accountList-nav-line-1']",
+  "exportFrequency": "weekly",
+  "runtime": "playwright",
+  "scopes": [
+    {
+      "scope": "wholefoods.profile",
+      "label": "Account profile",
+      "description": "Your Amazon account name and email associated with Whole Foods orders"
+    },
+    {
+      "scope": "wholefoods.orders",
+      "label": "Order history",
+      "description": "Whole Foods delivery and pickup orders with item names, quantities, prices, and order dates"
+    },
+    {
+      "scope": "wholefoods.nutrition",
+      "label": "Product nutrition",
+      "description": "Nutrition facts (calories, macros, sodium, fiber, vitamins) for each product ordered. Aligned to Schema.org NutritionInformation.",
+      "schema": "https://schema.org/NutritionInformation"
+    }
+  ],
+  "vectorize_config": {
+    "documents": "name"
+  }
+}

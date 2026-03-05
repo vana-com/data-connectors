@@ -11,6 +11,7 @@ Playwright-based data connectors for [DataConnect](https://github.com/vana-com/d
 | Instagram | Meta | playwright | instagram.profile, instagram.posts |
 | LinkedIn | LinkedIn | playwright | linkedin.profile, .experience, .education, .skills, .languages |
 | Spotify | Spotify | playwright | spotify.profile, spotify.savedTracks, spotify.playlists |
+| Whole Foods Market | Whole Foods | playwright | wholefoods.profile, wholefoods.orders, wholefoods.nutrition |
 | YouTube | Google | playwright | youtube.profile, youtube.subscriptions, youtube.playlists, youtube.playlistItems, youtube.likes, youtube.watchLater, youtube.history (top 50 recent items) |
 
 ## Repository structure

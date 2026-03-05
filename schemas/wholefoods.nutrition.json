@@ -1,0 +1,44 @@
+{
+  "name": "Whole Foods Nutrition",
+  "version": "1.0.0",
+  "scope": "wholefoods.nutrition",
+  "dialect": "json",
+  "definitionUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main/schemas/wholefoods.nutrition.json",
+  "description": "Nutrition facts per unique product ordered from Whole Foods Market, aligned to Schema.org NutritionInformation",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "source": { "type": "string", "enum": ["wholefoods_product_page", "wholefoods_structured_data", "amazon_product_page", "usda_fdc", "not_found", "error", "blocked"] },
+            "confidence": { "type": "string", "enum": ["high", "medium", "low"] },
+            "calories": { "type": ["number", "null"] },
+            "protein_g": { "type": ["number", "null"] },
+            "carbs_g": { "type": ["number", "null"] },
+            "fat_g": { "type": ["number", "null"] },
+            "sodium_mg": { "type": ["number", "null"] },
+            "fiber_g": { "type": ["number", "null"] },
+            "sugar_g": { "type": ["number", "null"] },
+            "servingSize": { "type": ["string", "null"] },
+            "servingsPerContainer": { "type": ["string", "null"] }
+          },
+          "required": ["name", "source"]
+        }
+      },
+      "coverage": {
+        "type": "object",
+        "properties": {
+          "total": { "type": "number" },
+          "found": { "type": "number" },
+          "foundUSDA": { "type": "number" },
+          "percentCovered": { "type": "number" }
+        }
+      }
+    },
+    "required": ["items", "coverage"]
+  }
+}

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <circle cx="50" cy="50" r="50" fill="#00674b"/>
+  <text x="50" y="38" text-anchor="middle" fill="#fff" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="11.5" letter-spacing="0.8">WHOLE FOODS</text>
+  <rect x="18" y="43" width="64" height="1" rx="0.5" fill="#fff" opacity="0.5"/>
+  <text x="50" y="56" text-anchor="middle" fill="#fff" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="10" letter-spacing="3">MARKET</text>
+  <!-- Simplified leaf/tree mark -->
+  <path d="M50 62 C46 66 42 72 50 78 C58 72 54 66 50 62Z" fill="#fff" opacity="0.3"/>
+</svg>
