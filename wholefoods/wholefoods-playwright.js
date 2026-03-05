@@ -662,6 +662,10 @@ const scrapeAmazonNutrition = async (productUrl, productId) => {
       // Look for "Nutrition Facts" or "Nutrition Information" section
       const allText = document.body.innerText;
 
+      // Extract product hero image
+      const heroImg = document.querySelector('#landingImage, #imgBlkFront, #main-image-container img, img.a-dynamic-image');
+      const imageUrl = heroImg?.src || '';
+
       // Extract UPC from product details table
       let upc = null;
       const detailRows = document.querySelectorAll('#detailBullets_feature_div li, #prodDetails td, .content li');
@@ -691,6 +695,7 @@ const scrapeAmazonNutrition = async (productUrl, productId) => {
               '@type': 'https://schema.org/NutritionInformation',
               source: 'amazon_product_page',
               confidence: 'medium',
+              imageUrl,
               upc,
               servingSize: (infoText.match(/Serving size[:\\s]*([^\\n]+)/i) || [])[1] || null,
               servingsPerContainer: (infoText.match(/(\\d+)\\s*servings?\\s*per/i) || [])[1] || null,
@@ -716,7 +721,7 @@ const scrapeAmazonNutrition = async (productUrl, productId) => {
             };
           }
         }
-        return { source: 'not_found', confidence: 'low', upc };
+        return { source: 'not_found', confidence: 'low', imageUrl, upc };
       }
 
       // Parse nutrition facts table
@@ -744,6 +749,7 @@ const scrapeAmazonNutrition = async (productUrl, productId) => {
         '@type': 'https://schema.org/NutritionInformation',
         source: 'amazon_product_page',
         confidence: 'medium',
+        imageUrl,
         upc,
         servingSize: servingSizeMatch ? servingSizeMatch[1].trim() : null,
         servingsPerContainer: servingsMatch ? servingsMatch[1] : null,
@@ -1018,12 +1024,28 @@ const scrapeAmazonNutrition = async (productUrl, productId) => {
       }
     }
 
+    // Use product page image to backfill missing order-detail images
+    const resolvedImage = imageUrl || nutritionData.imageUrl || '';
+    if (resolvedImage && !productMap[productId].imageUrl) {
+      productMap[productId].imageUrl = resolvedImage;
+      // Backfill into already-scraped order items
+      for (const order of orders) {
+        for (const item of order.items) {
+          if (item.productId === productId && !item.imageUrl) {
+            item.imageUrl = resolvedImage;
+          }
+        }
+      }
+    }
+
     nutrition[productId] = {
       name,
       productUrl,
-      images: { thumbnail: imageUrl || '', full: '' },
+      images: { thumbnail: resolvedImage, full: '' },
       ...nutritionData,
     };
+    // Don't leak the transient field into the final output
+    delete nutrition[productId].imageUrl;
 
     // Pace requests
     await page.sleep(1500 + Math.floor(Math.random() * 1500));
