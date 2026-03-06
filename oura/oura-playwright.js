@@ -29,15 +29,11 @@ const checkLoginStatus = async () => {
 
         if (onLogin) return false;
 
-        if (path === '/') {
-          return !!document.querySelector('a[href*="readiness"]') ||
-                 !!document.querySelector('a[href*="sleep"]') ||
-                 !!document.querySelector('[class*="dashboard"]') ||
-                 !!document.querySelector('[class*="Dashboard"]') ||
-                 !!document.querySelector('nav');
-        }
-
-        return true;
+        const hasDashboard = !!document.querySelector('a[href*="readiness"]') ||
+                             !!document.querySelector('a[href*="sleep"]') ||
+                             !!document.querySelector('[class*="dashboard"]') ||
+                             !!document.querySelector('[class*="Dashboard"]');
+        return hasDashboard;
       })()
     `);
     return result || false;
