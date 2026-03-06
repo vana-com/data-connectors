@@ -111,7 +111,7 @@
     {
       "id": "oura-playwright",
       "company": "oura",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "name": "Oura Ring",
       "description": "Exports your Oura Ring readiness scores, sleep data, and daily activity using Playwright browser automation.",
       "files": {
@@ -119,7 +119,7 @@
         "metadata": "oura/oura-playwright.json"
       },
       "checksums": {
-        "script": "sha256:d98a7b9bcb85a871fbc5164c34ac36369f1b7745f90bd97ae5f02c880ccacab6",
+        "script": "sha256:d58629b152ad3471e27dfb4cbe33b84d74f426a7ff330754aacdc1ec89f72f6c",
         "metadata": "sha256:d3ff5230a6ebe6ff3f655546d834e7ed59f741febdc540dd2f89894b6e5baa7a"
       }
     }
