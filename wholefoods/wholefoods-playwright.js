@@ -881,8 +881,7 @@ const scrapeAmazonNutrition = async (productUrl, productId) => {
   }
 
   if (allOrderStubs.length === 0) {
-    await page.setData('status', 'No Whole Foods orders found in your Amazon account.');
-    await page.setData('result', {
+    const emptyResult = {
       'wholefoods.profile': profile,
       'wholefoods.orders': { orders: [], totalOrders: 0, totalItems: 0 },
       'wholefoods.nutrition': { items: {}, coverage: { total: 0, found: 0, percentCovered: 0 } },
@@ -890,8 +889,10 @@ const scrapeAmazonNutrition = async (productUrl, productId) => {
       timestamp: new Date().toISOString(),
       version: '1.0.0-playwright',
       platform: 'wholefoods',
-    });
-    return { success: true };
+    };
+    await page.setData('status', 'No Whole Foods orders found in your Amazon account.');
+    await page.setData('result', emptyResult);
+    return { success: true, data: emptyResult };
   }
 
   // ═══ STEP 3: Fetch item details for each order ═══
@@ -1009,6 +1010,9 @@ const scrapeAmazonNutrition = async (productUrl, productId) => {
       consecutiveBlocks = 0;
     }
 
+    // Preserve Amazon product page image before nutrition fallbacks overwrite nutritionData
+    const scrapedImageUrl = nutritionData.imageUrl || '';
+
     // Strategy 2: Try Whole Foods product page if Amazon didn't have nutrition
     if (nutritionData.source === 'not_found' || nutritionData.source === 'error') {
       const wfUrl = await findWholeFoodsProductUrl(name);
@@ -1043,7 +1047,7 @@ const scrapeAmazonNutrition = async (productUrl, productId) => {
     }
 
     // Use product page image to backfill missing order-detail images
-    const resolvedImage = imageUrl || nutritionData.imageUrl || '';
+    const resolvedImage = imageUrl || scrapedImageUrl || nutritionData.imageUrl || '';
     if (resolvedImage && !productMap[productId].imageUrl) {
       productMap[productId].imageUrl = resolvedImage;
       // Backfill into already-scraped order items
