@@ -1,128 +1,115 @@
 /**
  * DataConnect Connector Type Definitions
  *
- * These types define the interface for building connectors that export
- * data from various platforms.
+ * These types define the page API available to connector scripts.
+ * The runner implementation lives in data-connect/playwright-runner/index.cjs.
  */
 
-/** Status types that connectors can send to the host */
-export type ConnectorStatus =
-  | 'CONNECT_WEBSITE'   // User needs to log in
-  | 'DOWNLOADING'       // Export has started, waiting for download
-  | 'COMPLETE'          // Export completed successfully
-  | 'ERROR'             // An error occurred
-  | { data: unknown };  // Custom status with data
-
-/** Scope definition for a connector */
-export interface ConnectorScope {
-  scope: string;
-  label: string;
-  description: string;
+/** Result from page.showBrowser() */
+export interface ShowBrowserResult {
+  /** Whether the browser actually switched to headed mode */
+  headed: boolean;
 }
 
-/** Metadata structure for connector definition files */
-export interface ConnectorMetadata {
-  /** Unique identifier for the connector (e.g., 'chatgpt-001') */
-  id?: string;
-  /** Display name of the platform */
-  name: string;
-  /** Company/organization that owns the platform */
-  company?: string;
-  /** Description of what the connector exports */
-  description: string;
-  /** URL to navigate to for connecting/logging in */
-  connectURL: string;
-  /** CSS selector to check if user is logged in */
-  connectSelector: string;
-  /** How often exports should be refreshed */
-  exportFrequency?: 'daily' | 'weekly' | 'monthly';
-  /** Data scopes this connector supports */
-  scopes?: ConnectorScope[];
-  /** Configuration for vectorization */
-  vectorize_config?: {
-    documents?: string;
-    [key: string]: unknown;
-  };
+/** Options for page.goto() */
+export interface GotoOptions {
+  waitUntil?: 'load' | 'domcontentloaded' | 'networkidle';
+  timeout?: number;
 }
 
-/** API interface injected into connectors */
-export interface ConnectorAPI {
-  /**
-   * Log a message to the connector console
-   * @param args - Arguments to log
-   */
-  log(...args: unknown[]): void;
-
-  /**
-   * Wait for an element to appear on the page
-   * @param selector - CSS selector for the element
-   * @param elementName - Human-readable name for logging
-   * @param multipleElements - If true, returns NodeList instead of single element
-   * @param timeout - Timeout in milliseconds (default: 10000)
-   * @returns The found element(s) or null if timeout
-   */
-  waitForElement<T extends boolean = false>(
-    selector: string,
-    elementName: string,
-    multipleElements?: T,
-    timeout?: number
-  ): Promise<T extends true ? NodeListOf<Element> | null : Element | null>;
-
-  /**
-   * Wait for a specified number of seconds
-   * @param seconds - Number of seconds to wait
-   */
-  wait(seconds: number): Promise<void>;
-
-  /**
-   * Send a status update to the host
-   * @param status - The status to send
-   */
-  sendStatus(status: ConnectorStatus): void;
-
-  /**
-   * Navigate to a URL
-   * @param url - URL to navigate to
-   */
-  navigate(url: string): void;
-
-  /**
-   * Get the current run ID
-   */
-  getRunId(): string;
-
-  /**
-   * Get connector metadata
-   */
-  getMetadata(): ConnectorMetadata;
+/** Options for page.httpFetch() */
+export interface HttpFetchOptions {
+  method?: string;
+  headers?: Record<string, string>;
+  body?: string;
+  timeout?: number;
 }
 
-/** Main connector function signature */
-export type ConnectorFunction = (
-  api: ConnectorAPI,
-  runId: string,
-  platformId: string,
-  filename: string,
-  company: string,
-  name: string
-) => Promise<ConnectorStatus>;
-
-/** Connector module export */
-export interface ConnectorModule {
-  default: ConnectorFunction;
-  metadata?: ConnectorMetadata;
+/** Result from page.httpFetch() */
+export interface HttpFetchResult {
+  ok: boolean;
+  status: number;
+  headers: Record<string, string>;
+  text: string;
+  json: unknown | null;
+  error: string | null;
 }
 
-/** Global augmentation for the injected API */
+/** Network capture configuration */
+export interface NetworkCaptureConfig {
+  key: string;
+  urlPattern?: string;
+  bodyPattern?: string;
+}
+
+/** Structured progress update */
+export interface ProgressUpdate {
+  phase?: { step: number; total: number; label?: string };
+  message?: string;
+  count?: number;
+}
+
+/**
+ * Page API injected into connector scripts.
+ *
+ * Available as the global `page` object. All methods are async.
+ */
+export interface PageAPI {
+  /** Run JavaScript in the browser page context and return the result */
+  evaluate(script: string): Promise<unknown>;
+
+  /** Navigate to a URL */
+  goto(url: string, options?: GotoOptions): Promise<void>;
+
+  /** Wait for a number of milliseconds */
+  sleep(ms: number): Promise<void>;
+
+  /** Send a key-value pair to the host. Use 'status' for log messages, 'error' for errors. */
+  setData(key: string, value: unknown): Promise<void>;
+
+  /** Send a structured progress update to drive the frontend progress UI */
+  setProgress(update: ProgressUpdate): Promise<void>;
+
+  /**
+   * Escalate to headed mode for live human interaction (e.g., interactive CAPTCHAs).
+   * Returns { headed: false } if the driver doesn't support headed mode.
+   */
+  showBrowser(url?: string): Promise<ShowBrowserResult>;
+
+  /** Switch to headless mode. No-op if already headless. */
+  goHeadless(): Promise<void>;
+
+  /**
+   * Poll a check function until it returns truthy.
+   * Sends WAITING_FOR_USER status to the host.
+   */
+  promptUser(message: string, checkFn: () => Promise<unknown>, interval?: number): Promise<void>;
+
+  /** Register a network response capture */
+  captureNetwork(config: NetworkCaptureConfig): Promise<void>;
+
+  /** Get a previously captured network response, or null */
+  getCapturedResponse(key: string): Promise<{ url: string; data: unknown; timestamp: number } | null>;
+
+  /** Check if a network response has been captured */
+  hasCapturedResponse(key: string): boolean;
+
+  /** Clear all network captures */
+  clearNetworkCaptures(): Promise<void>;
+
+  /** Close the browser but keep the process alive for httpFetch() calls */
+  closeBrowser(): Promise<void>;
+
+  /**
+   * Make an HTTP request from Node.js with cookies auto-injected from the browser session.
+   * Works after closeBrowser().
+   */
+  httpFetch(url: string, options?: HttpFetchOptions): Promise<HttpFetchResult>;
+}
+
 declare global {
-  interface Window {
-    __DATACONNECT_API__: ConnectorAPI;
-    __DATACONNECT_RUN_ID__: string;
-    __DATACONNECT_PLATFORM_ID__: string;
-    __DATACONNECT_FILENAME__: string;
-    __DATACONNECT_COMPANY__: string;
-    __DATACONNECT_NAME__: string;
-  }
+  /** The page API available to connector scripts */
+  const page: PageAPI;
 }
 
 export {};

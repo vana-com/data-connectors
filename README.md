@@ -252,22 +252,37 @@ Then add an entry to the `connectors` array:
 
 ## Page API reference
 
-The `page` object is available as a global in connector scripts:
+The `page` object is available as a global in connector scripts. The runner implementation lives in [data-connect/playwright-runner](https://github.com/vana-com/data-connect/tree/main/playwright-runner).
 
 | Method | Description |
 |--------|-------------|
 | `page.evaluate(jsString)` | Run JS in browser context, return result |
-| `page.goto(url)` | Navigate to URL |
+| `page.goto(url, options?)` | Navigate to URL |
 | `page.sleep(ms)` | Wait for milliseconds |
 | `page.setData(key, value)` | Send data to host (`'status'`, `'error'`, `'result'`) |
 | `page.setProgress({phase, message, count})` | Structured progress for the UI |
-| `page.showBrowser(url?)` | Switch to headed mode (visible browser) |
-| `page.goHeadless()` | Switch to headless mode (invisible) |
-| `page.promptUser(msg, checkFn, interval)` | Show prompt, poll `checkFn` until truthy |
+| `page.showBrowser(url?)` | Escalate to headed mode; returns `{ headed: true/false }` |
+| `page.goHeadless()` | Switch to headless mode (no-op if already headless) |
+| `page.promptUser(msg, checkFn, interval)` | Poll `checkFn` until truthy |
 | `page.captureNetwork({urlPattern, bodyPattern, key})` | Register a network capture |
 | `page.getCapturedResponse(key)` | Get captured response or `null` |
+| `page.hasCapturedResponse(key)` | Check if a response was captured |
 | `page.clearNetworkCaptures()` | Clear all captures |
 | `page.closeBrowser()` | Close browser, keep process for HTTP work |
+| `page.httpFetch(url, options?)` | Node.js fetch with auto-injected cookies from the browser session |
+
+### `showBrowser` — headed escalation
+
+`showBrowser` switches the browser to headed mode for cases that require live human interaction (e.g., interactive CAPTCHAs). It returns `{ headed: true }` on success or `{ headed: false }` if the driver doesn't support headed mode. Connectors should check the return value and handle the fallback:
+
+```javascript
+const { headed } = await page.showBrowser(url);
+if (!headed) {
+  // Headed not available — retry, skip, or report error
+}
+```
+
+For normal login flows, a `requestInput` API is planned that will allow connectors to request credentials from the driver without showing a browser. See the [headless-first runner spec](https://github.com/vana-com/data-connect/blob/main/docs/260310-headless-first-runner-spec.md) for the design.
 
 ### Progress reporting
 
