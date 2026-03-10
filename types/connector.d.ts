@@ -49,6 +49,14 @@ export interface ProgressUpdate {
   count?: number;
 }
 
+/** Payload for page.requestInput() */
+export interface RequestInputPayload {
+  /** Human-readable message describing what data is needed */
+  message: string;
+  /** JSON Schema describing the expected response shape (optional) */
+  schema?: Record<string, unknown>;
+}
+
 /**
  * Page API injected into connector scripts.
  *
@@ -57,6 +65,16 @@ export interface ProgressUpdate {
 export interface PageAPI {
   /** Run JavaScript in the browser page context and return the result */
   evaluate(script: string): Promise<unknown>;
+
+  /** Take a PNG screenshot of the current page, returned as a base64 string */
+  screenshot(): Promise<string>;
+
+  /**
+   * Request data from the driver (e.g., login credentials, 2FA codes).
+   * The runner relays the request to the driver and resolves with the response.
+   * Throws if the driver sends an error (e.g., user cancelled).
+   */
+  requestInput(payload: RequestInputPayload): Promise<Record<string, unknown>>;
 
   /** Navigate to a URL */
   goto(url: string, options?: GotoOptions): Promise<void>;

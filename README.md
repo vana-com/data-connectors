@@ -257,6 +257,8 @@ The `page` object is available as a global in connector scripts. The runner impl
 | Method | Description |
 |--------|-------------|
 | `page.evaluate(jsString)` | Run JS in browser context, return result |
+| `page.screenshot()` | Take a PNG screenshot, returns base64 string |
+| `page.requestInput({message, schema?})` | Request data from the driver (credentials, 2FA codes, etc.) |
 | `page.goto(url, options?)` | Navigate to URL |
 | `page.sleep(ms)` | Wait for milliseconds |
 | `page.setData(key, value)` | Send data to host (`'status'`, `'error'`, `'result'`) |
@@ -282,7 +284,23 @@ if (!headed) {
 }
 ```
 
-For normal login flows, a `requestInput` API is planned that will allow connectors to request credentials from the driver without showing a browser. See the [headless-first runner spec](https://github.com/vana-com/data-connect/blob/main/docs/260310-headless-first-runner-spec.md) for the design.
+For normal login flows, use `requestInput` to ask the driver for credentials without showing a browser:
+
+```javascript
+const { email, password } = await page.requestInput({
+  message: 'Log in to ChatGPT',
+  schema: {
+    type: 'object',
+    properties: {
+      email: { type: 'string', format: 'email' },
+      password: { type: 'string', format: 'password' }
+    },
+    required: ['email', 'password']
+  }
+});
+```
+
+The runner relays the request to the driver (Tauri app, agent, CLI) and resolves with the response. The `schema` field uses JSON Schema — the same format used by OpenAI, Anthropic, and Google for LLM tool definitions. See the [headless-first runner spec](https://github.com/vana-com/data-connect/blob/main/docs/260310-headless-first-runner-spec.md) for the full protocol design.
 
 ### Progress reporting
 
