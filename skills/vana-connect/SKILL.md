@@ -32,7 +32,7 @@ mkdir -p ~/.dataconnect/connectors/{company}
 curl -s "$BASE_URL/{script_path}" > ~/.dataconnect/connectors/{script_path}
 ```
 
-**If no connector exists for the platform,** read `CREATE.md` (co-located with this file) and follow it to build one. Then continue from step 2 with the newly created connector.
+**If no connector exists for the platform,** read `CREATE.md` and follow it to build one. Then continue from step 2 with the newly created connector.
 
 ### 2. Read the connector
 
@@ -61,9 +61,9 @@ node ~/.dataconnect/run-connector.cjs <connector-path> [start-url] --inputs '{"u
 
 ### 4. Handle auth
 
-1. Check if `~/.dataconnect/browser-profiles/{script-filename}/` exists — try without `--inputs` first (session may still be valid)
+1. Check if `~/.dataconnect/browser-profiles/{script-filename}/` exists -- try without `--inputs` first (session may still be valid)
 2. If exit 2 (`need-input`): ask user for the requested fields, re-run with `--inputs`
-3. If exit 2 again (2FA): re-run with **all** previously-supplied inputs **plus** the new one: `--inputs '{"username":"...","password":"...","code":"..."}'`. Each run starts a fresh browser — prior inputs are not remembered.
+3. If exit 2 again (2FA): re-run with **all** previously-supplied inputs **plus** the new one: `--inputs '{"username":"...","password":"...","code":"..."}'`. Each run starts a fresh browser -- prior inputs are not remembered.
 
 **TOTP codes expire in ~30 seconds.** Re-run immediately after receiving a code.
 
@@ -73,7 +73,7 @@ node ~/.dataconnect/run-connector.cjs <connector-path> [start-url] --inputs '{"u
 
 Exit code 3 means the connector uses `showBrowser`/`promptUser` instead of `requestInput`:
 
-1. Try without `--inputs` — if a browser profile exists, login may be skipped.
+1. Try without `--inputs` -- if a browser profile exists, login may be skipped.
 2. Check for a migrated version on the `main` branch.
 3. Write a login script to establish a session, then run the stock connector.
 
@@ -81,12 +81,12 @@ Exit code 3 means the connector uses `showBrowser`/`promptUser` instead of `requ
 
 On success, collected data is at `~/.dataconnect/last-result.json`. Keys vary by connector (e.g. `github.profile`, `chatgpt.conversations`).
 
-See `RECIPES.md` (co-located with this file) for detailed use cases: user profile generation, personal knowledge base, data backup, cross-platform synthesis, activity analytics.
+See `RECIPES.md` for use cases: user profile generation, personal knowledge base, data backup, cross-platform synthesis, activity analytics.
 
 ## Rules
 
-1. **Ask before saving** — no writes to user profile without approval
-2. **Never log credentials** — no echo, print, or output of secrets
+1. **Ask before saving** -- no writes to user profile without approval
+2. **Never log credentials** -- no echo, print, or output of secrets
 3. **One platform at a time**
-4. **Check session first** — try without credentials if a browser profile exists
+4. **Check session first** -- try without credentials if a browser profile exists
 5. **Read connectors before running them**
