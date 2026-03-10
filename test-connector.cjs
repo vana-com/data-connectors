@@ -227,6 +227,64 @@ function handleMessage(msg, resultRef) {
   }
 }
 
+// ─── Request Input Handler ───────────────────────────────────
+function askQuestion(prompt, isPassword) {
+  return new Promise((resolve) => {
+    if (isPassword) {
+      // Write the prompt ourselves, then mute all readline output (character echo)
+      process.stdout.write(prompt);
+      const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+      const origWrite = rl.output.write.bind(rl.output);
+      rl.output.write = () => {};
+      rl.question('', (answer) => {
+        rl.output.write = origWrite;
+        origWrite('\n');
+        rl.close();
+        resolve(answer);
+      });
+    } else {
+      const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+      rl.question(prompt, (answer) => {
+        rl.close();
+        resolve(answer);
+      });
+    }
+  });
+}
+
+async function handleRequestInput(msg, stdin) {
+  const { runId, requestId, payload } = msg;
+  const { message, schema } = payload || {};
+
+  console.log('');
+  print(c.magenta, '[input] ', message || 'Connector is requesting input');
+
+  const properties = schema?.properties || {};
+  const required = schema?.required || [];
+  const fields = Object.keys(properties);
+
+  if (fields.length === 0) {
+    const response = JSON.stringify({ type: 'input-response', runId, requestId, data: {} });
+    stdin.write(response + '\n');
+    return;
+  }
+
+  const data = {};
+  for (const field of fields) {
+    const prop = properties[field];
+    const isRequired = required.includes(field);
+    const label = prop.description || field;
+    const suffix = isRequired ? ` ${c.red}*${c.reset}` : '';
+    const isPassword = prop.format === 'password';
+    data[field] = await askQuestion(`  ${c.cyan}${label}${suffix}${c.reset}: `, isPassword);
+  }
+
+  const response = JSON.stringify({ type: 'input-response', runId, requestId, data });
+  stdin.write(response + '\n');
+  print(c.green, '[input] ', 'Response sent');
+  console.log('');
+}
+
 // ─── Main ───────────────────────────────────────────────────
 async function main() {
   const args = parseArgs();
@@ -282,6 +340,12 @@ async function main() {
         });
         child.stdin.write(runCmd + '\n');
         print(c.green, '[runner]', 'Connected, starting connector...');
+        return;
+      }
+
+      // Handle requestInput — prompt user in terminal
+      if (msg.type === 'request-input') {
+        handleRequestInput(msg, child.stdin);
         return;
       }
 
