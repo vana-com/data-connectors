@@ -66,7 +66,7 @@ export interface PageAPI {
   /** Run JavaScript in the browser page context and return the result */
   evaluate(script: string): Promise<unknown>;
 
-  /** Take a PNG screenshot of the current page, returned as a base64 string */
+  /** Take a JPEG screenshot of the current page, returned as a base64 string */
   screenshot(): Promise<string>;
 
   /**

@@ -257,7 +257,7 @@ The `page` object is available as a global in connector scripts. The runner impl
 | Method | Description |
 |--------|-------------|
 | `page.evaluate(jsString)` | Run JS in browser context, return result |
-| `page.screenshot()` | Take a PNG screenshot, returns base64 string |
+| `page.screenshot()` | Take a JPEG screenshot, returns base64 string |
 | `page.requestInput({message, schema?})` | Request data from the driver (credentials, 2FA codes, etc.) |
 | `page.goto(url, options?)` | Navigate to URL |
 | `page.sleep(ms)` | Wait for milliseconds |
