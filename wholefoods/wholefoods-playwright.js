@@ -553,22 +553,19 @@ const scrapeWholeFoodsNutrition = async (productUrl) => {
       if (!container) return { source: 'not_found', confidence: 'low', upc };
 
       const allText = container.innerText;
-      const lines = allText.split('\\n').map(l => l.trim()).filter(Boolean);
 
-      let calories = null;
+      // Parse nutrients from text blob — handles both clean line-per-nutrient format
+      // and Amazon's concatenated format ("10%Total Fat8g25%Saturated Fat5g...")
+      const calMatch = allText.match(/Calories[:\\s]*(\\d+)/i);
+      let calories = calMatch ? parseInt(calMatch[1]) : null;
       const nutrients = {};
-
-      // Parse each line for nutrient values
-      for (const line of lines) {
-        // Calories line: "Calories 140" or "Calories: 140"
-        const calMatch = line.match(/^Calories[:\\s]*(\\d+)/i);
-        if (calMatch) { calories = parseInt(calMatch[1]); continue; }
-
-        // Nutrient line: "Total Fat 8g" or "Protein 12g" or "Sodium 250mg"
-        const nutrientMatch = line.match(/^(Total Fat|Saturated Fat|Trans Fat|Cholesterol|Sodium|Total Carbohydrate|Dietary Fiber|Total Sugars|Includes Added Sugars|Protein|Potassium|Calcium|Iron|Vitamin D)[:\\s]*(\\d+\\.?\\d*)/i);
-        if (nutrientMatch) {
-          nutrients[nutrientMatch[1]] = parseFloat(nutrientMatch[2]);
-        }
+      const nutrientPattern = /(Total Fat|Saturated Fat|Trans Fat|Cholesterol|Sodium|Total Carbohydrate|Dietary Fiber|Added Sugars|Sugars|Protein|Potassium|Calcium|Iron|Vitamin D)[:\\s]*(\\d+\\.?\\d*)/gi;
+      let nm;
+      while ((nm = nutrientPattern.exec(allText)) !== null) {
+        let key = nm[1];
+        if (/^sugars$/i.test(key)) key = 'Total Sugars';
+        if (/^added sugars$/i.test(key)) key = 'Includes Added Sugars';
+        if (!(key in nutrients)) nutrients[key] = parseFloat(nm[2]);
       }
 
       // Extract serving size
@@ -635,6 +632,7 @@ const scrapeWholeFoodsNutrition = async (productUrl) => {
         allergens,
         highlights,
         category,
+        rawNutritionText: allText.substring(0, 1000),
       };
     })()
   `);
@@ -694,7 +692,7 @@ const scrapeAmazonNutrition = async (productUrl, productId) => {
       });
 
       // Look for nutrition facts table
-      const nutritionTable = document.querySelector('#nutritionFacts, #nutritionalInformation_feature_div, [data-component="nutritionFacts"]');
+      const nutritionTable = document.querySelector('#nic-nutrition-facts, #nutritionFacts, #nutritionalInformation_feature_div, [data-component="nutritionFacts"]');
 
       if (!nutritionTable) {
         // Try finding it in "Important information" section
@@ -704,10 +702,13 @@ const scrapeAmazonNutrition = async (productUrl, productId) => {
           const calMatch = infoText.match(/Calories[:\\s]*(\\d+)/i);
           if (calMatch) {
             const nutrients = {};
-            const lines = infoText.split('\\n');
-            for (const line of lines) {
-              const m = line.match(/^(Total Fat|Saturated Fat|Trans Fat|Cholesterol|Sodium|Total Carbohydrate|Dietary Fiber|Total Sugars|Protein)[:\\s]*(\\d+\\.?\\d*)/i);
-              if (m) nutrients[m[1]] = parseFloat(m[2]);
+            const nutrientPattern = /(Total Fat|Saturated Fat|Trans Fat|Cholesterol|Sodium|Total Carbohydrate|Dietary Fiber|Added Sugars|Sugars|Protein)[:\\s]*(\\d+\\.?\\d*)/gi;
+            let nm;
+            while ((nm = nutrientPattern.exec(infoText)) !== null) {
+              let key = nm[1];
+              if (/^sugars$/i.test(key)) key = 'Total Sugars';
+              if (/^added sugars$/i.test(key)) key = 'Includes Added Sugars';
+              if (!(key in nutrients)) nutrients[key] = parseFloat(nm[2]);
             }
             return {
               '@type': 'https://schema.org/NutritionInformation',
@@ -726,7 +727,7 @@ const scrapeAmazonNutrition = async (productUrl, productId) => {
               cholesterol_mg: nutrients['Cholesterol'] ?? null,
               fiber_g: nutrients['Dietary Fiber'] ?? null,
               sugar_g: nutrients['Total Sugars'] ?? null,
-              added_sugar_g: null,
+              added_sugar_g: nutrients['Includes Added Sugars'] ?? null,
               sodium_mg: nutrients['Sodium'] ?? null,
               potassium_mg: nutrients['Potassium'] ?? null,
               calcium_mg: null,
@@ -742,19 +743,28 @@ const scrapeAmazonNutrition = async (productUrl, productId) => {
         return { source: 'not_found', confidence: 'low', imageUrl, upc };
       }
 
-      // Parse nutrition facts table
-      const tableText = nutritionTable.innerText;
+      // Parse nutrition facts — expand scope to include the full nutrition card/expander
+      // because #nic-nutrition-facts only contains nutrient rows, not calories or serving size.
+      // The parent expander section contains: "Calories150% Daily Value*10%Total Fat8g..."
+      const nutritionCard = nutritionTable.closest('.a-expander-content, [class*="nicSection"]') || nutritionTable;
+      const tableText = nutritionCard.innerText;
       const calMatch = tableText.match(/Calories[:\\s]*(\\d+)/i);
+      // Amazon's nutrition renders innerText as a concatenated blob:
+      //   "10%Total Fat8g25%Saturated Fat5gSugars11g..."
+      // Use global regex to find nutrient names followed by numbers anywhere in the text.
       const nutrients = {};
-      const lines = tableText.split('\\n');
-      for (const line of lines) {
-        const m = line.match(/^(Total Fat|Saturated Fat|Trans Fat|Cholesterol|Sodium|Total Carbohydrate|Dietary Fiber|Total Sugars|Includes Added Sugars|Protein|Potassium|Calcium|Iron|Vitamin D)[:\\s]*(\\d+\\.?\\d*)/i);
-        if (m) nutrients[m[1]] = parseFloat(m[2]);
+      const nutrientPattern = /(Total Fat|Saturated Fat|Trans Fat|Cholesterol|Sodium|Total Carbohydrate|Dietary Fiber|Added Sugars|Sugars|Protein|Potassium|Calcium|Iron|Vitamin D)[:\\s]*(\\d+\\.?\\d*)/gi;
+      let nm;
+      while ((nm = nutrientPattern.exec(tableText)) !== null) {
+        let key = nm[1];
+        if (/^sugars$/i.test(key)) key = 'Total Sugars';
+        if (/^added sugars$/i.test(key)) key = 'Includes Added Sugars';
+        if (!(key in nutrients)) nutrients[key] = parseFloat(nm[2]);
       }
 
       const get = (key) => nutrients[key] ?? null;
       const servingSizeMatch = tableText.match(/Serving size[:\\s]*([^\\n]+)/i);
-      const servingsMatch = tableText.match(/(\\d+)\\s*servings?\\s*per/i);
+      const servingsMatch = tableText.match(/(\\d+\\.?\\d*)\\s*servings?\\s*per/i);
 
       // Ingredients section
       const ingSection = document.querySelector('#ingredients_feature_div, [data-component="ingredients"]');
@@ -790,6 +800,7 @@ const scrapeAmazonNutrition = async (productUrl, productId) => {
         allergens: allergenMatch,
         highlights: [],
         category: [],
+        rawNutritionText: tableText.substring(0, 1000),
       };
     })()
   `);
