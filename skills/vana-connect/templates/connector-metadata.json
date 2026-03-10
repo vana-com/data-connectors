@@ -1,0 +1,22 @@
+{
+  "id": "{{name}}-playwright",
+  "version": "1.0.0",
+  "name": "{{Platform Name}}",
+  "company": "{{Company}}",
+  "iconURL": "icons/{{platform}}.svg",
+  "description": "Exports your {{data description}} using Playwright browser automation.",
+  "connectURL": "https://{{platform}}.com/login",
+  "connectSelector": "{{CSS selector only visible when logged in}}",
+  "exportFrequency": "weekly",
+  "runtime": "playwright",
+  "scopes": [
+    {
+      "scope": "{{platform}}.{{scope1}}",
+      "label": "Your {{scope1 label}}",
+      "description": "{{What this scope contains}}"
+    }
+  ],
+  "vectorize_config": {
+    "documents": "{{field name to vectorize for semantic search}}"
+  }
+}
