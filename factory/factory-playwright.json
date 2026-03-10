@@ -1,0 +1,11 @@
+{
+  "id": "factory-playwright",
+  "version": "1.0.0",
+  "name": "Factory.fm",
+  "company": "factory",
+  "description": "Exports your Factory.fm music listening logs, ratings, reviews, and artist data using Playwright browser automation.",
+  "connectURL": "https://factory.fm/login",
+  "connectSelector": "a[href*='/u/']",
+  "exportFrequency": "daily",
+  "runtime": "playwright"
+}
