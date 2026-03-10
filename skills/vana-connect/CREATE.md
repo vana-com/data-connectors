@@ -1,6 +1,6 @@
 # Creating a Connector
 
-Build a data connector for a platform that isn't in the registry yet. The result is a script that works with `run-connector.cjs` and can be contributed back.
+Build a data connector for a platform that isn't in the registry yet.
 
 ## Prerequisites
 
@@ -40,7 +40,7 @@ Look at existing connectors in `~/.dataconnect/connectors/` for working examples
 
 ## Step 1 -- Research the Platform
 
-**Goal:** Map the platform's login flow, data APIs, and auth mechanism before writing any code.
+Map the platform's login flow, data APIs, and auth mechanism before writing code.
 
 ### Web search queries
 
@@ -55,7 +55,7 @@ Run these (or similar) searches:
 
 - **Login URL** (e.g. `https://platform.com/login`)
 - **Login form selectors** -- stable selectors for username, password, submit. Use `input[name="..."]`, `input[type="password"]`, `button[type="submit"]`. Note if login is multi-step.
-- **Logged-in indicator** -- a CSS selector or API response that confirms the user is authenticated. This becomes `connectSelector` in metadata.
+- **Logged-in indicator** -- a CSS selector or API response confirming auth. Becomes `connectSelector` in metadata.
 - **Data endpoints** -- REST, GraphQL, or (last resort) DOM scraping
 - **Auth mechanism** -- cookies, CSRF tokens, bearer tokens, session storage
 - **Rate limits** -- throttling rules, if known
@@ -258,7 +258,7 @@ If your schemas are rough drafts, refine them from actual test output:
 node scripts/generate-schemas.cjs ~/.dataconnect/last-result.json <platform> [output-dir]
 ```
 
-This infers types and structure from the actual data and writes draft schema files. Review and adjust before publishing.
+This infers types and structure from actual data and writes draft schema files. Review and adjust before publishing.
 
 ---
 
@@ -276,7 +276,7 @@ This computes `sha256` checksums for the script and metadata, then adds an entry
 
 ## Success Criteria
 
-A connector is complete when ALL of these hold:
+A connector is complete when all of these hold:
 
 - [ ] Metadata JSON has all required fields (id, version, name, company, description, connectURL, connectSelector, runtime, scopes)
 - [ ] Script tries `process.env` credentials first, falls back to `page.requestInput()`
@@ -294,9 +294,9 @@ A connector is complete when ALL of these hold:
 
 To submit the connector upstream:
 
-1. Ensure all validation passes (Steps 3 and 5).
-2. Run `node scripts/register.cjs <company>/<name>-playwright.js` to add registry entry with checksums.
-3. The required files are:
+1. All validation passes (Steps 3 and 5).
+2. Run `node scripts/register.cjs <company>/<name>-playwright.js` to add the registry entry with checksums.
+3. Required files:
    - `<company>/<name>-playwright.js` -- connector script
    - `<company>/<name>-playwright.json` -- metadata
    - `schemas/<platform>.<scope>.json` -- one per scope

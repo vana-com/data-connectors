@@ -6,18 +6,18 @@ What to do with collected data. Each recipe starts from `~/.dataconnect/last-res
 
 ## User Profile Generation
 
-Synthesize a personalized profile that changes how your agent behaves.
+Build a profile from connected data that changes how your agent behaves.
 
 ### What to read
 
-- `*.profile` — identity, bio, settings. High signal, read first.
-- `*.memories` — saved context, preferences. High signal.
-- `*.conversations` — large. Sample 20-50 recent entries, don't read all of them.
-- `*.repositories`, `*.playlists`, `*.posts` — interests and activity patterns.
+- `*.profile` -- identity, bio, settings. High signal, read first.
+- `*.memories` -- saved context, preferences. High signal.
+- `*.conversations` -- large. Sample 20-50 recent entries, don't read all of them.
+- `*.repositories`, `*.playlists`, `*.posts` -- interests and activity patterns.
 
 ### Profile structure
 
-Target 2,000-4,000 characters. Every line should change agent behavior. Cut anything generic.
+Target 2,000-4,000 characters. Every line should change agent behavior. Cut generic filler.
 
 ```markdown
 # User Profile
@@ -58,18 +58,18 @@ Where to save:
 - **OpenClaw/Kimi:** `USER.md` in the agent's workspace
 - **Generic:** `~/.dataconnect/user-profile.md`
 
-When adding a new platform to an existing profile, merge — don't overwrite.
+When adding a new platform to an existing profile, merge. Don't overwrite.
 
 ---
 
 ## Personal Knowledge Base
 
-Turn conversations and memories into a searchable index.
+Extract facts from conversations and memories into a searchable index.
 
 ### Approach
 
 1. Read `*.conversations` and `*.memories` from the result.
-2. Extract discrete facts, preferences, and decisions — one per line.
+2. Extract discrete facts, preferences, and decisions. One per line.
 3. Group by topic (work, health, finance, hobbies, etc.).
 4. Store in a format your agent can search: embeddings DB, markdown files, or structured JSON.
 
@@ -96,13 +96,13 @@ Turn conversations and memories into a searchable index.
 
 - Deduplicate across platforms. The same fact may appear in ChatGPT memories and LinkedIn profile.
 - Date-stamp entries so stale facts can be pruned.
-- Keep facts atomic — one claim per line, easy to update or delete.
+- Keep facts atomic. One claim per line, easy to update or delete.
 
 ---
 
 ## Data Backup & Export
 
-Export personal data into portable formats.
+Export personal data to portable formats.
 
 ### Flat JSON
 
@@ -138,7 +138,7 @@ cp ~/.dataconnect/last-result.json ~/backups/<platform>-$(date +%Y-%m-%d).json
 
 ## Cross-Platform Synthesis
 
-Combine data from multiple platforms into a unified view.
+Combine data from multiple platforms.
 
 ### Approach
 
@@ -156,7 +156,7 @@ Combine data from multiple platforms into a unified view.
 
 ### Tips
 
-- Look for contradictions. LinkedIn says "Python expert" but GitHub repos are all TypeScript — the profile should reflect reality.
+- Look for contradictions. LinkedIn says "Python expert" but GitHub repos are all TypeScript. The profile should reflect reality.
 - Weight recent activity higher than old data.
 - Note which platforms contributed which facts (provenance).
 
@@ -164,7 +164,7 @@ Combine data from multiple platforms into a unified view.
 
 ## Activity Analytics
 
-Analyze patterns in the collected data.
+Analyze patterns in collected data.
 
 ### Examples
 
@@ -190,7 +190,7 @@ Analyze patterns in the collected data.
 
 ### Output format
 
-Structure analytics as a brief summary the agent can reference:
+Structure analytics as a summary the agent can reference:
 
 ```markdown
 ## Activity Summary (GitHub, 2026-03-10)

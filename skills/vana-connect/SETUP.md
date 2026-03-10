@@ -1,4 +1,4 @@
-# Connect — Setup
+# Connect -- Setup
 
 Skip if `~/.dataconnect/playwright-runner/index.cjs` and `~/.dataconnect/run-connector.cjs` both exist.
 
