@@ -13,12 +13,22 @@ Playwright-based data connectors for [DataConnect](https://github.com/vana-com/d
 | Spotify | Spotify | playwright | spotify.profile, spotify.savedTracks, spotify.playlists |
 | YouTube | Google | playwright | youtube.profile, youtube.subscriptions, youtube.playlists, youtube.playlistItems, youtube.likes, youtube.watchLater, youtube.history (top 50 recent items) |
 
+## Running a connector
+
+```bash
+node run-connector.cjs ./github/github-playwright.js              # JSON output (for agents)
+node run-connector.cjs ./github/github-playwright.js --pretty      # colored output (for humans)
+node run-connector.cjs ./github/github-playwright.js --inputs '{"username":"x","password":"y"}'
+```
+
+See [`skills/vana-connect/`](skills/vana-connect/) for the full agent skill — setup, running, creating new connectors, and data recipes.
+
 ## Repository structure
 
 ```
-connectors/
+├── run-connector.cjs              # Connector runner (symlink)
 ├── registry.json                  # Central registry (checksums, versions)
-├── test-connector.cjs             # Standalone test runner (see Testing locally)
+├── skills/vana-connect/           # Agent skill (setup, create, run, recipes)
 ├── types/
 │   └── connector.d.ts             # TypeScript type definitions
 ├── schemas/                       # JSON schemas for exported data
