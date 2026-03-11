@@ -4,14 +4,10 @@ Build a data connector for a platform that isn't in the registry yet.
 
 ## Prerequisites
 
-Before starting, read these reference docs:
-
 - `reference/PAGE-API.md` -- full `page` object API
 - `reference/PATTERNS.md` -- data extraction approaches and code examples
 
-### Script paths
-
-All `node scripts/...` commands below refer to `skills/vana-connect/scripts/` in the data-connectors repo you cloned. Exception: `run-connector.cjs` is installed to `~/.dataconnect/run-connector.cjs` by SETUP.md — use that path when running connectors.
+All `node scripts/...` commands refer to `skills/vana-connect/scripts/` in the data-connectors repo. `run-connector.cjs` is at `~/.dataconnect/run-connector.cjs` (installed by SETUP.md).
 
 ## Connector Format
 
@@ -25,8 +21,6 @@ Scripts are plain JavaScript (CJS), no imports, no require. The runner injects a
 ```
 
 ## Reference Connectors
-
-Use existing connectors as models. Match the pattern closest to your target platform:
 
 | Platform   | Strategy           | Rung | Notes                                    |
 |------------|--------------------|------|------------------------------------------|
@@ -45,11 +39,11 @@ Look at existing connectors in `~/.dataconnect/connectors/` for working examples
 
 Map the platform's login flow, data APIs, and auth mechanism before writing code.
 
-**IMPORTANT: Do not make claims about how a platform works based on your training data or web search alone.** Platforms change their auth flows, API access, and page structure frequently. Your knowledge may be outdated. Always verify by inspecting the actual page (use `page.screenshot()` or navigate to the login page and examine the DOM) before telling the user anything about how login works or what options are available.
+### Verify by inspecting, not by guessing
+
+Navigate to the platform's login page and take a screenshot before writing any login code. List every login option visible on the page (email, Google, Apple, SSO, etc.) and ask the user which one they use. Your training data about a platform's auth flow may be outdated.
 
 ### Web search queries
-
-Run these (or similar) searches:
 
 - `"<platform> API endpoints"`, `"<platform> graphql endpoint"`
 - `"<platform> internal API"`, `"<platform> developer API"`
@@ -58,57 +52,28 @@ Run these (or similar) searches:
 
 ### What to identify
 
-- **Login URL** (e.g. `https://platform.com/login`)
-- **Available login methods** -- navigate to the actual login page and inspect it. Many platforms offer multiple options (email/password, Google, Apple, SSO). **List all available methods and ask the user which one they use.** Do not assume or hardcode a single method.
-- **Login form selectors** -- stable selectors for username, password, submit. Use `input[name="..."]`, `input[type="password"]`, `button[type="submit"]`. Note if login is multi-step.
-- **Logged-in indicator** -- a CSS selector or API response confirming auth. Becomes `connectSelector` in metadata.
+- **Login URL** and **available login methods** (inspect the actual page)
+- **Login form selectors** -- `input[name="..."]`, `input[type="password"]`, `button[type="submit"]`. Note multi-step flows.
+- **Logged-in indicator** -- CSS selector or API response confirming auth. Becomes `connectSelector` in metadata.
 - **Data endpoints** -- REST, GraphQL, or DOM targets
 - **Auth mechanism** -- cookies, CSRF tokens, bearer tokens, session storage
-- **Rate limits** -- throttling rules, if known
-- **Data categories** -- each becomes a `platform.scope` key (e.g. `reddit.profile`, `reddit.posts`)
+- **Data categories** -- each becomes a `platform.scope` key (e.g. `reddit.profile`)
 
 ### Extraction strategy
 
-Research the platform first, then pick the approach with the best user experience. See `reference/PATTERNS.md` for details and code examples.
-
-- **Browser login + in-page fetch** -- user logs in normally, connector calls the platform's API from the page context. Best when the API is same-origin.
-- **Browser login + httpFetch** -- user logs in, `closeBrowser()` extracts cookies, `httpFetch()` calls the API from Node.js. Best when the API is cross-origin (CORS).
-- **API key + httpFetch** -- user provides an API key via `requestInput`, no browser needed. Best when the platform supports it AND the user would prefer it over logging in.
-- **Network capture** -- intercept API responses during page load. Best for platforms that load data during bootstrap.
-- **DOM extraction** -- scrape the rendered page. Always works as a last resort.
-
-If unsure, try each approach (max 2 attempts) before moving to the next. The first test run will tell you what works.
+Pick the approach with the best user experience. See `reference/PATTERNS.md` for details and code examples. Max 2 attempts per approach before moving to the next.
 
 ---
 
-## Step 2 -- Scaffold the Connector
-
-Generate boilerplate:
+## Step 2 -- Scaffold and Implement
 
 ```bash
 node scripts/scaffold.cjs <platform> [company]
 ```
 
-This creates `{company}/{platform}-playwright.js`, `{company}/{platform}-playwright.json`, and a stub schema in `schemas/`. Edit these files to implement your connector.
-
-### Quality bar
-
-Connectors are shipped to all users, not just the person testing them. Before hardcoding any login flow or extraction path, ask: "would this work for a random user who has never talked to me?" Specifically:
-
-- **Support all common login methods.** If the platform offers email, Google, Apple, and SSO login, the connector should ask the user which method they use and handle each one. Do not hardcode the method that happens to work for your test user.
-- **Don't assume how a platform works.** Navigate to the actual login page and inspect it. Your training data may be wrong or outdated about a platform's auth flow.
-- **Clean the output.** DOM-extracted data often contains UI artifacts (`[edit]` links, `(edit profile)` text, whitespace from HTML formatting). The output should look like clean data, not a DOM dump.
-
 ### Auth pattern
 
-Connectors must support two credential sources:
-
-1. **`process.env`** -- for automated/CI runs. Convention: `USER_LOGIN_<PLATFORM_UPPER>` and `USER_PASSWORD_<PLATFORM_UPPER>`.
-2. **`page.requestInput()`** -- for interactive runs where env vars aren't set. This prompts the user through the agent.
-
-When the platform offers multiple login methods (email, Google, Apple, SSO), ask the user which one they use via `requestInput` before attempting login.
-
-Try env first, fall back to requestInput:
+Two credential sources: `process.env` (automated runs) and `page.requestInput()` (interactive). Try env first, fall back to requestInput. Include a `method` field when the platform has multiple login options:
 
 ```javascript
 let username = process.env.USER_LOGIN_PLATFORMNAME || '';
@@ -155,10 +120,10 @@ await page.evaluate(`document.querySelector('button[type="submit"]')?.click()`);
 await page.sleep(3000);
 ```
 
-**Platform-specific adaptations:**
+**Adaptations:**
 
-- **Multi-step login** (email page, then password page): split into two evaluate+sleep sequences with a navigation between them.
-- **React/Vue apps** that ignore `.value =`: use the `nativeInputValueSetter` pattern:
+- **Multi-step login**: split into two evaluate+sleep sequences with a navigation between.
+- **React/Vue apps** that ignore `.value =`: use the native setter pattern:
   ```javascript
   const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
     window.HTMLInputElement.prototype, 'value'
@@ -166,22 +131,15 @@ await page.sleep(3000);
   nativeInputValueSetter.call(input, ${loginStr});
   input.dispatchEvent(new Event('input', { bubbles: true }));
   ```
-- **2FA**: use `page.requestInput()` to ask for the code. CAPTCHA cannot be automated -- exit with a clear error.
+- **2FA**: use `page.requestInput()` to ask for the code.
 
 ### Key rules
 
-- **`page.evaluate()` takes a string**, not a function. Pass variables in via `JSON.stringify()`.
-- **No obfuscated CSS classes** (`.x1lliihq`, `.css-1dbjc4n`). Use ARIA roles, data attributes, semantic HTML.
-- **Clean DOM-extracted data.** The DOM contains UI affordances (edit buttons, action links), whitespace from HTML formatting, and layout artifacts. Strip these before returning data:
-  - Collapse whitespace: `.replace(/\s+/g, ' ').trim()`
-  - Remove UI text like `(edit)`, `[edit]`, `(edit profile)` that are interactive elements, not data
-  - Separate fields that the DOM combines (e.g., "Male, United States" is gender + location, not one field)
-  - Filter out navigation/action elements from lists (e.g., `[edit]` links mixed into shelf names)
-- **Rate-limit API calls** -- `page.sleep(300-1000)` between requests.
-- **Handle errors** -- check `resp.ok`, wrap fetches in try-catch, use `page.setData('error', ...)` for failures.
-- **Scoped result keys** -- `platform.scope` format (e.g. `spotify.playlists`).
-- **Report progress** -- `page.setProgress({ phase, message })` for long operations.
-- **Include exportSummary** -- `{ count, label, details }` in the result object.
+- `page.evaluate()` takes a string, not a function. Pass variables via `JSON.stringify()`.
+- Use ARIA roles, data attributes, semantic HTML for selectors. The validator flags obfuscated class names.
+- Rate-limit API calls with `page.sleep(300-1000)` between requests.
+- Use scoped result keys: `platform.scope` format (e.g. `spotify.playlists`).
+- Include `exportSummary: { count, label, details }` in the result.
 
 ### Page API quick reference
 
@@ -203,100 +161,37 @@ Full API: `reference/PAGE-API.md`
 
 ---
 
-## Step 3 -- Validate Structure
+## Step 3 -- Test
 
-Run the structural validator:
+Run the connector and validate in one step:
 
 ```bash
-node scripts/validate.cjs <company>/<name>-playwright.js
+node scripts/validate.cjs <company>/<name>-playwright.js && \
+  node ~/.dataconnect/run-connector.cjs <company>/<name>-playwright.js [start-url] && \
+  node scripts/validate.cjs <company>/<name>-playwright.js --check-result ~/.dataconnect/last-result.json
 ```
 
-This checks metadata fields, script patterns (IIFE, login detection, evaluate syntax, scoped keys), and schema files.
+The validator checks structure, output quality, debug code, data cleanliness, schema descriptions, and login method diversity. Fix all reported issues and re-run.
 
-Fix all errors before testing. Re-run after each fix until `"valid": true`.
+If an extraction approach fails after 2 attempts, move to the next rung (see `reference/PATTERNS.md`). Use `page.screenshot()` to see what the browser shows.
 
 ---
 
-## Step 4 -- Test and Validate Output
+## Step 4 -- Enrich Schemas
 
-Run the connector, then validate the output in one go:
+Schemas are an API contract — app developers build against them.
 
-```bash
-node ~/.dataconnect/run-connector.cjs <company>/<name>-playwright.js [start-url] && node scripts/validate.cjs <company>/<name>-playwright.js --check-result ~/.dataconnect/last-result.json
-```
-
-To pre-supply credentials:
-
-```bash
-node ~/.dataconnect/run-connector.cjs <company>/<name>-playwright.js --inputs '{"username":"x","password":"y"}' && node scripts/validate.cjs <company>/<name>-playwright.js --check-result ~/.dataconnect/last-result.json
-```
-
-**Exit codes for run-connector:** 0 = success, 1 = error, 2 = needs input (missing credentials), 3 = legacy auth (not batch-compatible).
-
-Output validation verifies:
-
-- All declared scopes are present and non-empty
-- Array fields have items
-- exportSummary has count, label, details
-- timestamp, version, platform metadata present
-- Data conforms to JSON schemas (type checking, required fields)
-
-All errors must pass before the connector is considered done.
-
----
-
-## Step 5 -- Iterate
-
-If testing or validation fails, fix and retry. **Maximum 2 attempts per extraction rung**, then move to the next rung (see `reference/PATTERNS.md`). If Rung 3 (DOM extraction) fails after 2 attempts, stop and ask for help.
-
-### Diagnosis guide
-
-| Symptom | Likely cause | Fix |
-|---------|-------------|-----|
-| Login failed | Wrong selectors, multi-step login not handled | Inspect form with `page.screenshot()`, try `nativeInputValueSetter` |
-| API returns 401/403 | Cross-origin auth, query allowlist, or missing CSRF | Move to next extraction rung (see PATTERNS.md) |
-| CORS / "Failed to fetch" | Platform blocks cross-origin API calls from page context | Move to Rung 2 or 3 |
-| Empty data | API response shape differs from expected | Log raw response with `page.setData('status', '[DEBUG] ' + JSON.stringify(raw))` |
-| Schema violations | Data shape mismatch | Fix schema or add a transform step |
-| Script crash | Missing await, null ref, bad evaluate string | Check for function refs in evaluate, null checks |
-| Timeout (5 min) | Infinite loop or missing await | Add progress logging to find where it stalls |
-
-### Debugging tips
-
-- Use `page.screenshot()` to see what the browser shows at any point.
-- Add `page.setData('status', '[DEBUG] ...')` to log intermediate values.
-- Test a single API call in isolation with `page.evaluate` + `fetch` before building the full flow.
-- Check that the platform's API doesn't require specific headers (CSRF, content-type, custom auth).
-
----
-
-## Step 6 -- Enrich Schemas
-
-Schemas are an API contract — app developers build against them. They must be meaningful, not just type stubs.
-
-### 6a. Generate the skeleton
+### Generate the skeleton
 
 ```bash
 node scripts/generate-schemas.cjs ~/.dataconnect/last-result.json <platform> [output-dir]
 ```
 
-This infers types and structure from actual data. It's a starting point, not a finished schema.
+### Enrich from what you know
 
-### 6b. Enrich from what you know
-
-You have three inputs: the platform's API docs, the actual scraped data (potentially hundreds of records), and your own understanding. Use all three:
-
-1. **Add `description` to every field.** What does this field contain? What's it useful for? A downstream developer should understand the data model without reading the connector code.
-
-2. **Fix `required` fields.** Only mark fields as required if the platform guarantees them for all users. Scan the actual output — if a field is null/missing for some records, it's optional. Don't mark everything required just because your test user had it.
-
-3. **Add `format` hints** where applicable: `"format": "date-time"` for ISO timestamps, `"format": "uri"` for URLs, `"format": "email"` for emails.
-
-4. **Use `additionalProperties: true`** (or omit it). Platforms add new fields over time. Strict `additionalProperties: false` breaks consumers when a platform adds a field. Only use `false` when the schema is the complete, known shape.
-
-5. **Write a meaningful top-level `description`.** Not "GitHub profile data" — "GitHub user profile including bio, follower counts, and repository statistics. Used by apps to display identity and activity summary."
-
-### Example: before and after
+- Add `description` to every field and `format` hints where applicable (`date-time`, `uri`, `email`). The validator checks description coverage.
+- Mark fields `required` only if guaranteed for all users. Use `additionalProperties: true`.
+- Write a meaningful top-level `description` — not "GitHub profile data" but "GitHub user profile including bio, follower counts, and repository statistics."
 
 Before (from `generate-schemas.cjs`):
 ```json
@@ -310,52 +205,11 @@ After (enriched):
 
 ---
 
-## Step 7 -- Register
-
-Add the connector to the registry with checksums:
+## Step 5 -- Register and Contribute
 
 ```bash
 node scripts/register.cjs <company>/<name>-playwright.js
+node scripts/validate.cjs <company>/<name>-playwright.js --contribute
 ```
 
-This computes `sha256` checksums for the script and metadata, then adds an entry to `registry.json`.
-
----
-
-## Success Criteria
-
-A connector is complete when all of these hold:
-
-### Automated checks (validator handles these)
-
-- [ ] Metadata JSON has all required fields (id, version, name, company, description, connectURL, connectSelector, runtime, scopes)
-- [ ] `node scripts/validate.cjs` exits 0 (structure valid)
-- [ ] `node ~/.dataconnect/run-connector.cjs` completes without errors
-- [ ] `node scripts/validate.cjs --check-result` exits 0 (output valid)
-- [ ] All declared scopes produce non-empty, schema-compliant data
-- [ ] No hardcoded secrets (validator scans for these)
-
-### Quality review (you must check these before contributing)
-
-These cannot be automated. Review the connector yourself before offering to contribute:
-
-- [ ] **All common login methods supported.** If the platform has email, Google, Apple, SSO — the connector asks the user which one and handles each. Not just the one you tested with.
-- [ ] **Login error handling.** Script detects failed login and gives a clear error, not a silent failure or crash.
-- [ ] **2FA support** via `page.requestInput()` (if the platform uses it).
-- [ ] **No debug code.** Remove `[DEBUG]` log statements, diagnostic screenshots, commented-out experiments.
-- [ ] **Clean data.** Output contains no UI artifacts (`[edit]`, `(edit profile)`), collapsed whitespace, or HTML formatting. Fields are properly separated (e.g., gender and location aren't mashed into one field).
-- [ ] **Schemas are enriched.** Every field has a `description`. `required` only includes fields guaranteed for all users. Format hints (`date-time`, `uri`, `email`) are present where applicable.
-- [ ] **exportSummary is accurate.** Count and details reflect the actual data collected.
-
----
-
-## Contributing Back
-
-**Only after both automated checks AND the quality review above pass**, offer to contribute.
-
-To contribute:
-
-1. Run `node scripts/register.cjs <company>/<name>-playwright.js` to add the registry entry.
-2. Run `node scripts/validate.cjs <company>/<name>-playwright.js --contribute`
-
-This scans for hardcoded secrets, creates a branch, commits the connector + schemas + registry entry, and opens a PR. Requires `gh` CLI (preferred) or git credentials.
+The validator runs all checks including secret scanning before creating a PR. All checks must pass — the validator is the quality gate.

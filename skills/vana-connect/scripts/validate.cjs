@@ -358,6 +358,34 @@ function validateScript(scriptPath, check) {
       : 'No scoped result keys (platform.scope) found — new connectors should use scoped keys like "platform.scope"',
     scopeKeys.size > 0 ? 'error' : 'warning');
 
+  // Debug code detection
+  const debugPatterns = [
+    { re: /\[DEBUG\]/g, name: 'DEBUG tags' },
+    { re: /console\.log\s*\(/g, name: 'console.log statements' },
+  ];
+  const debugFindings = [];
+  for (const { re, name } of debugPatterns) {
+    const matches = script.match(re);
+    if (matches) debugFindings.push(`${matches.length} ${name}`);
+  }
+  check('script_no_debug_code', debugFindings.length === 0,
+    debugFindings.length === 0
+      ? 'No debug code detected'
+      : `Debug code found: ${debugFindings.join(', ')}. Remove before contributing.`);
+
+  // Login method diversity (browser-login connectors only)
+  if (!isApiKeyPattern) {
+    const hasMethodField = /method|loginMethod|login_method|signInMethod/i.test(script) &&
+      hasRequestInput;
+    const hasMultipleLoginPaths = (script.match(/google|apple|sso|oauth|saml|amazon/gi) || []).length >= 2;
+    check('script_multiple_login_methods',
+      hasMethodField || hasMultipleLoginPaths,
+      hasMethodField || hasMultipleLoginPaths
+        ? 'Supports multiple login methods'
+        : 'Only one login method detected. If the platform offers multiple options (email, Google, Apple, SSO), ask the user which one they use.',
+      'warning');
+  }
+
   return script;
 }
 
@@ -402,6 +430,24 @@ function validateSchemas(metadata, connectorDir, check) {
             metaErrors.length === 0
               ? `Schema is well-formed JSON Schema`
               : `Schema structure errors: ${metaErrors.slice(0, 5).join('; ')}${metaErrors.length > 5 ? ` (+${metaErrors.length - 5} more)` : ''}`);
+
+          // Check description coverage
+          const missingDescs = [];
+          (function walkDescs(s, prefix) {
+            if (s.properties) {
+              for (const [key, prop] of Object.entries(s.properties)) {
+                const p = prefix ? `${prefix}.${key}` : key;
+                if (!prop.description) missingDescs.push(p);
+                if (prop.type === 'object' && prop.properties) walkDescs(prop, p);
+                if (prop.type === 'array' && prop.items?.properties) walkDescs(prop.items, `${p}[]`);
+              }
+            }
+          })(schema.schema, '');
+          check(`schema_descriptions_${scopeName}`,
+            missingDescs.length === 0,
+            missingDescs.length === 0
+              ? 'All schema fields have descriptions'
+              : `${missingDescs.length} field(s) missing description: ${missingDescs.slice(0, 5).join(', ')}${missingDescs.length > 5 ? ` (+${missingDescs.length - 5} more)` : ''}`);
         }
       } catch (e) {
         check(`schema_json_${scopeName}`, false, `Schema is not valid JSON: ${e.message}`);
@@ -499,6 +545,38 @@ function validateOutput(resultPath, metadata, connectorDir, check) {
     } catch (e) {
       check(`result_schema_${key}`, false, `Schema validation error: ${e.message}`, 'warning');
     }
+  }
+
+  // UI artifact scanning — detect DOM leftovers in result data
+  const artifactPatterns = [
+    { re: /\[edit\]/i, name: '[edit]' },
+    { re: /\(edit profile\)/i, name: '(edit profile)' },
+    { re: /\(edit\)/i, name: '(edit)' },
+    { re: /\n\s{4,}/g, name: 'excessive whitespace' },
+  ];
+  function scanForArtifacts(obj, objPath) {
+    const findings = [];
+    if (typeof obj === 'string') {
+      for (const { re, name } of artifactPatterns) {
+        if (re.test(obj)) findings.push(`${objPath}: contains "${name}"`);
+      }
+    } else if (Array.isArray(obj)) {
+      for (let i = 0; i < Math.min(obj.length, 10); i++) {
+        findings.push(...scanForArtifacts(obj[i], `${objPath}[${i}]`));
+      }
+    } else if (obj && typeof obj === 'object') {
+      for (const [k, v] of Object.entries(obj)) {
+        findings.push(...scanForArtifacts(v, objPath ? `${objPath}.${k}` : k));
+      }
+    }
+    return findings;
+  }
+  for (const key of scopedKeys) {
+    const artifacts = scanForArtifacts(result[key], key);
+    check(`result_clean_data_${key}`, artifacts.length === 0,
+      artifacts.length === 0
+        ? `${key}: data is clean (no UI artifacts)`
+        : `${key}: found ${artifacts.length} UI artifact(s): ${artifacts.slice(0, 3).join('; ')}${artifacts.length > 3 ? ` (+${artifacts.length - 3} more)` : ''}`);
   }
 
   // Sanity check: if we expected scopes from metadata, check they all appeared

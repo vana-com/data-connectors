@@ -53,7 +53,7 @@ node ~/.dataconnect/run-connector.cjs <connector-path> [start-url] --inputs '{"u
 | `result` | Data saved to `resultPath` | Read the file |
 | `error` | Failure | Report to user |
 
-**Exit codes:** 0 = success, 2 = needs input, 3 = legacy auth, 1 = error.
+Exit codes: 0 = success, 2 = needs input, 3 = legacy auth, 1 = error.
 
 ### 4. Handle auth
 
@@ -76,9 +76,7 @@ node ~/.dataconnect/run-connector.cjs <connector-path> [start-url] --inputs '{"u
    node ~/.dataconnect/run-connector.cjs <connector-path> --inputs '{"username":"x","password":"y"}'
    ```
 
-**TOTP codes expire in ~30 seconds.** Write the response file immediately after receiving a code.
-
-**Sessions persist.** Cookies saved in browser profiles last days to weeks.
+TOTP codes expire in ~30 seconds — write the response file immediately after receiving a code. Cookies saved in browser profiles persist for days to weeks.
 
 #### Legacy connectors
 
@@ -92,19 +90,19 @@ Exit code 3 means the connector uses `showBrowser`/`promptUser` instead of `requ
 
 On success, collected data is at the output path (default: `~/.dataconnect/last-result.json`). Read the file and summarize for the user in human terms (see "Communicating with the user" below).
 
-**If you built a new connector** (not one from the registry), before offering to contribute, review the connector against the **Quality review** checklist in `CREATE.md > Success Criteria`. Fix any issues first — remove debug code, support all login methods, clean the data, enrich schemas. The connector must be production-quality before contribution, not "works for this one test."
-
-Then run validation:
+If you built a new connector, run validation to check quality:
 
 ```bash
 node scripts/validate.cjs <company>/<name>-playwright.js --check-result ~/.dataconnect/last-result.json
 ```
 
-If validation passes and the quality review is clean, ask the user:
+Fix any issues the validator reports before offering to contribute. The validator checks debug code, login method diversity, schema descriptions, data cleanliness, and more — it is the quality gate.
+
+When validation passes, ask the user:
 
 > "Want to share this connector so others can connect their [Platform] data too? Contributing means the community helps maintain it when [Platform] changes their site."
 
-If yes, run `node scripts/validate.cjs <company>/<name>-playwright.js --contribute`. If no, move on. Do not ask again.
+If yes, run `node scripts/validate.cjs <company>/<name>-playwright.js --contribute`. If no, move on.
 
 ### 6. Suggest what to do with the data
 

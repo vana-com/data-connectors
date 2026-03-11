@@ -266,17 +266,13 @@ const mediaResp = await page.getCapturedResponse('media');
 
 ### Selector strategy (critical):
 
-**DO use:**
+Use ARIA roles, data attributes, semantic HTML, and tag structure for selectors. The validator flags obfuscated class names.
+
 - Tag structure: `main > section`, `h2`, `p`
 - ARIA roles: `[role="main"]`, `[aria-label*="repositories"]`
 - Data attributes: `[data-testid="profile-name"]`, `[itemprop="name"]`
 - Semantic HTML: `nav`, `article`, `header`, `aside`
 - Text content matching via JS
-
-**DO NOT use:**
-- Obfuscated class names: `.x1lliihq`, `.css-1dbjc4n`
-- Frequently-changing class names: `.feed-shared-update-v2__description`
-- Framework-generated IDs: `#react-root-0-3-1`
 
 ### Implementation:
 
