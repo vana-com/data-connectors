@@ -7,7 +7,21 @@ Skip if `~/.dataconnect/playwright-runner/index.cjs` and `~/.dataconnect/run-con
 - Node.js v18+
 - Git
 
-## Install playwright-runner + Chromium
+## Install
+
+Run the setup script from the data-connectors repo root:
+
+```bash
+bash skills/vana-connect/scripts/setup.sh
+```
+
+This installs the playwright-runner, Chromium, and run-connector.cjs in a single step. If the user needs to approve commands, this is one approval instead of many.
+
+**Before running**, tell the user: setup will download a browser engine and some Node.js dependencies into `~/.dataconnect/`. This is a one-time step.
+
+## Manual install
+
+If the setup script doesn't work for your environment, follow these steps individually:
 
 ```bash
 mkdir -p ~/.dataconnect/connectors
@@ -19,12 +33,10 @@ cd _data-connect && git sparse-checkout set playwright-runner
 cp -r playwright-runner ../playwright-runner
 cd .. && rm -rf _data-connect
 cd ~/.dataconnect/playwright-runner && npm install
-npx playwright install --with-deps chromium
+npx playwright install chromium
 ```
 
-## Install run-connector.cjs
-
-Copy from the skill's `scripts/` directory — this is in the same `data-connectors` repo you cloned to read this skill. The path relative to the repo root is `skills/vana-connect/scripts/run-connector.cjs`.
+Then copy run-connector.cjs from the skill's scripts/ directory:
 
 ```bash
 cp skills/vana-connect/scripts/run-connector.cjs ~/.dataconnect/run-connector.cjs

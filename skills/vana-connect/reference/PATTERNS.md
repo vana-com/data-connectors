@@ -380,6 +380,32 @@ if (!probe._failed) {
 
 ---
 
+## Platform Characteristics That Affect Strategy
+
+### WebSocket-based SPAs
+
+Some platforms (e.g., real-time collaboration tools, project management apps) load data over **WebSocket** after the initial page render, not via HTTP fetch calls. This has major implications:
+
+- **`captureNetwork` captures nothing** — network capture only intercepts HTTP requests, not WebSocket frames.
+- **In-page `fetch()` won't find same-origin API endpoints** — the platform may not have REST/GraphQL endpoints accessible from the browser page context at all.
+- **`httpFetch` with extracted cookies often fails** — if the API is behind Cloudflare or similar bot protection, cookies are bound to the browser's TLS context and won't replay from Node.js.
+
+**How to detect:** After login, open DevTools Network tab and filter by WS/WebSocket. If the app loads data over a WebSocket connection rather than XHR/fetch, you're dealing with this pattern.
+
+**What works:** API keys (if the platform offers them) or DOM extraction (Rung 3). The extraction ladder's Rungs 1–2 will fail — recognize the pattern early and skip to what works.
+
+### Cloudflare-protected APIs
+
+Some platforms use Cloudflare (or similar CDN/bot protection) that binds session cookies to the browser's TLS fingerprint. Symptoms:
+
+- Browser login works fine, cookies are extracted successfully
+- `httpFetch` with those cookies returns 401/403
+- The same cookies work in the browser but not from Node.js
+
+**What works:** In-page `fetch()` (if same-origin), API keys, or DOM extraction. The `closeBrowser()` + `httpFetch()` strategy is non-viable for these platforms.
+
+---
+
 ## Common Patterns
 
 ### Login detection:

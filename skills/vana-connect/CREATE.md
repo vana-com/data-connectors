@@ -188,7 +188,7 @@ Full API: `reference/PAGE-API.md`
 Run the structural validator:
 
 ```bash
-node scripts/validate-connector.cjs <company>/<name>-playwright.js
+node scripts/validate.cjs <company>/<name>-playwright.js
 ```
 
 This checks metadata fields, script patterns (IIFE, login detection, evaluate syntax, scoped keys), and schema files.
@@ -197,35 +197,23 @@ Fix all errors before testing. Re-run after each fix until `"valid": true`.
 
 ---
 
-## Step 4 -- Test
+## Step 4 -- Test and Validate Output
 
-Run the connector headless via `run-connector.cjs`:
-
-```bash
-node ~/.dataconnect/run-connector.cjs <company>/<name>-playwright.js [start-url]
-```
-
-To pre-supply credentials without env vars:
+Run the connector, then validate the output in one go:
 
 ```bash
-node ~/.dataconnect/run-connector.cjs <company>/<name>-playwright.js --inputs '{"username":"x","password":"y"}'
+node ~/.dataconnect/run-connector.cjs <company>/<name>-playwright.js [start-url] && node scripts/validate.cjs <company>/<name>-playwright.js --check-result ~/.dataconnect/last-result.json
 ```
 
-**Exit codes:** 0 = success, 1 = error, 2 = needs input (missing credentials), 3 = legacy auth (not batch-compatible).
-
-On success, the result is written to `~/.dataconnect/last-result.json`.
-
----
-
-## Step 5 -- Validate Output
-
-Check that the collected data is correct:
+To pre-supply credentials:
 
 ```bash
-node scripts/validate-connector.cjs <company>/<name>-playwright.js --check-result ~/.dataconnect/last-result.json
+node ~/.dataconnect/run-connector.cjs <company>/<name>-playwright.js --inputs '{"username":"x","password":"y"}' && node scripts/validate.cjs <company>/<name>-playwright.js --check-result ~/.dataconnect/last-result.json
 ```
 
-This verifies:
+**Exit codes for run-connector:** 0 = success, 1 = error, 2 = needs input (missing credentials), 3 = legacy auth (not batch-compatible).
+
+Output validation verifies:
 
 - All declared scopes are present and non-empty
 - Array fields have items
@@ -237,7 +225,7 @@ All errors must pass before the connector is considered done.
 
 ---
 
-## Step 6 -- Iterate
+## Step 5 -- Iterate
 
 If testing or validation fails, fix and retry. **Maximum 2 attempts per extraction rung**, then move to the next rung (see `reference/PATTERNS.md`). If Rung 3 (DOM extraction) fails after 2 attempts, stop and ask for help.
 
@@ -262,11 +250,11 @@ If testing or validation fails, fix and retry. **Maximum 2 attempts per extracti
 
 ---
 
-## Step 7 -- Enrich Schemas
+## Step 6 -- Enrich Schemas
 
 Schemas are an API contract — app developers build against them. They must be meaningful, not just type stubs.
 
-### 7a. Generate the skeleton
+### 6a. Generate the skeleton
 
 ```bash
 node scripts/generate-schemas.cjs ~/.dataconnect/last-result.json <platform> [output-dir]
@@ -274,7 +262,7 @@ node scripts/generate-schemas.cjs ~/.dataconnect/last-result.json <platform> [ou
 
 This infers types and structure from actual data. It's a starting point, not a finished schema.
 
-### 7b. Enrich from what you know
+### 6b. Enrich from what you know
 
 You have three inputs: the platform's API docs, the actual scraped data (potentially hundreds of records), and your own understanding. Use all three:
 
@@ -302,7 +290,7 @@ After (enriched):
 
 ---
 
-## Step 8 -- Register
+## Step 7 -- Register
 
 Add the connector to the registry with checksums:
 
@@ -322,9 +310,9 @@ A connector is complete when all of these hold:
 - [ ] Script tries `process.env` credentials first, falls back to `page.requestInput()`
 - [ ] Script handles login failure with a clear error message
 - [ ] Script handles 2FA via `page.requestInput()` (if the platform uses it)
-- [ ] `node scripts/validate-connector.cjs` exits 0 (structure valid)
+- [ ] `node scripts/validate.cjs` exits 0 (structure valid)
 - [ ] `node ~/.dataconnect/run-connector.cjs` completes without errors
-- [ ] `node scripts/validate-connector.cjs --check-result` exits 0 (output valid)
+- [ ] `node scripts/validate.cjs --check-result` exits 0 (output valid)
 - [ ] All declared scopes produce non-empty, schema-compliant data
 - [ ] exportSummary has accurate count and details
 
@@ -339,6 +327,6 @@ After validation passes, the validator will prompt:
 To contribute:
 
 1. Run `node scripts/register.cjs <company>/<name>-playwright.js` to add the registry entry.
-2. Run `node scripts/validate-connector.cjs <company>/<name>-playwright.js --contribute`
+2. Run `node scripts/validate.cjs <company>/<name>-playwright.js --contribute`
 
 This scans for hardcoded secrets, creates a branch, commits the connector + schemas + registry entry, and opens a PR. Requires `gh` CLI (preferred) or git credentials.

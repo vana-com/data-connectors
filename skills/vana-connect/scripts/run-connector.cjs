@@ -24,6 +24,12 @@ const path = require('path');
 const os = require('os');
 
 const homedir = os.homedir();
+// File-based IPC for requestInput: when --inputs can't satisfy a request,
+// write a pending-input file and poll for a response file. This keeps the
+// connector alive while the caller (agent, Tauri app, etc.) collects user input.
+// Callers should write to input-response.json.tmp first, then rename atomically.
+const PENDING_INPUT_PATH = path.join(homedir, '.dataconnect', 'pending-input.json');
+const INPUT_RESPONSE_PATH = path.join(homedir, '.dataconnect', 'input-response.json');
 
 // ─── Arg parsing ─────────────────────────────────────────────
 
@@ -125,6 +131,10 @@ function resolveRunnerDir() {
 
 // ─── Main ────────────────────────────────────────────────────
 
+// Clean up stale IPC files from a previous crash
+try { fs.unlinkSync(PENDING_INPUT_PATH); } catch {}
+try { fs.unlinkSync(INPUT_RESPONSE_PATH); } catch {}
+
 const resolvedRunnerDir = resolveRunnerDir();
 const runId = 'run-' + Date.now();
 
@@ -196,18 +206,58 @@ function handleMessage(msg) {
           type: 'input-response', runId, requestId, data,
         }) + '\n');
       } else {
-        const previouslyConsumed = [...consumedFields];
-        emit({
-          type: 'need-input',
+        // Write pending-input file and poll for response (file-based IPC).
+        // This keeps the connector alive while the caller collects user input.
+        const pendingInput = {
+          requestId,
           message: payload?.message || 'Input required',
           schema: schema || {},
-          ...(previouslyConsumed.length > 0 && { previousInputs: previouslyConsumed }),
+          previousInputs: [...consumedFields],
+          timestamp: new Date().toISOString(),
+        };
+        fs.writeFileSync(PENDING_INPUT_PATH, JSON.stringify(pendingInput, null, 2));
+
+        emit({
+          type: 'need-input',
+          message: pendingInput.message,
+          schema: pendingInput.schema,
+          pendingInputPath: PENDING_INPUT_PATH,
+          responseInputPath: INPUT_RESPONSE_PATH,
+          ...(consumedFields.size > 0 && { previousInputs: pendingInput.previousInputs }),
         });
-        runner.stdin.write(JSON.stringify({
-          type: 'input-response', runId, requestId,
-          error: 'No pre-supplied input available',
-        }) + '\n');
-        quitAndExit(2);
+
+        // Poll for response file (check every 1s, timeout matches global 5min timeout)
+        const pollForResponse = () => {
+          const poll = setInterval(() => {
+            if (fs.existsSync(INPUT_RESPONSE_PATH)) {
+              clearInterval(poll);
+              try {
+                const response = JSON.parse(fs.readFileSync(INPUT_RESPONSE_PATH, 'utf-8'));
+                // Clean up IPC files
+                try { fs.unlinkSync(INPUT_RESPONSE_PATH); } catch {}
+                try { fs.unlinkSync(PENDING_INPUT_PATH); } catch {}
+
+                // Track consumed fields
+                if (response && typeof response === 'object') {
+                  for (const f of Object.keys(response)) consumedFields.add(f);
+                }
+
+                runner.stdin.write(JSON.stringify({
+                  type: 'input-response', runId, requestId, data: response,
+                }) + '\n');
+              } catch (e) {
+                // Bad JSON in response file — send error to connector
+                try { fs.unlinkSync(INPUT_RESPONSE_PATH); } catch {}
+                try { fs.unlinkSync(PENDING_INPUT_PATH); } catch {}
+                runner.stdin.write(JSON.stringify({
+                  type: 'input-response', runId, requestId,
+                  error: 'Invalid response file: ' + e.message,
+                }) + '\n');
+              }
+            }
+          }, 1000);
+        };
+        pollForResponse();
       }
       break;
     }

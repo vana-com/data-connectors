@@ -7,8 +7,8 @@
  * Returns machine-readable JSON for use by automated agents in the create-test-validate loop.
  *
  * Usage:
- *   node scripts/validate-connector.cjs <connector.js>
- *   node scripts/validate-connector.cjs <connector.js> --check-result ./connector-result.json
+ *   node scripts/validate.cjs <connector.js>
+ *   node scripts/validate.cjs <connector.js> --check-result ./connector-result.json
  *
  * Exit codes:
  *   0 = all checks passed
@@ -115,6 +115,71 @@ function validateAgainstSchema(data, schema, prefix = '') {
   return errors;
 }
 
+// ─── Schema Meta-Validation ─────────────────────────────────
+// Checks that a JSON Schema object is itself well-formed (no ajv dependency).
+
+const VALID_TYPES = new Set(['string', 'number', 'integer', 'boolean', 'array', 'object', 'null']);
+const VALID_FORMATS = new Set([
+  'date-time', 'date', 'time', 'email', 'uri', 'uri-reference',
+  'hostname', 'ipv4', 'ipv6', 'uuid', 'regex',
+]);
+
+function validateSchemaShape(schema, prefix = 'schema') {
+  const errors = [];
+  if (typeof schema !== 'object' || schema === null || Array.isArray(schema)) {
+    errors.push(`${prefix}: must be an object`);
+    return errors;
+  }
+
+  if (schema.type !== undefined) {
+    const types = Array.isArray(schema.type) ? schema.type : [schema.type];
+    for (const t of types) {
+      if (!VALID_TYPES.has(t)) {
+        errors.push(`${prefix}.type: invalid type "${t}" (expected one of: ${[...VALID_TYPES].join(', ')})`);
+      }
+    }
+  }
+
+  if (schema.properties !== undefined) {
+    if (typeof schema.properties !== 'object' || Array.isArray(schema.properties)) {
+      errors.push(`${prefix}.properties: must be an object`);
+    } else {
+      for (const [key, val] of Object.entries(schema.properties)) {
+        errors.push(...validateSchemaShape(val, `${prefix}.properties.${key}`));
+      }
+    }
+  }
+
+  if (schema.items !== undefined) {
+    if (schema.type && schema.type !== 'array') {
+      errors.push(`${prefix}: "items" is only valid for type "array", got type "${schema.type}"`);
+    }
+    if (typeof schema.items === 'object' && !Array.isArray(schema.items)) {
+      errors.push(...validateSchemaShape(schema.items, `${prefix}.items`));
+    }
+  }
+
+  if (schema.type === 'array' && schema.items === undefined) {
+    errors.push(`${prefix}: type "array" should have "items" defining the element schema`);
+  }
+
+  if (schema.required !== undefined) {
+    if (!Array.isArray(schema.required)) {
+      errors.push(`${prefix}.required: must be an array`);
+    }
+  }
+
+  if (schema.format !== undefined && !VALID_FORMATS.has(schema.format)) {
+    errors.push(`${prefix}.format: unknown format "${schema.format}" (known: ${[...VALID_FORMATS].join(', ')})`);
+  }
+
+  if (schema.enum !== undefined && !Array.isArray(schema.enum)) {
+    errors.push(`${prefix}.enum: must be an array`);
+  }
+
+  return errors;
+}
+
 // ─── Metadata Validation ────────────────────────────────────
 
 function validateMetadata(metadataPath, check) {
@@ -204,11 +269,11 @@ function validateScript(scriptPath, check) {
         : 'Does not read credentials from process.env — automated login requires USER_LOGIN_<PLATFORM> and USER_PASSWORD_<PLATFORM>',
       'warning');
 
-    const hasFormFill = /\.value\s*=|nativeInputValueSetter/i.test(script);
+    const hasFormFill = /\.value\s*=|getOwnPropertyDescriptor\s*\(\s*(?:window\.)?HTMLInputElement\.prototype/i.test(script);
     check('script_automated_form_fill',
       hasFormFill,
       hasFormFill
-        ? 'Has automated form fill logic (sets input values)'
+        ? 'Has automated form fill logic (sets input values or native setter)'
         : 'No automated form fill detected — connector may require manual login',
       hasEnvCredentials ? 'error' : 'warning');
 
@@ -328,6 +393,16 @@ function validateSchemas(metadata, connectorDir, check) {
           hasStructure
             ? `Schema has required fields (name, scope, schema)`
             : 'Schema missing required top-level fields (name, scope, schema)');
+
+        // Meta-validate the inner schema object
+        if (schema.schema) {
+          const metaErrors = validateSchemaShape(schema.schema);
+          check(`schema_valid_${scopeName}`,
+            metaErrors.length === 0,
+            metaErrors.length === 0
+              ? `Schema is well-formed JSON Schema`
+              : `Schema structure errors: ${metaErrors.slice(0, 5).join('; ')}${metaErrors.length > 5 ? ` (+${metaErrors.length - 5} more)` : ''}`);
+        }
       } catch (e) {
         check(`schema_json_${scopeName}`, false, `Schema is not valid JSON: ${e.message}`);
       }
@@ -565,9 +640,9 @@ function main() {
 Connector Validator — validates structure and output of data connectors.
 
 Usage:
-  node scripts/validate-connector.cjs <connector.js>
-  node scripts/validate-connector.cjs <connector.js> --check-result <result.json>
-  node scripts/validate-connector.cjs <connector.js> --contribute
+  node scripts/validate.cjs <connector.js>
+  node scripts/validate.cjs <connector.js> --check-result <result.json>
+  node scripts/validate.cjs <connector.js> --contribute
 
 Flags:
   --check-result <file>  Also validate connector output data
