@@ -38,7 +38,7 @@ curl -s "$BASE_URL/{script_path}" > ~/.dataconnect/connectors/{script_path}
 
 Before running, read the connector script to understand:
 - What URL it starts from (`page.goto()` or `connectURL` in metadata)
-- Whether it uses `requestInput` (batch-compatible) or `showBrowser`/`promptUser` (legacy)
+- Whether it uses `requestInput` (batch-compatible) or `showBrowser`/`promptUser` (browser login)
 - What data it collects
 
 ### 3. Run it

@@ -24,10 +24,13 @@ npx playwright install --with-deps chromium
 
 ## Install run-connector.cjs
 
+Copy from the skill's `scripts/` directory — this is in the same `data-connectors` repo you cloned to read this skill. The path relative to the repo root is `skills/vana-connect/scripts/run-connector.cjs`.
+
 ```bash
-curl -sL https://raw.githubusercontent.com/vana-com/data-connectors/main/skills/vana-connect/scripts/run-connector.cjs \
-  > ~/.dataconnect/run-connector.cjs
+cp skills/vana-connect/scripts/run-connector.cjs ~/.dataconnect/run-connector.cjs
 ```
+
+> **Do not** use `curl` to fetch this file from GitHub — the repo root contains a symlink that GitHub raw serves as a text pointer, not the actual script.
 
 ## Verify
 

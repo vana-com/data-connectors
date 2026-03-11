@@ -167,53 +167,69 @@ function validateScript(scriptPath, check) {
 
   const script = fs.readFileSync(scriptPath, 'utf-8');
 
+  // Detect connector pattern: API-key connectors use httpFetch + requestInput/env,
+  // browser-login connectors use showBrowser/promptUser/goto + evaluate
+  const hasHttpFetch = /page\.httpFetch/.test(script);
+  const hasRequestInput = /page\.requestInput/.test(script);
+  const hasCloseBrowser = /page\.closeBrowser/.test(script);
+  const isApiKeyPattern = hasHttpFetch && (hasRequestInput || /process\.env\.\w*(?:API|TOKEN|KEY)/i.test(script));
+
   // IIFE pattern
   check('script_iife',
     /\(async\s*\(\)\s*=>\s*\{/.test(script),
     'Uses async IIFE wrapper: (async () => { ... })()');
 
-  // Login detection
-  check('script_login_detection',
-    /checkLogin|isLoggedIn|loginStatus|login.*detect/i.test(script),
-    'Has login detection logic');
+  if (isApiKeyPattern) {
+    // API-key connector checks
+    check('script_api_key_input',
+      hasRequestInput || /process\.env/i.test(script),
+      'Has credential input (requestInput or process.env)');
+    check('script_close_browser', hasCloseBrowser,
+      hasCloseBrowser
+        ? 'Calls page.closeBrowser() before API calls'
+        : 'No page.closeBrowser() — browser resources may not be freed',
+      'warning');
+    check('script_http_fetch', true, 'Uses page.httpFetch() for API calls');
+  } else {
+    // Browser-login connector checks
+    check('script_login_detection',
+      /checkLogin|isLoggedIn|loginStatus|login.*detect/i.test(script),
+      'Has login detection logic');
 
-  // Automated login: reads credentials from process.env
-  const hasEnvCredentials = /process\.env\.USER_LOGIN|process\.env\.USER_PASSWORD/i.test(script);
-  check('script_env_credentials',
-    hasEnvCredentials,
-    hasEnvCredentials
-      ? 'Reads credentials from process.env (automated login)'
-      : 'Does not read credentials from process.env — automated login requires USER_LOGIN_<PLATFORM> and USER_PASSWORD_<PLATFORM>',
-    'warning');
+    const hasEnvCredentials = /process\.env\.USER_LOGIN|process\.env\.USER_PASSWORD/i.test(script);
+    check('script_env_credentials',
+      hasEnvCredentials,
+      hasEnvCredentials
+        ? 'Reads credentials from process.env (automated login)'
+        : 'Does not read credentials from process.env — automated login requires USER_LOGIN_<PLATFORM> and USER_PASSWORD_<PLATFORM>',
+      'warning');
 
-  // Automated login: fills form programmatically
-  const hasFormFill = /\.value\s*=|nativeInputValueSetter/i.test(script);
-  check('script_automated_form_fill',
-    hasFormFill,
-    hasFormFill
-      ? 'Has automated form fill logic (sets input values)'
-      : 'No automated form fill detected — connector may require manual login',
-    hasEnvCredentials ? 'error' : 'warning');
+    const hasFormFill = /\.value\s*=|nativeInputValueSetter/i.test(script);
+    check('script_automated_form_fill',
+      hasFormFill,
+      hasFormFill
+        ? 'Has automated form fill logic (sets input values)'
+        : 'No automated form fill detected — connector may require manual login',
+      hasEnvCredentials ? 'error' : 'warning');
 
-  // Manual login (legacy pattern — optional for auto-login connectors)
-  const hasShowBrowser = /page\.showBrowser/.test(script);
-  const hasPromptUser = /page\.promptUser/.test(script);
-  check('script_show_browser', hasShowBrowser,
-    hasShowBrowser
-      ? 'Has page.showBrowser() (manual login fallback)'
-      : 'No page.showBrowser() — OK if using automated login',
-    hasEnvCredentials ? 'warning' : 'error');
-  check('script_prompt_user', hasPromptUser,
-    hasPromptUser
-      ? 'Has page.promptUser() (manual login fallback)'
-      : 'No page.promptUser() — OK if using automated login',
-    hasEnvCredentials ? 'warning' : 'error');
+    const hasShowBrowser = /page\.showBrowser/.test(script);
+    const hasPromptUser = /page\.promptUser/.test(script);
+    check('script_show_browser', hasShowBrowser,
+      hasShowBrowser
+        ? 'Has page.showBrowser() (browser login)'
+        : 'No page.showBrowser() — OK if using automated login',
+      hasEnvCredentials ? 'warning' : 'error');
+    check('script_prompt_user', hasPromptUser,
+      hasPromptUser
+        ? 'Has page.promptUser() (browser login)'
+        : 'No page.promptUser() — OK if using automated login',
+      hasEnvCredentials ? 'warning' : 'error');
 
-  // Phase 2: Go headless
-  check('script_go_headless',
-    /page\.goHeadless/.test(script),
-    'Calls page.goHeadless() before data collection',
-    'warning');
+    check('script_go_headless',
+      /page\.goHeadless/.test(script),
+      'Calls page.goHeadless() before data collection',
+      'warning');
+  }
 
   // Result building
   check('script_set_result',

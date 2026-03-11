@@ -17,7 +17,6 @@ Scripts are plain JavaScript (CJS), no imports, no require. The runner injects a
 (async () => {
   // connector logic here
   await page.setData('result', { 'platform.scope': data });
-  return { success: true };
 })()
 ```
 
