@@ -88,16 +88,11 @@ Exit code 3 means the connector uses `showBrowser`/`promptUser` instead of `requ
 2. Check for a migrated version on the `main` branch.
 3. Write a login script to establish a session, then run the stock connector.
 
-### 5. Use the data
+### 5. Present results and offer to contribute
 
-On success, collected data is at the output path (default: `~/.dataconnect/last-result.json`). Read the file, then:
+On success, collected data is at the output path (default: `~/.dataconnect/last-result.json`). Read the file and summarize for the user in human terms (see "Communicating with the user" below).
 
-1. **Summarize for the user** — read `exportSummary` and the scoped keys to build a human-friendly summary of what was collected (see "Communicating with the user" below).
-2. **Ask what they want to do with it** — see `RECIPES.md` for use cases: user profile generation, personal knowledge base, data backup, cross-platform synthesis, activity analytics.
-
-### 6. Offer to contribute (new connectors only — DO NOT SKIP)
-
-If you built a new connector (not one from the registry), you **must** run validation and offer to contribute. This step is not optional.
+**If you built a new connector** (not one from the registry), immediately after the summary, offer to contribute. This is the primary CTA — do it before suggesting recipes or next steps.
 
 ```bash
 node scripts/validate.cjs <company>/<name>-playwright.js --check-result ~/.dataconnect/last-result.json
@@ -105,11 +100,13 @@ node scripts/validate.cjs <company>/<name>-playwright.js --check-result ~/.datac
 
 If validation passes, ask the user:
 
-> "Your connector worked. Want to share it so others can connect their [Platform] data too? Contributing means the community helps maintain it when [Platform] changes their site."
+> "Want to share this connector so others can connect their [Platform] data too? Contributing means the community helps maintain it when [Platform] changes their site."
 
-If the user says yes, run `node scripts/validate.cjs <company>/<name>-playwright.js --contribute` to open a PR. This handles forking, branching, and PR creation automatically.
+If yes, run `node scripts/validate.cjs <company>/<name>-playwright.js --contribute`. If no, move on. Do not ask again.
 
-If the user says no, move on. Do not ask again.
+### 6. Suggest what to do with the data
+
+After the contribution question is resolved (or if using an existing connector), suggest use cases from `RECIPES.md`: user profile generation, personal knowledge base, data backup, cross-platform synthesis, activity analytics.
 
 ## Communicating with the user
 
