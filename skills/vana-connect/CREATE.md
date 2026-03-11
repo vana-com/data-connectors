@@ -7,7 +7,7 @@ Build a data connector for a platform that isn't in the registry yet.
 Before starting, read these reference docs:
 
 - `reference/PAGE-API.md` -- full `page` object API
-- `reference/PATTERNS.md` -- extraction pattern examples (REST, network capture, DOM scraping)
+- `reference/PATTERNS.md` -- extraction ladder (in-page fetch → network capture → DOM extraction)
 
 ## Connector Format
 
@@ -25,14 +25,14 @@ Scripts are plain JavaScript (CJS), no imports, no require. The runner injects a
 
 Use existing connectors as models. Match the pattern closest to your target platform:
 
-| Platform   | Strategy         | Notes                                    |
-|------------|------------------|------------------------------------------|
-| Reddit     | REST API fetch   | OAuth-like endpoints, JSON responses     |
-| Twitter/X  | Network capture  | GraphQL via captureNetwork               |
-| Instagram  | REST + GraphQL   | Cookie auth, pagination                  |
-| LinkedIn   | REST API fetch   | Voyager API, CSRF token required         |
-| Notion     | REST API fetch   | Internal API, bearer token from cookies  |
-| Spotify    | REST API fetch   | Well-documented public API               |
+| Platform   | Strategy           | Rung | Notes                                    |
+|------------|--------------------|------|------------------------------------------|
+| Reddit     | In-page fetch      | 1    | OAuth-like endpoints, JSON responses     |
+| Twitter/X  | Network capture    | 2    | GraphQL via captureNetwork               |
+| Instagram  | In-page fetch      | 1    | Cookie auth, pagination                  |
+| LinkedIn   | In-page fetch      | 1    | Voyager API, CSRF token required         |
+| GitHub     | DOM extraction     | 3    | Server-rendered, no client API           |
+| Spotify    | In-page fetch      | 1    | Well-documented public API               |
 
 Look at existing connectors in `~/.dataconnect/connectors/` for working examples.
 
@@ -56,16 +56,20 @@ Run these (or similar) searches:
 - **Login URL** (e.g. `https://platform.com/login`)
 - **Login form selectors** -- stable selectors for username, password, submit. Use `input[name="..."]`, `input[type="password"]`, `button[type="submit"]`. Note if login is multi-step.
 - **Logged-in indicator** -- a CSS selector or API response confirming auth. Becomes `connectSelector` in metadata.
-- **Data endpoints** -- REST, GraphQL, or (last resort) DOM scraping
+- **Data endpoints** -- REST, GraphQL, or DOM targets
 - **Auth mechanism** -- cookies, CSRF tokens, bearer tokens, session storage
 - **Rate limits** -- throttling rules, if known
 - **Data categories** -- each becomes a `platform.scope` key (e.g. `reddit.profile`, `reddit.posts`)
 
-### Choose an extraction strategy (in preference order)
+### Extraction strategy
 
-1. **REST API fetch** -- platform has discoverable endpoints (most reliable)
-2. **Network capture** -- platform uses GraphQL/XHR during page navigation (use `page.captureNetwork`)
-3. **DOM scraping** -- no API, data only in rendered HTML (fragile, last resort)
+Do not commit to a strategy upfront. Instead, follow the **extraction ladder** in `reference/PATTERNS.md`:
+
+1. **Rung 1 (in-page fetch)** -- try a `fetch()` call from the page context. If it returns JSON, use it.
+2. **Rung 2 (network capture)** -- if Rung 1 fails (401, CORS), try `captureNetwork` before navigation.
+3. **Rung 3 (DOM extraction)** -- if Rungs 1-2 fail, extract data from the rendered page. This always works.
+
+Maximum 2 attempts per rung before moving on. The first test run will tell you which rung works.
 
 ---
 
@@ -228,14 +232,15 @@ All errors must pass before the connector is considered done.
 
 ## Step 6 -- Iterate
 
-If testing or validation fails, fix and retry. **Maximum 3 attempts** before stopping to ask for help.
+If testing or validation fails, fix and retry. **Maximum 2 attempts per extraction rung**, then move to the next rung (see `reference/PATTERNS.md`). If Rung 3 (DOM extraction) fails after 2 attempts, stop and ask for help.
 
 ### Diagnosis guide
 
 | Symptom | Likely cause | Fix |
 |---------|-------------|-----|
 | Login failed | Wrong selectors, multi-step login not handled | Inspect form with `page.screenshot()`, try `nativeInputValueSetter` |
-| API returns 401/403 | Missing CSRF token, wrong auth header | Check cookies/headers in network capture |
+| API returns 401/403 | Cross-origin auth, query allowlist, or missing CSRF | Move to next extraction rung (see PATTERNS.md) |
+| CORS / "Failed to fetch" | Platform blocks cross-origin API calls from page context | Move to Rung 2 or 3 |
 | Empty data | API response shape differs from expected | Log raw response with `page.setData('status', '[DEBUG] ' + JSON.stringify(raw))` |
 | Schema violations | Data shape mismatch | Fix schema or add a transform step |
 | Script crash | Missing await, null ref, bad evaluate string | Check for function refs in evaluate, null checks |

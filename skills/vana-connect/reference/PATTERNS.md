@@ -1,11 +1,11 @@
 # Data Extraction Patterns
 
-Three primary patterns for extracting data, in order of preference.
+Three extraction rungs, tried in order. Start at Rung 1. If it fails within 2 attempts, move to the next rung.
 
-## Pattern A: REST API Fetch (Preferred)
+## Rung 1: In-Page Fetch
 
-**Use when:** The platform has REST/JSON APIs accessible from a logged-in browser session.
-**Example:** LinkedIn, ChatGPT
+**Try first.** Use `fetch()` or `XMLHttpRequest` from `page.evaluate()` to call the platform's API with the browser's existing session cookies.
+**Example:** LinkedIn, ChatGPT, Spotify
 
 ### How to discover APIs:
 1. Open the platform in Chrome
@@ -78,6 +78,12 @@ const data = await page.evaluate(`
 `);
 ```
 
+**When to move on to Rung 2:**
+- `fetch()` returns 401/403 with `credentials: 'include'`
+- Response is HTML (login page redirect) instead of JSON
+- CORS error in browser console ("Failed to fetch", "blocked by CORS policy")
+- Auth token not found in cookies, localStorage, sessionStorage, or page source
+
 ### Parallel API calls:
 
 ```javascript
@@ -115,10 +121,10 @@ while (true) {
 
 ---
 
-## Pattern B: Network Capture
+## Rung 2: Network Capture
 
-**Use when:** Platform uses GraphQL/XHR that fires during page navigation. You want to capture the raw response.
-**Example:** Instagram, Spotify
+**Try if Rung 1 failed.** Register `captureNetwork` *before* navigating to intercept API responses during page bootstrap, before the app switches to WebSocket or other transports.
+**Example:** Instagram, Twitter/X
 
 ### Implementation:
 
@@ -164,12 +170,17 @@ const userResp = await page.getCapturedResponse('user');
 const mediaResp = await page.getCapturedResponse('media');
 ```
 
+**When to move on to Rung 3:**
+- `getCapturedResponse()` returns null after navigation + 5s wait
+- Captured data is not useful (only static config, not user data)
+- Platform uses a query allowlist (captured credentials can't make arbitrary API calls)
+
 ---
 
-## Pattern C: DOM Scraping (Fallback)
+## Rung 3: DOM Extraction
 
-**Use when:** No API available, data only exists in rendered HTML.
-**Example:** GitHub
+**The most reliable rung.** Navigate to pages and extract data from the rendered DOM. If data is visible in the browser, it can be scraped. Works regardless of auth mechanism, including WebSocket-based SPAs (Linear, Notion, Figma).
+**Example:** GitHub, Linear
 
 ### Selector strategy (critical):
 
@@ -238,31 +249,83 @@ while (pageNum <= maxPages) {
 
 ---
 
+## Putting It Together: The Extraction Ladder
+
+When building a new connector, try each rung in order. A single test call tells you whether to continue or move on.
+
+```javascript
+// Rung 1: try in-page fetch
+const probe = await page.evaluate(`
+  (async () => {
+    try {
+      const r = await fetch('/api/v1/me', { credentials: 'include' });
+      if (!r.ok) return { _failed: true, status: r.status };
+      const ct = r.headers.get('content-type') || '';
+      if (!ct.includes('json')) return { _failed: true, reason: 'not-json' };
+      return await r.json();
+    } catch(e) { return { _failed: true, error: e.message }; }
+  })()
+`);
+
+if (!probe._failed) {
+  // Rung 1 works -- use fetchApi pattern for all data collection
+} else {
+  // Rung 1 failed -- go to Rung 2 or 3
+
+  // Rung 2: captureNetwork (must be set up BEFORE navigating)
+  await page.captureNetwork({ key: 'api', urlPattern: 'api.platform.com' });
+  await page.goto('https://platform.com/dashboard');
+  await page.sleep(5000);
+  const captured = await page.getCapturedResponse('api');
+
+  if (captured && captured.data) {
+    // Rung 2 works -- use network capture pattern
+  } else {
+    // Rung 3: DOM extraction -- always works
+    const data = await page.evaluate(`
+      (() => {
+        // Read data from the rendered page
+        const items = document.querySelectorAll('[data-testid="item"]');
+        return Array.from(items).map(el => ({
+          title: (el.querySelector('h3')?.textContent || '').trim(),
+          // ...
+        }));
+      })()
+    `);
+  }
+}
+```
+
+---
+
 ## Common Patterns
 
 ### Login detection:
+
+Use URL-based detection as the primary signal. DOM selectors are supplementary.
 
 ```javascript
 const checkLoginStatus = async () => {
   try {
     return await page.evaluate(`
       (() => {
-        // Check for login form (NOT logged in)
-        const hasLoginForm = !!document.querySelector('input[type="password"]') ||
-                            !!document.querySelector('form[action*="login"]');
-        if (hasLoginForm) return false;
+        const path = window.location.pathname;
 
-        // Check for challenge/2FA pages
-        const url = window.location.href;
-        if (url.includes('/challenge') || url.includes('/checkpoint')) return false;
+        // URL-based (primary)
+        if (/\\/(login|signin|sign-in|auth|sso|callback)/.test(path)) return false;
+        if (path === '/') return false;
+        if (!window.location.hostname.includes('PLATFORM_DOMAIN')) return false;
 
-        // Check for logged-in indicators
-        const isLoggedIn = !!document.querySelector('LOGGED_IN_SELECTOR');
-        return isLoggedIn;
+        if (!!document.querySelector('input[type="password"]')) return false;
+
+        // DOM-based (supplementary) -- use a selector specific to the app shell
+        // Good: meta[name='user-login'][content], button[data-testid='user-widget-link']
+        // Bad: aside, nav, main (too generic, matches marketing pages)
+        return !!document.querySelector('LOGGED_IN_SELECTOR');
       })()
     `);
   } catch (e) {
-    return false;
+    return false; // navigation in progress (e.g. OAuth redirect)
   }
 };
 ```
