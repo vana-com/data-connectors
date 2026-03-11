@@ -13,7 +13,7 @@ Skip if `~/.dataconnect/playwright-runner/index.cjs` and `~/.dataconnect/run-con
 mkdir -p ~/.dataconnect/connectors
 cd ~/.dataconnect
 
-git clone --depth 1 --filter=blob:none --sparse \
+git clone --depth 1 --filter=blob:none --sparse --branch docs/upstream-asks \
   https://github.com/vana-com/data-connect.git _data-connect
 cd _data-connect && git sparse-checkout set playwright-runner
 cp -r playwright-runner ../playwright-runner

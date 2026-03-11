@@ -1,6 +1,52 @@
 # Data Extraction Patterns
 
-Three extraction rungs, tried in order. Start at Rung 1. If it fails within 2 attempts, move to the next rung.
+Four extraction approaches. Check for an API key shortcut first, then follow the ladder.
+
+## API Key Shortcut
+
+**Check first.** Many platforms (Linear, GitHub, Notion, Figma, etc.) offer personal API keys or tokens. If the platform has one, skip the browser entirely:
+
+1. Use `page.requestInput()` to ask for the key (fall back to `process.env`).
+2. Call `page.closeBrowser()` — this frees browser resources.
+3. Use `page.httpFetch(url, { headers: { Authorization: 'Bearer ' + key } })` for all API calls.
+
+```javascript
+let apiKey = process.env.API_KEY_PLATFORMNAME || '';
+if (!apiKey) {
+  const input = await page.requestInput({
+    message: 'Enter your Platform API key',
+    schema: {
+      type: 'object',
+      properties: {
+        apiKey: { type: 'string', title: 'API Key' }
+      },
+      required: ['apiKey']
+    }
+  });
+  apiKey = input.apiKey;
+}
+
+await page.closeBrowser();
+
+const resp = await page.httpFetch('https://api.platform.com/v1/me', {
+  headers: { Authorization: 'Bearer ' + apiKey }
+});
+if (!resp.ok) {
+  await page.setData('error', 'API call failed: ' + resp.status);
+  return;
+}
+const profile = resp.json;
+```
+
+**When to use:** Platform docs mention "API key", "personal access token", or "developer token". This is the fastest, most reliable path — no CORS, no cookies, no browser state.
+
+**When to skip:** Platform has no API key option, or the data you need isn't available via public API. Fall through to the extraction ladder below.
+
+---
+
+## Extraction Ladder
+
+Three rungs, tried in order. Start at Rung 1. If it fails within 2 attempts, move to the next rung.
 
 ## Rung 1: In-Page Fetch
 
@@ -78,11 +124,27 @@ const data = await page.evaluate(`
 `);
 ```
 
-**When to move on to Rung 2:**
+**When to move on:**
 - `fetch()` returns 401/403 with `credentials: 'include'`
 - Response is HTML (login page redirect) instead of JSON
 - CORS error in browser console ("Failed to fetch", "blocked by CORS policy")
 - Auth token not found in cookies, localStorage, sessionStorage, or page source
+
+**CORS workaround — try `httpFetch` before Rung 2:** If Rung 1 fails due to CORS (the API is on a different origin from the app), try `page.closeBrowser()` + `page.httpFetch()`. This extracts session cookies from the browser and makes Node.js-side requests — no CORS. Only move to Rung 2 if `httpFetch` also fails (e.g., cookies are TLS-bound or the server rejects non-browser requests).
+
+```javascript
+// After login is confirmed:
+await page.closeBrowser();  // extracts cookies
+
+const resp = await page.httpFetch('https://api.platform.com/graphql', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ query: '{ viewer { id name } }' }),
+});
+if (resp.ok && resp.json) {
+  // httpFetch works — use it for all data collection
+}
+```
 
 ### Parallel API calls:
 

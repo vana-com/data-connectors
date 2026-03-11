@@ -63,10 +63,11 @@ Run these (or similar) searches:
 
 ### Extraction strategy
 
-Do not commit to a strategy upfront. Instead, follow the **extraction ladder** in `reference/PATTERNS.md`:
+Do not commit to a strategy upfront. Instead, follow the approach in `reference/PATTERNS.md`:
 
-1. **Rung 1 (in-page fetch)** -- try a `fetch()` call from the page context. If it returns JSON, use it.
-2. **Rung 2 (network capture)** -- if Rung 1 fails (401, CORS), try `captureNetwork` before navigation.
+0. **API key shortcut** -- if the platform offers personal API keys/tokens, use `requestInput` + `httpFetch`. No browser needed beyond setup. This is the fastest path.
+1. **Rung 1 (in-page fetch)** -- try a `fetch()` call from the page context. If it returns JSON, use it. If CORS blocks it, try `closeBrowser()` + `httpFetch()` (Node.js-side, no CORS).
+2. **Rung 2 (network capture)** -- if Rung 1 and httpFetch both fail, try `captureNetwork` before navigation.
 3. **Rung 3 (DOM extraction)** -- if Rungs 1-2 fail, extract data from the rendered page. This always works.
 
 Maximum 2 attempts per rung before moving on. The first test run will tell you which rung works.
@@ -167,6 +168,8 @@ page.sleep(ms)                                Wait
 page.requestInput({ message, schema })        Ask user for data (credentials, 2FA)
 page.setData(key, value)                      'result' for data, 'error' for failures
 page.setProgress({ phase, message })          Progress reporting
+page.closeBrowser()                           Close browser, extract cookies
+page.httpFetch(url, options?)                  Node.js HTTP (auto-injects cookies)
 page.captureNetwork({ key, urlPattern })      Intercept network requests
 page.getCapturedResponse(key)                 Retrieve captured response
 page.screenshot()                             Base64 JPEG screenshot

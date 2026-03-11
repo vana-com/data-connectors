@@ -97,8 +97,26 @@ await page.setProgress({
 
 ### User Interaction
 
+#### `page.requestInput({ message, schema })`
+Ask the user for structured input (credentials, 2FA codes, API keys). Returns a promise that resolves with the user's response matching the schema.
+
+```javascript
+const creds = await page.requestInput({
+  message: 'Enter your Platform credentials',
+  schema: {
+    type: 'object',
+    properties: {
+      username: { type: 'string', title: 'Email or username' },
+      password: { type: 'string', title: 'Password' }
+    },
+    required: ['username', 'password']
+  }
+});
+// creds.username, creds.password
+```
+
 #### `page.promptUser(message, checkFn, pollInterval)`
-Show a prompt to the user and poll a check function until it returns truthy.
+Show a prompt to the user and poll a check function until it returns truthy. Legacy API — prefer `requestInput` for credentials.
 
 ```javascript
 await page.promptUser(
@@ -111,6 +129,44 @@ await page.promptUser(
 ```
 
 The prompt displays in the DataConnect UI with a "Done" button. The `checkFn` is called every `pollInterval` ms. When it returns truthy, the prompt is dismissed and execution continues.
+
+### HTTP Requests (Node.js-side)
+
+#### `page.httpFetch(url, options?)`
+Make HTTP requests from Node.js, bypassing browser CORS restrictions. If the browser was previously open, session cookies are automatically injected for matching domains.
+
+Returns: `{ ok, status, headers, text, json, error }`
+
+```javascript
+// After page.closeBrowser() — cookies are auto-injected
+const resp = await page.httpFetch('https://api.platform.com/v1/me');
+if (resp.ok) {
+  const data = resp.json; // already parsed
+}
+
+// With custom headers (e.g., API key auth)
+const resp = await page.httpFetch('https://api.platform.com/graphql', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer ' + apiKey,
+  },
+  body: JSON.stringify({ query: '{ viewer { id } }' }),
+  timeout: 30000,  // default: 30s
+});
+```
+
+**Typical flow:** Login via browser → `page.closeBrowser()` (extracts cookies) → `page.httpFetch()` for all API calls. This bypasses CORS entirely since requests come from Node.js, not the browser.
+
+### Screenshots
+
+#### `page.screenshot()`
+Take a JPEG screenshot of the current page. Returns base64-encoded string. Useful for debugging login flows and verifying page state.
+
+```javascript
+const b64 = await page.screenshot();
+await page.setData('status', '[DEBUG] Screenshot taken');
+```
 
 ### Network Capture
 
