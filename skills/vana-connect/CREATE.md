@@ -9,6 +9,10 @@ Before starting, read these reference docs:
 - `reference/PAGE-API.md` -- full `page` object API
 - `reference/PATTERNS.md` -- data extraction approaches and code examples
 
+### Script paths
+
+All `node scripts/...` commands below refer to `skills/vana-connect/scripts/` in the data-connectors repo you cloned. Exception: `run-connector.cjs` is installed to `~/.dataconnect/run-connector.cjs` by SETUP.md — use that path when running connectors.
+
 ## Connector Format
 
 Scripts are plain JavaScript (CJS), no imports, no require. The runner injects a `page` object. The script body must be an async IIFE preceded by a blank line (the runner matches `\n(async`).
@@ -198,13 +202,13 @@ Fix all errors before testing. Re-run after each fix until `"valid": true`.
 Run the connector headless via `run-connector.cjs`:
 
 ```bash
-node scripts/run-connector.cjs <company>/<name>-playwright.js [start-url]
+node ~/.dataconnect/run-connector.cjs <company>/<name>-playwright.js [start-url]
 ```
 
 To pre-supply credentials without env vars:
 
 ```bash
-node scripts/run-connector.cjs <company>/<name>-playwright.js --inputs '{"username":"x","password":"y"}'
+node ~/.dataconnect/run-connector.cjs <company>/<name>-playwright.js --inputs '{"username":"x","password":"y"}'
 ```
 
 **Exit codes:** 0 = success, 1 = error, 2 = needs input (missing credentials), 3 = legacy auth (not batch-compatible).
@@ -291,7 +295,7 @@ A connector is complete when all of these hold:
 - [ ] Script handles login failure with a clear error message
 - [ ] Script handles 2FA via `page.requestInput()` (if the platform uses it)
 - [ ] `node scripts/validate-connector.cjs` exits 0 (structure valid)
-- [ ] `node scripts/run-connector.cjs` completes without errors
+- [ ] `node ~/.dataconnect/run-connector.cjs` completes without errors
 - [ ] `node scripts/validate-connector.cjs --check-result` exits 0 (output valid)
 - [ ] All declared scopes produce non-empty, schema-compliant data
 - [ ] exportSummary has accurate count and details
