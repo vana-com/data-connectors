@@ -116,7 +116,7 @@ const creds = await page.requestInput({
 ```
 
 #### `page.promptUser(message, checkFn, pollInterval)`
-Show a prompt to the user and poll a check function until it returns truthy. Legacy API — prefer `requestInput` for credentials.
+Show a prompt to the user and poll a check function until it returns truthy. Use for browser-based login flows where the user logs in manually.
 
 ```javascript
 await page.promptUser(

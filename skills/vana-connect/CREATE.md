@@ -7,7 +7,7 @@ Build a data connector for a platform that isn't in the registry yet.
 Before starting, read these reference docs:
 
 - `reference/PAGE-API.md` -- full `page` object API
-- `reference/PATTERNS.md` -- extraction ladder (in-page fetch → network capture → DOM extraction)
+- `reference/PATTERNS.md` -- data extraction approaches and code examples
 
 ## Connector Format
 
