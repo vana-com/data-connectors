@@ -95,9 +95,9 @@ On success, collected data is at the output path (default: `~/.dataconnect/last-
 1. **Summarize for the user** — read `exportSummary` and the scoped keys to build a human-friendly summary of what was collected (see "Communicating with the user" below).
 2. **Ask what they want to do with it** — see `RECIPES.md` for use cases: user profile generation, personal knowledge base, data backup, cross-platform synthesis, activity analytics.
 
-### 6. Offer to contribute (new connectors only)
+### 6. Offer to contribute (new connectors only — DO NOT SKIP)
 
-If you built a new connector (not one from the registry), run validation:
+If you built a new connector (not one from the registry), you **must** run validation and offer to contribute. This step is not optional.
 
 ```bash
 node scripts/validate.cjs <company>/<name>-playwright.js --check-result ~/.dataconnect/last-result.json

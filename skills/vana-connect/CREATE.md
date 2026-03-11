@@ -45,6 +45,8 @@ Look at existing connectors in `~/.dataconnect/connectors/` for working examples
 
 Map the platform's login flow, data APIs, and auth mechanism before writing code.
 
+**IMPORTANT: Do not make claims about how a platform works based on your training data or web search alone.** Platforms change their auth flows, API access, and page structure frequently. Your knowledge may be outdated. Always verify by inspecting the actual page (use `page.screenshot()` or navigate to the login page and examine the DOM) before telling the user anything about how login works or what options are available.
+
 ### Web search queries
 
 Run these (or similar) searches:
@@ -57,6 +59,7 @@ Run these (or similar) searches:
 ### What to identify
 
 - **Login URL** (e.g. `https://platform.com/login`)
+- **Available login methods** -- navigate to the actual login page and inspect it. Many platforms offer multiple options (email/password, Google, Apple, SSO). **List all available methods and ask the user which one they use.** Do not assume or hardcode a single method.
 - **Login form selectors** -- stable selectors for username, password, submit. Use `input[name="..."]`, `input[type="password"]`, `button[type="submit"]`. Note if login is multi-step.
 - **Logged-in indicator** -- a CSS selector or API response confirming auth. Becomes `connectSelector` in metadata.
 - **Data endpoints** -- REST, GraphQL, or DOM targets
@@ -88,12 +91,22 @@ node scripts/scaffold.cjs <platform> [company]
 
 This creates `{company}/{platform}-playwright.js`, `{company}/{platform}-playwright.json`, and a stub schema in `schemas/`. Edit these files to implement your connector.
 
+### Quality bar
+
+Connectors are shipped to all users, not just the person testing them. Before hardcoding any login flow or extraction path, ask: "would this work for a random user who has never talked to me?" Specifically:
+
+- **Support all common login methods.** If the platform offers email, Google, Apple, and SSO login, the connector should ask the user which method they use and handle each one. Do not hardcode the method that happens to work for your test user.
+- **Don't assume how a platform works.** Navigate to the actual login page and inspect it. Your training data may be wrong or outdated about a platform's auth flow.
+- **Clean the output.** DOM-extracted data often contains UI artifacts (`[edit]` links, `(edit profile)` text, whitespace from HTML formatting). The output should look like clean data, not a DOM dump.
+
 ### Auth pattern
 
 Connectors must support two credential sources:
 
 1. **`process.env`** -- for automated/CI runs. Convention: `USER_LOGIN_<PLATFORM_UPPER>` and `USER_PASSWORD_<PLATFORM_UPPER>`.
 2. **`page.requestInput()`** -- for interactive runs where env vars aren't set. This prompts the user through the agent.
+
+When the platform offers multiple login methods (email, Google, Apple, SSO), ask the user which one they use via `requestInput` before attempting login.
 
 Try env first, fall back to requestInput:
 
@@ -103,10 +116,11 @@ let password = process.env.USER_PASSWORD_PLATFORMNAME || '';
 
 if (!username || !password) {
   const creds = await page.requestInput({
-    message: 'Enter your Platform credentials',
+    message: 'Enter your Platform credentials. How do you sign in?',
     schema: {
       type: 'object',
       properties: {
+        method: { type: 'string', title: 'Login method (email, google, apple)', default: 'email' },
         username: { type: 'string', title: 'Email or username' },
         password: { type: 'string', title: 'Password' }
       },
@@ -115,6 +129,7 @@ if (!username || !password) {
   });
   username = creds.username;
   password = creds.password;
+  // Use creds.method to route to the right login flow
 }
 ```
 
@@ -157,6 +172,11 @@ await page.sleep(3000);
 
 - **`page.evaluate()` takes a string**, not a function. Pass variables in via `JSON.stringify()`.
 - **No obfuscated CSS classes** (`.x1lliihq`, `.css-1dbjc4n`). Use ARIA roles, data attributes, semantic HTML.
+- **Clean DOM-extracted data.** The DOM contains UI affordances (edit buttons, action links), whitespace from HTML formatting, and layout artifacts. Strip these before returning data:
+  - Collapse whitespace: `.replace(/\s+/g, ' ').trim()`
+  - Remove UI text like `(edit)`, `[edit]`, `(edit profile)` that are interactive elements, not data
+  - Separate fields that the DOM combines (e.g., "Male, United States" is gender + location, not one field)
+  - Filter out navigation/action elements from lists (e.g., `[edit]` links mixed into shelf names)
 - **Rate-limit API calls** -- `page.sleep(300-1000)` between requests.
 - **Handle errors** -- check `resp.ok`, wrap fetches in try-catch, use `page.setData('error', ...)` for failures.
 - **Scoped result keys** -- `platform.scope` format (e.g. `spotify.playlists`).
