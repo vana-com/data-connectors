@@ -4,7 +4,7 @@ Four extraction approaches. Check for an API key shortcut first, then follow the
 
 ## API Key Shortcut
 
-**Check first.** Many platforms (Linear, GitHub, Notion, Figma, etc.) offer personal API keys or tokens. If the platform has one, skip the browser entirely:
+**Check first.** Many platforms offer personal API keys or tokens. If the platform has one, skip the browser entirely:
 
 1. Use `page.requestInput()` to ask for the key (fall back to `process.env`).
 2. Call `page.closeBrowser()` — this frees browser resources.
@@ -241,8 +241,7 @@ const mediaResp = await page.getCapturedResponse('media');
 
 ## Rung 3: DOM Extraction
 
-**The most reliable rung.** Navigate to pages and extract data from the rendered DOM. If data is visible in the browser, it can be scraped. Works regardless of auth mechanism, including WebSocket-based SPAs (Linear, Notion, Figma).
-**Example:** GitHub, Linear
+**The most reliable rung.** Navigate to pages and extract data from the rendered DOM. If data is visible in the browser, it can be scraped. Works regardless of auth mechanism, including WebSocket-based SPAs.
 
 ### Selector strategy (critical):
 
