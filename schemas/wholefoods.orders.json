@@ -1,0 +1,46 @@
+{
+  "name": "Whole Foods Orders",
+  "version": "1.0.0",
+  "scope": "wholefoods.orders",
+  "dialect": "json",
+  "definitionUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main/schemas/wholefoods.orders.json",
+  "description": "Whole Foods Market delivery and pickup order history with item details",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "orders": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "orderId": { "type": "string" },
+            "orderUrl": { "type": "string" },
+            "orderDate": { "type": ["string", "null"] },
+            "total": { "type": ["number", "null"] },
+            "itemCount": { "type": ["number", "null"] },
+            "status": { "type": ["string", "null"] },
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "productId": { "type": "string" },
+                  "productUrl": { "type": "string" },
+                  "imageUrl": { "type": "string" },
+                  "quantity": { "type": ["string", "null"] },
+                  "price": { "type": ["number", "null"] }
+                },
+                "required": ["name", "productId"]
+              }
+            }
+          },
+          "required": ["orderId", "items"]
+        }
+      },
+      "totalOrders": { "type": "number" },
+      "totalItems": { "type": "number" }
+    },
+    "required": ["orders", "totalOrders", "totalItems"]
+  }
+}

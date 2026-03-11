@@ -122,6 +122,21 @@
         "script": "sha256:d58629b152ad3471e27dfb4cbe33b84d74f426a7ff330754aacdc1ec89f72f6c",
         "metadata": "sha256:d3ff5230a6ebe6ff3f655546d834e7ed59f741febdc540dd2f89894b6e5baa7a"
       }
+    },
+    {
+      "id": "wholefoods-playwright",
+      "company": "wholefoods",
+      "version": "1.0.0",
+      "name": "Whole Foods Market",
+      "description": "Exports your Whole Foods Market order history (via Amazon) and product nutrition data using Playwright browser automation.",
+      "files": {
+        "script": "wholefoods/wholefoods-playwright.js",
+        "metadata": "wholefoods/wholefoods-playwright.json"
+      },
+      "checksums": {
+        "script": "sha256:e5793d78cdbf7a7ca035a2d71a9ebe1af764542a09fd40d06aa632bf1ef0fad5",
+        "metadata": "sha256:dde3a72e809762799120b08b70a6f17ed9fba320aa2bf1ee790b013626fee2c1"
+      }
     }
   ]
 }

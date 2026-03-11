@@ -6,3 +6,7 @@
 
 # Test runner output
 connector-result.json
+
+# Non-connector projects (stray checkouts)
+clearcut/
+proxy-test/
