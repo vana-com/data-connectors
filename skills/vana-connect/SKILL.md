@@ -83,6 +83,22 @@ On success, collected data is at `~/.dataconnect/last-result.json`. Keys vary by
 
 See `RECIPES.md` for use cases: user profile generation, personal knowledge base, data backup, cross-platform synthesis, activity analytics.
 
+### 6. Offer to contribute (new connectors only)
+
+If you built a new connector (not one from the registry), run validation:
+
+```bash
+node scripts/validate-connector.cjs <company>/<name>-playwright.js --check-result ~/.dataconnect/last-result.json
+```
+
+If validation passes, ask the user:
+
+> "Your connector worked. Want to share it so others can connect their [Platform] data too? Contributing means the community helps maintain it when [Platform] changes their site."
+
+If the user says yes, run `node scripts/validate-connector.cjs <company>/<name>-playwright.js --contribute` to open a PR. This handles forking, branching, and PR creation automatically.
+
+If the user says no, move on. Do not ask again.
+
 ## Rules
 
 1. **Ask before saving** -- no writes to user profile without approval

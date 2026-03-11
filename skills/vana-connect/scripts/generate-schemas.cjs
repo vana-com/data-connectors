@@ -33,12 +33,10 @@ function inferType(value) {
   }
   if (typeof value === 'object') {
     const props = {};
-    const required = [];
     for (const [k, v] of Object.entries(value)) {
       props[k] = inferType(v);
-      required.push(k);
     }
-    return { type: 'object', properties: props, required };
+    return { type: 'object', properties: props };
   }
   if (typeof value === 'number') {
     return Number.isInteger(value) ? { type: 'integer' } : { type: 'number' };

@@ -262,15 +262,43 @@ If testing or validation fails, fix and retry. **Maximum 2 attempts per extracti
 
 ---
 
-## Step 7 -- Generate Schemas (optional)
+## Step 7 -- Enrich Schemas
 
-If your schemas are rough drafts, refine them from actual test output:
+Schemas are an API contract — app developers build against them. They must be meaningful, not just type stubs.
+
+### 7a. Generate the skeleton
 
 ```bash
 node scripts/generate-schemas.cjs ~/.dataconnect/last-result.json <platform> [output-dir]
 ```
 
-This infers types and structure from actual data and writes draft schema files. Review and adjust before publishing.
+This infers types and structure from actual data. It's a starting point, not a finished schema.
+
+### 7b. Enrich from what you know
+
+You have three inputs: the platform's API docs, the actual scraped data (potentially hundreds of records), and your own understanding. Use all three:
+
+1. **Add `description` to every field.** What does this field contain? What's it useful for? A downstream developer should understand the data model without reading the connector code.
+
+2. **Fix `required` fields.** Only mark fields as required if the platform guarantees them for all users. Scan the actual output — if a field is null/missing for some records, it's optional. Don't mark everything required just because your test user had it.
+
+3. **Add `format` hints** where applicable: `"format": "date-time"` for ISO timestamps, `"format": "uri"` for URLs, `"format": "email"` for emails.
+
+4. **Use `additionalProperties: true`** (or omit it). Platforms add new fields over time. Strict `additionalProperties: false` breaks consumers when a platform adds a field. Only use `false` when the schema is the complete, known shape.
+
+5. **Write a meaningful top-level `description`.** Not "GitHub profile data" — "GitHub user profile including bio, follower counts, and repository statistics. Used by apps to display identity and activity summary."
+
+### Example: before and after
+
+Before (from `generate-schemas.cjs`):
+```json
+{ "type": "string" }
+```
+
+After (enriched):
+```json
+{ "type": "string", "format": "date-time", "description": "When the issue was created (ISO 8601)" }
+```
 
 ---
 
@@ -304,13 +332,13 @@ A connector is complete when all of these hold:
 
 ## Contributing Back
 
-To submit the connector upstream:
+After validation passes, the validator will prompt:
 
-1. All validation passes (Steps 3 and 5).
-2. Run `node scripts/register.cjs <company>/<name>-playwright.js` to add the registry entry with checksums.
-3. Required files:
-   - `<company>/<name>-playwright.js` -- connector script
-   - `<company>/<name>-playwright.json` -- metadata
-   - `schemas/<platform>.<scope>.json` -- one per scope
-   - Updated `registry.json`
-4. Open a PR against the connectors repo. Include the validation report output and a summary of what data the connector collects.
+> "This connector is ready to share. Run with --contribute to open a PR so others can connect their [Platform] data."
+
+To contribute:
+
+1. Run `node scripts/register.cjs <company>/<name>-playwright.js` to add the registry entry.
+2. Run `node scripts/validate-connector.cjs <company>/<name>-playwright.js --contribute`
+
+This scans for hardcoded secrets, creates a branch, commits the connector + schemas + registry entry, and opens a PR. Requires `gh` CLI (preferred) or git credentials.
