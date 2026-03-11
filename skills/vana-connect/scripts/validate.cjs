@@ -377,12 +377,11 @@ function validateScript(scriptPath, check) {
   if (!isApiKeyPattern) {
     const hasMethodField = /method|loginMethod|login_method|signInMethod/i.test(script) &&
       hasRequestInput;
-    const hasMultipleLoginPaths = (script.match(/google|apple|sso|oauth|saml|amazon/gi) || []).length >= 2;
     check('script_multiple_login_methods',
-      hasMethodField || hasMultipleLoginPaths,
-      hasMethodField || hasMultipleLoginPaths
-        ? 'Supports multiple login methods'
-        : 'Only one login method detected. If the platform offers multiple options (email, Google, Apple, SSO), ask the user which one they use.',
+      hasMethodField,
+      hasMethodField
+        ? 'Supports multiple login methods via method field'
+        : 'No login method selector detected. If the platform offers multiple sign-in options, include a method field in requestInput so the user can choose.',
       'warning');
   }
 
@@ -549,9 +548,8 @@ function validateOutput(resultPath, metadata, connectorDir, check) {
 
   // UI artifact scanning — detect DOM leftovers in result data
   const artifactPatterns = [
-    { re: /\[edit\]/i, name: '[edit]' },
-    { re: /\(edit profile\)/i, name: '(edit profile)' },
-    { re: /\(edit\)/i, name: '(edit)' },
+    { re: /\[(edit|delete|remove|share|more|close)\]/i, name: 'UI action button text' },
+    { re: /\((edit|delete|remove|view|change)\s+\w+\)/i, name: 'UI action link text' },
     { re: /\n\s{4,}/g, name: 'excessive whitespace' },
   ];
   function scanForArtifacts(obj, objPath) {

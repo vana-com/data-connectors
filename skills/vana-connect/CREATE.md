@@ -73,7 +73,7 @@ node scripts/scaffold.cjs <platform> [company]
 
 ### Auth pattern
 
-Two credential sources: `process.env` (automated runs) and `page.requestInput()` (interactive). Try env first, fall back to requestInput. Include a `method` field when the platform has multiple login options:
+Two credential sources: `process.env` (automated runs) and `page.requestInput()` (interactive). Try env first, fall back to requestInput. If the platform has multiple login options (discovered via screenshot in Step 1), include a `method` field listing the options you observed:
 
 ```javascript
 let username = process.env.USER_LOGIN_PLATFORMNAME || '';
@@ -81,11 +81,11 @@ let password = process.env.USER_PASSWORD_PLATFORMNAME || '';
 
 if (!username || !password) {
   const creds = await page.requestInput({
-    message: 'Enter your Platform credentials. How do you sign in?',
+    message: 'Enter your Platform credentials.',
     schema: {
       type: 'object',
       properties: {
-        method: { type: 'string', title: 'Login method (email, google, apple)', default: 'email' },
+        method: { type: 'string', title: 'Login method', description: 'List the options you found on the login page' },
         username: { type: 'string', title: 'Email or username' },
         password: { type: 'string', title: 'Password' }
       },
