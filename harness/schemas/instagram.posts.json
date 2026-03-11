@@ -1,0 +1,40 @@
+{
+  "name": "Instagram Posts",
+  "version": "2.0.0",
+  "scope": "instagram.posts",
+  "dialect": "json",
+  "description": "User's Instagram posts including images, captions, and like engagement data",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "posts": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "img_url": { "type": "string" },
+            "caption": { "type": "string" },
+            "num_of_likes": { "type": "number" },
+            "who_liked": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "profile_pic_url": { "type": "string" },
+                  "pk": { "type": "string" },
+                  "username": { "type": "string" },
+                  "id": { "type": "string" }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": ["img_url", "caption", "num_of_likes"],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": ["posts"],
+    "additionalProperties": false
+  }
+}
