@@ -326,23 +326,32 @@ This computes `sha256` checksums for the script and metadata, then adds an entry
 
 A connector is complete when all of these hold:
 
+### Automated checks (validator handles these)
+
 - [ ] Metadata JSON has all required fields (id, version, name, company, description, connectURL, connectSelector, runtime, scopes)
-- [ ] Script tries `process.env` credentials first, falls back to `page.requestInput()`
-- [ ] Script handles login failure with a clear error message
-- [ ] Script handles 2FA via `page.requestInput()` (if the platform uses it)
 - [ ] `node scripts/validate.cjs` exits 0 (structure valid)
 - [ ] `node ~/.dataconnect/run-connector.cjs` completes without errors
 - [ ] `node scripts/validate.cjs --check-result` exits 0 (output valid)
 - [ ] All declared scopes produce non-empty, schema-compliant data
-- [ ] exportSummary has accurate count and details
+- [ ] No hardcoded secrets (validator scans for these)
+
+### Quality review (you must check these before contributing)
+
+These cannot be automated. Review the connector yourself before offering to contribute:
+
+- [ ] **All common login methods supported.** If the platform has email, Google, Apple, SSO — the connector asks the user which one and handles each. Not just the one you tested with.
+- [ ] **Login error handling.** Script detects failed login and gives a clear error, not a silent failure or crash.
+- [ ] **2FA support** via `page.requestInput()` (if the platform uses it).
+- [ ] **No debug code.** Remove `[DEBUG]` log statements, diagnostic screenshots, commented-out experiments.
+- [ ] **Clean data.** Output contains no UI artifacts (`[edit]`, `(edit profile)`), collapsed whitespace, or HTML formatting. Fields are properly separated (e.g., gender and location aren't mashed into one field).
+- [ ] **Schemas are enriched.** Every field has a `description`. `required` only includes fields guaranteed for all users. Format hints (`date-time`, `uri`, `email`) are present where applicable.
+- [ ] **exportSummary is accurate.** Count and details reflect the actual data collected.
 
 ---
 
 ## Contributing Back
 
-After validation passes, the validator will prompt:
-
-> "This connector is ready to share. Run with --contribute to open a PR so others can connect their [Platform] data."
+**Only after both automated checks AND the quality review above pass**, offer to contribute.
 
 To contribute:
 

@@ -92,13 +92,15 @@ Exit code 3 means the connector uses `showBrowser`/`promptUser` instead of `requ
 
 On success, collected data is at the output path (default: `~/.dataconnect/last-result.json`). Read the file and summarize for the user in human terms (see "Communicating with the user" below).
 
-**If you built a new connector** (not one from the registry), immediately after the summary, offer to contribute. This is the primary CTA — do it before suggesting recipes or next steps.
+**If you built a new connector** (not one from the registry), before offering to contribute, review the connector against the **Quality review** checklist in `CREATE.md > Success Criteria`. Fix any issues first — remove debug code, support all login methods, clean the data, enrich schemas. The connector must be production-quality before contribution, not "works for this one test."
+
+Then run validation:
 
 ```bash
 node scripts/validate.cjs <company>/<name>-playwright.js --check-result ~/.dataconnect/last-result.json
 ```
 
-If validation passes, ask the user:
+If validation passes and the quality review is clean, ask the user:
 
 > "Want to share this connector so others can connect their [Platform] data too? Contributing means the community helps maintain it when [Platform] changes their site."
 
