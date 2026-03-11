@@ -1,20 +1,35 @@
 # Data Extraction Patterns
 
-Four extraction approaches. Check for an API key shortcut first, then follow the ladder.
+## Choosing an approach
 
-## API Key Shortcut
+Research the platform first. The right extraction strategy depends on the platform's auth model and what's easiest for a normal (non-technical) user. Consider:
 
-**Check first.** Many platforms offer personal API keys or tokens. If the platform has one, skip the browser entirely:
+- **Does the user already have a browser session?** Most do. Browser login → extract data is the most natural UX. The user just logs in like they normally would.
+- **Does the platform offer API keys or personal tokens?** Some users will prefer this (quick, no browser), but many won't know what an API key is. If you use this approach, guide the user clearly.
+- **Is the platform's API on the same origin as the app?** If yes, in-page fetch works. If not (CORS), use `closeBrowser()` + `httpFetch()` to make requests from Node.js with extracted cookies.
+- **Does the platform only render data in the DOM (no usable API)?** DOM extraction always works as a last resort.
 
-1. Use `page.requestInput()` to ask for the key (fall back to `process.env`).
-2. Call `page.closeBrowser()` — this frees browser resources.
-3. Use `page.httpFetch(url, { headers: { Authorization: 'Bearer ' + key } })` for all API calls.
+There is no fixed ordering. Pick the approach that gives the best user experience for the specific platform. You can combine approaches (e.g., browser login for auth + httpFetch for data extraction).
+
+### Available tools
+
+| Tool | What it does | When to use |
+|------|-------------|-------------|
+| `page.evaluate(js)` | Run JS in the browser page | In-page fetch, DOM extraction, login detection |
+| `page.closeBrowser()` | Close browser, extract session cookies | Before switching to httpFetch |
+| `page.httpFetch(url, opts)` | Node.js HTTP with auto-injected cookies | Cross-origin APIs (bypasses CORS), API key auth |
+| `page.captureNetwork(...)` | Intercept network responses | Platforms that load data during page bootstrap |
+| `page.requestInput(...)` | Ask user for structured input | Credentials, API keys, 2FA codes |
+
+### API key auth pattern
+
+If the platform supports API keys and that's the best UX for the user:
 
 ```javascript
 let apiKey = process.env.API_KEY_PLATFORMNAME || '';
 if (!apiKey) {
   const input = await page.requestInput({
-    message: 'Enter your Platform API key',
+    message: 'Enter your Platform API key (find it at Settings → API)',
     schema: {
       type: 'object',
       properties: {
@@ -27,26 +42,32 @@ if (!apiKey) {
 }
 
 await page.closeBrowser();
-
 const resp = await page.httpFetch('https://api.platform.com/v1/me', {
   headers: { Authorization: 'Bearer ' + apiKey }
 });
-if (!resp.ok) {
-  await page.setData('error', 'API call failed: ' + resp.status);
-  return;
-}
-const profile = resp.json;
 ```
 
-**When to use:** Platform docs mention "API key", "personal access token", or "developer token". This is the fastest, most reliable path — no CORS, no cookies, no browser state.
+### Browser login + httpFetch pattern
 
-**When to skip:** Platform has no API key option, or the data you need isn't available via public API. Fall through to the extraction ladder below.
+If the user should log in via browser and the API is cross-origin:
+
+```javascript
+// 1. Navigate to login page, wait for user to log in
+await page.goto('https://platform.com/login');
+// ... login detection logic ...
+
+// 2. Close browser — cookies are extracted automatically
+await page.closeBrowser();
+
+// 3. Make API calls from Node.js with session cookies (no CORS)
+const resp = await page.httpFetch('https://api.platform.com/v1/me');
+```
 
 ---
 
 ## Extraction Ladder
 
-Three rungs, tried in order. Start at Rung 1. If it fails within 2 attempts, move to the next rung.
+If you're unsure which approach works, try each rung. Max 2 attempts per rung before moving on.
 
 ## Rung 1: In-Page Fetch
 

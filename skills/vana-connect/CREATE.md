@@ -63,14 +63,15 @@ Run these (or similar) searches:
 
 ### Extraction strategy
 
-Do not commit to a strategy upfront. Instead, follow the approach in `reference/PATTERNS.md`:
+Research the platform first, then pick the approach with the best user experience. See `reference/PATTERNS.md` for details and code examples.
 
-0. **API key shortcut** -- if the platform offers personal API keys/tokens, use `requestInput` + `httpFetch`. No browser needed beyond setup. This is the fastest path.
-1. **Rung 1 (in-page fetch)** -- try a `fetch()` call from the page context. If it returns JSON, use it. If CORS blocks it, try `closeBrowser()` + `httpFetch()` (Node.js-side, no CORS).
-2. **Rung 2 (network capture)** -- if Rung 1 and httpFetch both fail, try `captureNetwork` before navigation.
-3. **Rung 3 (DOM extraction)** -- if Rungs 1-2 fail, extract data from the rendered page. This always works.
+- **Browser login + in-page fetch** -- user logs in normally, connector calls the platform's API from the page context. Best when the API is same-origin.
+- **Browser login + httpFetch** -- user logs in, `closeBrowser()` extracts cookies, `httpFetch()` calls the API from Node.js. Best when the API is cross-origin (CORS).
+- **API key + httpFetch** -- user provides an API key via `requestInput`, no browser needed. Best when the platform supports it AND the user would prefer it over logging in.
+- **Network capture** -- intercept API responses during page load. Best for platforms that load data during bootstrap.
+- **DOM extraction** -- scrape the rendered page. Always works as a last resort.
 
-Maximum 2 attempts per rung before moving on. The first test run will tell you which rung works.
+If unsure, try each approach (max 2 attempts) before moving to the next. The first test run will tell you what works.
 
 ---
 
