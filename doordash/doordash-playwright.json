@@ -1,0 +1,22 @@
+{
+  "id": "doordash-playwright",
+  "version": "1.0.0",
+  "name": "DoorDash",
+  "company": "doordash",
+  "iconURL": "icons/doordash.svg",
+  "description": "Exports your DoorDash order history including restaurant names, items ordered, dates, totals, and delivery status.",
+  "connectURL": "https://www.doordash.com",
+  "connectSelector": "a[href*='/orders'], [data-testid='AccountButton'], button[aria-label*='account' i]",
+  "exportFrequency": "weekly",
+  "runtime": "playwright",
+  "scopes": [
+    {
+      "scope": "doordash.orders",
+      "label": "Your Order History",
+      "description": "Complete order history with restaurant names, items ordered, dates, totals, and delivery status"
+    }
+  ],
+  "vectorize_config": {
+    "documents": "orders"
+  }
+}
