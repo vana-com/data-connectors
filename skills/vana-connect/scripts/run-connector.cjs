@@ -63,10 +63,11 @@ if (!connectorPath) {
   process.exit(1);
 }
 
-// Scope IPC files by connector name so multiple connectors can run in parallel.
+// Scope IPC files by connector name + timestamp so multiple runs never collide.
 const connectorSlug = path.basename(connectorPath, path.extname(connectorPath));
-const PENDING_INPUT_PATH = path.join(homedir, '.dataconnect', `pending-input-${connectorSlug}.json`);
-const INPUT_RESPONSE_PATH = path.join(homedir, '.dataconnect', `input-response-${connectorSlug}.json`);
+const runId = `${connectorSlug}-${Date.now()}`;
+const PENDING_INPUT_PATH = path.join(homedir, '.dataconnect', `pending-input-${runId}.json`);
+const INPUT_RESPONSE_PATH = path.join(homedir, '.dataconnect', `input-response-${runId}.json`);
 
 // ─── Pretty output helpers ───────────────────────────────────
 
@@ -141,7 +142,6 @@ try { fs.unlinkSync(PENDING_INPUT_PATH); } catch {}
 try { fs.unlinkSync(INPUT_RESPONSE_PATH); } catch {}
 
 const resolvedRunnerDir = resolveRunnerDir();
-const runId = 'run-' + Date.now();
 
 if (pretty) {
   console.log(`${c.bold}run-connector${c.reset}`);
