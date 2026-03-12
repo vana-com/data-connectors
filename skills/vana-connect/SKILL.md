@@ -86,19 +86,19 @@ Exit code 3 means the connector uses `showBrowser`/`promptUser` instead of `requ
 2. Check for a migrated version on the `main` branch.
 3. Write a login script to establish a session, then run the stock connector.
 
-### 5. Present results and offer to contribute
+### 5. Validate, present results, and offer to contribute
 
-On success, collected data is at the output path (default: `~/.dataconnect/last-result.json`). Read the file and summarize for the user in human terms (see "Communicating with the user" below).
-
-If you built a new connector, run validation to check quality:
+On success, immediately run validation — before presenting results to the user:
 
 ```bash
 node scripts/validate.cjs <company>/<name>-playwright.js --check-result ~/.dataconnect/last-result.json
 ```
 
-Fix any issues the validator reports before offering to contribute. The validator checks debug code, login method diversity, schema descriptions, data cleanliness, and more — it is the quality gate.
+Fix any issues the validator reports. The validator checks debug code, login method diversity, schema descriptions, data cleanliness, and more — it is the quality gate. Iterate until validation passes.
 
-When validation passes, ask the user:
+Then read the result file and summarize for the user in human terms (see "Communicating with the user" below).
+
+If you built a new connector (not one from the registry), ask the user:
 
 > "Want to share this connector so others can connect their [Platform] data too? Contributing means the community helps maintain it when [Platform] changes their site."
 
