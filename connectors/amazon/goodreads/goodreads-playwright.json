@@ -1,0 +1,27 @@
+{
+  "id": "goodreads-playwright",
+  "version": "1.0.0",
+  "name": "Goodreads",
+  "company": "Amazon",
+  "iconURL": "icons/goodreads.svg",
+  "description": "Exports your Goodreads library, shelves, ratings, and reviews using Playwright browser automation.",
+  "connectURL": "https://www.goodreads.com/user/sign_in",
+  "connectSelector": "a[href*='/user/show/']",
+  "exportFrequency": "weekly",
+  "runtime": "playwright",
+  "scopes": [
+    {
+      "scope": "goodreads.profile",
+      "label": "Your Profile",
+      "description": "Username, profile URL, and reading statistics"
+    },
+    {
+      "scope": "goodreads.books",
+      "label": "Your Books",
+      "description": "Complete library with titles, authors, ratings, reviews, shelves, and reading dates"
+    }
+  ],
+  "vectorize_config": {
+    "documents": ""
+  }
+}
