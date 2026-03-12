@@ -126,16 +126,16 @@
     {
       "id": "max-playwright",
       "company": "max",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "name": "Max",
-      "description": "Exports your Max (HBO Max) profile, continue watching, recommendations, and saved list using Playwright browser automation.",
+      "description": "Exports your Max (HBO Max) profile, viewing history with timestamps, recommendations, and saved list using Playwright browser automation.",
       "files": {
         "script": "max/max-playwright.js",
         "metadata": "max/max-playwright.json"
       },
       "checksums": {
-        "script": "sha256:994cfc82620414ff6c4a837c82af2b5d31c4c97174e302965c10540551c63037",
-        "metadata": "sha256:0a5b7d82d5f0b973f972d9a6eb90c59ac2bc4171c43c6c880712e863d283d96e"
+        "script": "sha256:e98a660f8fb7dca74d4352748b83749161c723243dd54bae37c27e5c8c7cfcb9",
+        "metadata": "sha256:4ff3add88088e1b300d99ae7103c6eb4d8a80f3b43cd802783bda49c2dff7f37"
       }
     }
   ]

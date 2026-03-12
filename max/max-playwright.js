@@ -1,70 +1,39 @@
 /**
- * Max Connector (Playwright) — DOM Extraction
+ * Max Connector (Playwright) — Hybrid API + DOM Extraction
  *
  * Phase 1 (Browser, visible if login needed):
  *   - Detects login via persistent browser session
  *   - If not logged in, shows browser for user to log in
+ *   - Captures JWT token and profile via network interception
  *
- * Phase 2 (Headless — invisible to user):
- *   - Extracts profile from settings page
- *   - Scrolls home page to load lazy-loaded content rails
- *   - Categorizes content: Continue Watching, recommendations, My List
- *   - Reports structured progress to the UI
- *
- * Note: Max's API requires a deviceInfo bootstrap sequence that cannot be
- * replicated outside the app, so this connector uses DOM extraction.
+ * Phase 2 (Background — browser closed):
+ *   - Uses captured token with httpFetch to call Max CMS API
+ *   - Extracts profile, viewing history, continue watching, My List
+ *   - Falls back to DOM extraction if API capture fails
  */
 
 const state = {
+  token: null,
+  profileId: null,
   profile: null,
   isComplete: false,
 };
 
 // ─── Helpers ────────────────────────────────────────────
 
-const stripBidi = (s) => s.replace(/[\u2066\u2067\u2068\u2069\u202A-\u202E\u200E\u200F]/g, '').trim();
+const stripBidi = (s) => (s || '').replace(/[\u2066\u2067\u2068\u2069\u202A-\u202E\u200E\u200F]/g, '').trim();
 
 const cleanTitle = (raw) => {
   let t = stripBidi(raw);
-  // Remove trailing metadata like ". 3 z 20. Nowe odcinki"
   t = t.replace(/\.\s*\d+\s+z\s+\d+\.?.*$/, '');
-  // Remove trailing ". X of Y" (English)
   t = t.replace(/\.\s*\d+\s+of\s+\d+\.?.*$/, '');
-  // Remove "Oglądaj " prefix (Polish "Watch ")
   t = t.replace(/^Oglądaj\s+/, '');
-  // Remove season/episode suffix like ". Sezon 3, odcinek 1: Episode Title"
   const seasonMatch = t.match(/^(.+?)\.\s*Sezon\s+\d+,\s*odcinek\s+\d+:\s*(.+)$/);
-  if (seasonMatch) {
-    t = seasonMatch[1] + ' — ' + seasonMatch[2];
-  }
-  // Remove "Pozostało X minut/godzin" (time remaining)
+  if (seasonMatch) t = seasonMatch[1] + ' — ' + seasonMatch[2];
   t = t.replace(/\.\s*Pozostało\s+.+$/, '');
-  // Remove rating info like ". Klasyfikacja: 18+, Seks, Wulgaryzmy"
   t = t.replace(/\.\s*Klasyfikacja:.+$/, '');
-  // Remove "Premiera w YYYY"
   t = t.replace(/\.\s*Premiera w\s+\d{4}$/, '');
   return t.trim();
-};
-
-const extractId = (href) => {
-  // /video/watch/uuid1/uuid2 — use uuid1 as the content ID
-  const watchMatch = href.match(/\/video\/watch\/([0-9a-f-]{36})/);
-  if (watchMatch) return watchMatch[1];
-  // /show/uuid, /movie/uuid, /series/uuid
-  const contentMatch = href.match(/\/(movie|show|series|episode|video)\/([0-9a-f-]{36})/);
-  if (contentMatch) return contentMatch[2];
-  // /sport/uuid
-  const sportMatch = href.match(/\/sport\/([0-9a-f-]{36})/);
-  if (sportMatch) return sportMatch[1];
-  return '';
-};
-
-const detectType = (href) => {
-  if (href.includes('/movie/')) return 'movie';
-  if (href.includes('/show/') || href.includes('/series/')) return 'series';
-  if (href.includes('/episode/') || href.includes('/video/')) return 'episode';
-  if (href.includes('/sport/')) return 'sport';
-  return 'unknown';
 };
 
 // ─── Login Detection ────────────────────────────────────
@@ -90,7 +59,21 @@ const checkLoginStatus = async () => {
   }
 };
 
-// ─── Scroll to load lazy content ────────────────────────
+// ─── API Helpers ────────────────────────────────────────
+
+const apiHeaders = () => ({
+  'Authorization': 'Bearer ' + state.token,
+  'Accept': 'application/vnd.api+json',
+  'x-hbo-profile-id': state.profileId || '',
+});
+
+const apiFetch = async (url) => {
+  const resp = await page.httpFetch(url, { headers: apiHeaders() });
+  if (!resp.ok) return null;
+  return resp.json;
+};
+
+// ─── Scroll for DOM fallback ────────────────────────────
 
 const scrollToLoadContent = async () => {
   for (let i = 0; i < 10; i++) {
@@ -101,28 +84,85 @@ const scrollToLoadContent = async () => {
   await page.sleep(1000);
 };
 
-// ─── Rail keywords for categorization ───────────────────
+// ─── DOM Extraction (fallback) ──────────────────────────
 
-const CONTINUE_WATCHING = ['oglądaj dalej', 'continue watching', 'keep watching', 'kontynuuj'];
-const FOR_YOU = ['dla ciebie', 'for you', 'because you watched', 'bo obejrzałeś', 'ponieważ'];
-const MY_LIST = ['moja lista', 'my list', 'moja kolekcja', 'favorites', 'ulubione'];
-const LIVE_SPORTS = ['na żywo', 'live', 'sport'];
+const extractFromDOM = async () => {
+  await page.setData('status', 'API capture failed, falling back to DOM extraction...');
 
-const railMatches = (title, keywords) => {
-  const lower = title.toLowerCase();
-  return keywords.some(kw => lower.includes(kw));
+  await page.goto('https://play.max.com/');
+  await page.sleep(5000);
+  await scrollToLoadContent();
+
+  const contentData = await page.evaluate(`
+    (() => {
+      const rails = [];
+      const allSections = document.querySelectorAll('section, [role="region"], [data-testid*="collection"]');
+      for (const section of allSections) {
+        const heading = section.querySelector('h2, h3, [role="heading"], [data-testid*="title"]');
+        const railTitle = heading ? (heading.textContent || '').trim() : '';
+        if (!railTitle) continue;
+        const items = [];
+        const allLinks = section.querySelectorAll('a[href]');
+        for (const link of allLinks) {
+          const href = link.getAttribute('href') || '';
+          if (!href.startsWith('/') || href.includes('/settings') || href === '/') continue;
+          let title = '';
+          const img = link.querySelector('img');
+          if (img) title = (img.getAttribute('alt') || '').trim();
+          if (!title) title = (link.getAttribute('aria-label') || '').trim();
+          if (!title) continue;
+          let progress = 0;
+          const bars = link.querySelectorAll('[class*="progress" i] div, [class*="Progress" i] div');
+          for (const bar of bars) {
+            const width = bar.style?.width;
+            if (width && width.includes('%')) { progress = parseInt(width) || 0; break; }
+          }
+          items.push({ title, href, progress });
+        }
+        if (items.length > 0) rails.push({ title: railTitle, items });
+      }
+      return rails;
+    })()
+  `);
+
+  const CW_KW = ['oglądaj dalej', 'continue watching', 'kontynuuj'];
+  const FY_KW = ['dla ciebie', 'for you', 'because you watched'];
+  const LIVE_KW = ['na żywo', 'live', 'sport'];
+
+  const continueWatching = [];
+  const recommendations = [];
+
+  for (const rail of contentData) {
+    const rl = rail.title.toLowerCase();
+    if (LIVE_KW.some(kw => rl.includes(kw))) continue;
+    const isCW = CW_KW.some(kw => rl.includes(kw));
+    const isFY = FY_KW.some(kw => rl.includes(kw));
+    for (const item of rail.items) {
+      const title = cleanTitle(item.title);
+      const href = item.href;
+      const idMatch = href.match(/\/(?:video\/watch\/)?([0-9a-f-]{36})/);
+      const entry = { title, url: 'https://play.max.com' + href, id: idMatch?.[1] || '' };
+      if (isCW || item.progress > 0) continueWatching.push({ ...entry, progressPercent: item.progress });
+      else if (isFY) recommendations.push(entry);
+    }
+  }
+
+  return { continueWatching, recommendations, myList: [], source: 'dom' };
 };
 
 // ─── Main Export Flow ───────────────────────────────────
 
 (async () => {
-  const TOTAL_STEPS = 4;
+  const TOTAL_STEPS = 5;
 
-  // ═══ STEP 1: Login ═══
+  // ═══ STEP 1: Login + Token Capture ═══
   await page.setProgress({
     phase: { step: 1, total: TOTAL_STEPS, label: 'Login' },
     message: 'Navigating to Max...',
   });
+
+  await page.captureNetwork({ urlPattern: 'token', key: 'token' });
+  await page.captureNetwork({ urlPattern: 'profiles', key: 'profiles' });
 
   await page.goto('https://play.max.com/');
   await page.sleep(4000);
@@ -138,279 +178,305 @@ const railMatches = (title, keywords) => {
       async () => await checkLoginStatus(),
       3000
     );
-    await page.sleep(2000);
+    await page.sleep(3000);
   } else {
     await page.setData('status', 'Session restored from previous login');
   }
 
-  await page.goHeadless();
-
-  // ═══ STEP 2: Extract profile ═══
-  await page.setProgress({
-    phase: { step: 2, total: TOTAL_STEPS, label: 'Profile' },
-    message: 'Extracting profile...',
-  });
-
-  await page.goto('https://play.max.com/settings');
+  // Wait a bit more for API calls to complete
   await page.sleep(4000);
 
-  const profile = await page.evaluate(`
-    (() => {
-      const result = {};
-      const text = document.body.innerText || '';
+  // Capture token and profiles
+  const tokenResp = await page.getCapturedResponse('token');
+  state.token = tokenResp?.data?.data?.attributes?.token;
 
-      // Extract email
-      const emailMatch = text.match(/[\\w.+-]+@[\\w.-]+\\.[a-zA-Z]{2,}/);
-      if (emailMatch) result.email = emailMatch[0];
+  const profilesResp = await page.getCapturedResponse('profiles');
+  const profiles = profilesResp?.data?.data || [];
+  state.profileId = profiles[0]?.id;
 
-      // Subscription plan
-      if (text.includes('Premium')) result.plan = 'Premium';
-      else if (text.includes('Standard')) result.plan = 'Standard';
-      else if (text.includes('Basic')) result.plan = 'Basic';
+  // If no token, fall back to DOM
+  if (!state.token) {
+    await page.goHeadless();
+    const domData = await extractFromDOM();
+    const result = {
+      'max.profile': {},
+      'max.continueWatching': { items: domData.continueWatching, total: domData.continueWatching.length },
+      'max.recommendations': { items: domData.recommendations, total: domData.recommendations.length },
+      'max.myList': { items: [], total: 0 },
+      exportSummary: {
+        count: domData.continueWatching.length + domData.recommendations.length,
+        label: 'items',
+        details: domData.continueWatching.length + ' in progress, ' + domData.recommendations.length + ' recommended (DOM fallback)',
+      },
+      timestamp: new Date().toISOString(),
+      version: '1.0.0-playwright',
+      platform: 'max',
+    };
+    state.isComplete = true;
+    await page.setData('result', result);
+    await page.setData('status', 'Complete (DOM fallback)');
+    return { success: true, data: result };
+  }
 
-      // Profile name: look for labeled fields in settings
-      // Common patterns: "Imię: John" or "Name" label followed by value
-      const skipWords = [
-        'ustawienia', 'settings', 'strona główna', 'home',
-        'max', 'premium', 'standard', 'basic', 'konto', 'account',
-        'profil', 'profile', 'wyloguj', 'sign out', 'pomoc', 'help',
-        'subskrypcja', 'subscription', 'zmień', 'change', 'edytuj', 'edit'
-      ];
+  // ═══ Close browser for API access ═══
+  await page.setData('status', 'Token captured, switching to API mode...');
+  await page.closeBrowser();
 
-      // Strategy 1: Look for setting rows with label + value pairs
-      const allElements = document.querySelectorAll('div, span, p, dd, td');
-      for (const el of allElements) {
-        const prev = el.previousElementSibling;
-        if (!prev) continue;
-        const label = (prev.textContent || '').toLowerCase().trim();
-        if (label.includes('imi') || label.includes('name') || label.includes('nazw') || label.includes('użytkownik')) {
-          const val = (el.textContent || '').trim();
-          if (val && val.length > 1 && val.length < 50) {
-            const valLower = val.toLowerCase();
-            if (!skipWords.some(w => valLower === w)) {
-              result.name = val;
-              break;
-            }
-          }
-        }
-      }
-
-      // Strategy 2: aria-label on profile/avatar elements
-      if (!result.name) {
-        const profileEls = document.querySelectorAll('[data-testid*="profile"], [data-testid*="avatar"], [aria-label*="profil" i]');
-        for (const el of profileEls) {
-          const label = (el.getAttribute('aria-label') || '').trim();
-          if (label && label.length > 1 && label.length < 40) {
-            const labelLower = label.toLowerCase();
-            if (!skipWords.some(w => labelLower === w || labelLower.includes(w))) {
-              result.name = label;
-              break;
-            }
-          }
-        }
-      }
-
-      return result;
-    })()
-  `);
-
-  state.profile = profile;
-  await page.setData('status', 'Profile: ' + JSON.stringify(profile));
-
-  // ═══ STEP 3: Extract content from home page ═══
+  // ═══ STEP 2: Fetch Profile ═══
   await page.setProgress({
-    phase: { step: 3, total: TOTAL_STEPS, label: 'Home content' },
-    message: 'Loading home page content...',
-    count: 0,
+    phase: { step: 2, total: TOTAL_STEPS, label: 'Profile' },
+    message: 'Fetching profile...',
   });
 
-  await page.goto('https://play.max.com/');
-  await page.sleep(5000);
+  const userResp = await apiFetch('https://default.beam-emea.prd.api.hbomax.com/users/me');
+  const userAttrs = userResp?.data?.attributes || {};
 
-  await page.setData('status', 'Scrolling to load all content rails...');
-  await scrollToLoadContent();
+  state.profile = {
+    name: [userAttrs.firstName, userAttrs.lastName].filter(Boolean).join(' ') || undefined,
+    email: userAttrs.email || undefined,
+  };
 
-  // Extract all content organized by rail
-  const contentData = await page.evaluate(`
-    (() => {
-      const rails = [];
-      const allSections = document.querySelectorAll('section, [role="region"], [data-testid*="collection"]');
+  // Get profile names
+  for (const p of profiles) {
+    if (p.id === state.profileId && p.attributes?.name) {
+      state.profile.profileName = p.attributes.name;
+    }
+  }
 
-      for (const section of allSections) {
-        const heading = section.querySelector('h2, h3, [role="heading"], [data-testid*="title"]');
-        const railTitle = heading ? (heading.textContent || '').trim() : '';
-        if (!railTitle) continue;
+  await page.setData('status', 'Profile: ' + (state.profile.name || state.profile.email || 'unknown'));
 
-        const items = [];
-        const allLinks = section.querySelectorAll('a[href]');
+  // ═══ STEP 3: Fetch Home Data (viewing history + continue watching) ═══
+  await page.setProgress({
+    phase: { step: 3, total: TOTAL_STEPS, label: 'Watch history' },
+    message: 'Fetching viewing data...',
+  });
 
-        for (const link of allLinks) {
-          const href = link.getAttribute('href') || '';
-          if (!href.startsWith('/')) continue;
-          if (href.includes('/settings') || href.includes('/account') || href === '/') continue;
+  const homeData = await apiFetch(
+    'https://default.any-emea.prd.api.hbomax.com/cms/routes/home?include=default&decorators=viewingHistory,isFavorite,contentAction,badges&page[items.size]=50'
+  );
 
-          let title = '';
-          const img = link.querySelector('img');
-          if (img) title = (img.getAttribute('alt') || '').trim();
-          if (!title) title = (link.getAttribute('aria-label') || '').trim();
-          if (!title) {
-            const titleEl = link.querySelector('h3, h4, span[class*="title" i], [data-testid*="title"]');
-            if (titleEl) title = (titleEl.textContent || '').trim();
-          }
-          if (!title) continue;
+  // Build a lookup of shows by ID
+  const showMap = new Map();
+  const viewedItems = [];
+  const continueWatchingCollectionId = [];
 
-          // Progress indicator
-          let progress = 0;
-          const progressBar = link.querySelector('[role="progressbar"], [data-testid*="progress"]');
-          if (progressBar) {
-            const val = progressBar.getAttribute('aria-valuenow') || progressBar.getAttribute('value') || '';
-            progress = parseInt(val) || 0;
-          }
-          if (!progress) {
-            const bars = link.querySelectorAll('[class*="progress" i] div, [class*="Progress" i] div');
-            for (const bar of bars) {
-              const width = bar.style?.width;
-              if (width && width.includes('%')) {
-                progress = parseInt(width) || 0;
-                break;
-              }
-            }
-          }
-
-          items.push({ title, href, hasProgress: !!progressBar || progress > 0, progress });
-        }
-
-        if (items.length > 0) {
-          rails.push({ title: railTitle, items });
+  if (homeData?.included) {
+    for (const item of homeData.included) {
+      if (item.type === 'show') {
+        showMap.set(item.id, {
+          title: item.attributes?.name,
+          isFavorite: item.attributes?.isFavorite,
+        });
+      }
+      if (item.type === 'collection') {
+        const name = item.attributes?.name || '';
+        if (name.includes('continue-watching')) {
+          continueWatchingCollectionId.push(item.id);
         }
       }
+    }
 
-      return rails;
-    })()
-  `);
+    for (const item of homeData.included) {
+      if (item.type !== 'video') continue;
+      const vh = item.attributes?.viewingHistory;
+      if (!vh?.viewed && !vh?.completed && !vh?.position) continue;
 
-  await page.setData('status', 'Found ' + contentData.length + ' rails');
+      const showId = item.relationships?.show?.data?.id;
+      const show = showMap.get(showId);
 
-  // Categorize content
-  const continueWatching = [];
+      viewedItems.push({
+        title: item.attributes?.name || item.attributes?.title,
+        showTitle: show?.title,
+        type: showId ? 'episode' : 'movie',
+        id: item.id,
+        showId,
+        seasonNumber: item.attributes?.seasonNumber,
+        episodeNumber: item.attributes?.numberInSeason || item.attributes?.numberInShow,
+        duration: item.attributes?.duration,
+        position: vh.position,
+        completed: vh.completed,
+        lastWatched: vh.lastReportedTimestamp,
+        url: 'https://play.max.com/video/watch/' + item.id,
+      });
+    }
+  }
+
+  await page.setData('status', viewedItems.length + ' items with viewing history from home page');
+
+  // ═══ STEP 4: Fetch additional collection pages for more history ═══
+  await page.setProgress({
+    phase: { step: 4, total: TOTAL_STEPS, label: 'Collections' },
+    message: 'Fetching personalized collections...',
+  });
+
+  // Fetch "because you watched" and "for you" collections
+  const interestingCollections = [];
+  if (homeData?.included) {
+    for (const item of homeData.included) {
+      if (item.type !== 'collection') continue;
+      const name = item.attributes?.name || '';
+      if (name.includes('for-you') || name.includes('because-you-watched') || name.includes('continue-watching')) {
+        interestingCollections.push({ id: item.id, name });
+      }
+    }
+  }
+
   const recommendations = [];
+  for (const coll of interestingCollections) {
+    if (coll.name.includes('continue-watching')) continue; // Already have these from viewedItems
 
-  for (const rail of contentData) {
-    if (railMatches(rail.title, LIVE_SPORTS)) continue; // Skip live sports
+    const collData = await apiFetch(
+      'https://default.any-emea.prd.api.hbomax.com/cms/collections/' + coll.id +
+      '?include=default&decorators=viewingHistory,isFavorite,contentAction,badges&page[items.size]=50'
+    );
 
-    const isContinueWatching = railMatches(rail.title, CONTINUE_WATCHING);
-    const isForYou = railMatches(rail.title, FOR_YOU);
-
-    for (const item of rail.items) {
-      const title = cleanTitle(item.title);
-      const id = extractId(item.href);
-      const type = detectType(item.href);
-      const entry = {
-        title,
-        type,
-        id,
-        url: 'https://play.max.com' + item.href,
-      };
-
-      if (isContinueWatching || item.hasProgress) {
-        continueWatching.push({
-          ...entry,
-          progressPercent: item.progress,
-          source: 'continue-watching',
-        });
-      } else if (isForYou) {
-        if (!recommendations.find(r => r.id === id)) {
-          recommendations.push({
-            ...entry,
-            source: 'recommended',
+    if (collData?.included) {
+      for (const item of collData.included) {
+        if (item.type === 'show') {
+          showMap.set(item.id, {
+            title: item.attributes?.name,
+            isFavorite: item.attributes?.isFavorite,
           });
         }
       }
+      for (const item of collData.included) {
+        if (item.type !== 'show' && item.type !== 'video') continue;
+        const title = item.attributes?.name;
+        if (!title) continue;
+        if (recommendations.find(r => r.id === item.id)) continue;
+
+        recommendations.push({
+          title,
+          type: item.type === 'show' ? 'series' : 'episode',
+          id: item.id,
+          url: 'https://play.max.com/' + (item.type === 'show' ? 'show' : 'video/watch') + '/' + item.id,
+          source: coll.name.includes('because') ? 'because-you-watched' : 'for-you',
+        });
+
+        // Also check for viewing history on these items
+        const vh = item.attributes?.viewingHistory;
+        if (vh?.viewed || vh?.completed || vh?.position) {
+          if (!viewedItems.find(v => v.id === item.id)) {
+            const showId = item.relationships?.show?.data?.id;
+            const show = showMap.get(showId);
+            viewedItems.push({
+              title: item.attributes?.name,
+              showTitle: show?.title,
+              type: showId ? 'episode' : (item.type === 'show' ? 'series' : 'movie'),
+              id: item.id,
+              showId,
+              duration: item.attributes?.duration,
+              position: vh.position,
+              completed: vh.completed,
+              lastWatched: vh.lastReportedTimestamp,
+              url: 'https://play.max.com/video/watch/' + item.id,
+            });
+          }
+        }
+      }
     }
+
+    await page.sleep(300);
   }
 
-  await page.setData('status', continueWatching.length + ' in progress, ' + recommendations.length + ' recommended');
+  await page.setData('status', viewedItems.length + ' viewed, ' + recommendations.length + ' recommended');
 
-  // ═══ STEP 4: Extract My List ═══
+  // ═══ STEP 5: Fetch My List ═══
   await page.setProgress({
-    phase: { step: 4, total: TOTAL_STEPS, label: 'My List' },
+    phase: { step: 5, total: TOTAL_STEPS, label: 'My List' },
     message: 'Fetching My List...',
   });
 
-  let myList = [];
+  const myList = [];
+  const myStuffData = await apiFetch(
+    'https://default.any-emea.prd.api.hbomax.com/cms/routes/my-stuff?include=default&decorators=viewingHistory,isFavorite,contentAction,badges&page[items.size]=50'
+  );
 
-  // Try dedicated My List pages
-  const myListUrls = [
-    'https://play.max.com/my-stuff',
-    'https://play.max.com/favorites',
-    'https://play.max.com/my-list',
-    'https://play.max.com/watchlist',
-  ];
-
-  for (const url of myListUrls) {
-    await page.goto(url);
-    await page.sleep(3000);
-
-    const currentUrl = await page.evaluate('window.location.href');
-    if (currentUrl.includes('error') || currentUrl.includes('404')) continue;
-
-    const listItems = await page.evaluate(`
-      (() => {
-        const items = [];
-        const links = document.querySelectorAll('a[href]');
-        for (const link of links) {
-          const href = link.getAttribute('href') || '';
-          if (!href.startsWith('/')) continue;
-          if (!href.includes('/movie/') && !href.includes('/show/') && !href.includes('/series/')) continue;
-
-          let title = '';
-          const img = link.querySelector('img');
-          if (img) title = (img.getAttribute('alt') || '').trim();
-          if (!title) title = (link.getAttribute('aria-label') || '').trim();
-          if (!title) continue;
-
-          items.push({ title, href });
-        }
-        return items;
-      })()
-    `);
-
-    if (listItems.length > 0) {
-      myList = listItems.map(item => ({
-        title: cleanTitle(item.title),
-        type: detectType(item.href),
-        id: extractId(item.href),
-        url: 'https://play.max.com' + item.href,
-      }));
-      await page.setData('status', 'Found My List: ' + myList.length + ' items');
-      break;
-    }
-  }
-
-  // Fallback: check home page for My List rail
-  if (myList.length === 0) {
-    for (const rail of contentData) {
-      if (railMatches(rail.title, MY_LIST)) {
-        myList = rail.items.map(item => ({
-          title: cleanTitle(item.title),
-          type: detectType(item.href),
-          id: extractId(item.href),
-          url: 'https://play.max.com' + item.href,
-        }));
-        await page.setData('status', 'Found My List from rail: ' + myList.length + ' items');
-        break;
+  if (myStuffData?.included) {
+    // Build show map from my-stuff data too
+    for (const item of myStuffData.included) {
+      if (item.type === 'show') {
+        showMap.set(item.id, {
+          title: item.attributes?.name,
+          isFavorite: item.attributes?.isFavorite,
+        });
       }
     }
+
+    // Find the "my-list" collection and its items
+    const myListCollItems = new Set();
+    for (const item of myStuffData.included) {
+      if (item.type === 'collection' && (item.attributes?.name || '').includes('my-list')) {
+        const itemRefs = item.relationships?.items?.data || [];
+        for (const ref of itemRefs) myListCollItems.add(ref.id);
+      }
+    }
+
+    // Extract shows that are in my-list collection or marked as favorite
+    for (const item of myStuffData.included) {
+      if (item.type !== 'show') continue;
+      const title = item.attributes?.name;
+      if (!title) continue;
+
+      // Check if this show is in the my-list collection items
+      // The collectionItem references the show, so check if any collectionItem for this show is in myListCollItems
+      let inMyList = item.attributes?.isFavorite;
+      if (!inMyList) {
+        for (const ci of myStuffData.included) {
+          if (ci.type === 'collectionItem' && myListCollItems.has(ci.id)) {
+            const targetId = ci.relationships?.content?.data?.id;
+            if (targetId === item.id) { inMyList = true; break; }
+          }
+        }
+      }
+
+      if (inMyList || myListCollItems.size === 0) {
+        myList.push({
+          title,
+          type: 'series',
+          id: item.id,
+          url: 'https://play.max.com/show/' + item.id,
+        });
+      }
+    }
+
+    // Also check for viewed items in my-stuff
+    for (const item of myStuffData.included) {
+      if (item.type !== 'video') continue;
+      const vh = item.attributes?.viewingHistory;
+      if (!vh?.viewed && !vh?.completed && !vh?.position) continue;
+      if (viewedItems.find(v => v.id === item.id)) continue;
+
+      const showId = item.relationships?.show?.data?.id;
+      const show = showMap.get(showId);
+      viewedItems.push({
+        title: item.attributes?.name,
+        showTitle: show?.title,
+        type: showId ? 'episode' : 'movie',
+        id: item.id,
+        showId,
+        duration: item.attributes?.duration,
+        position: vh.position,
+        completed: vh.completed,
+        lastWatched: vh.lastReportedTimestamp,
+        url: 'https://play.max.com/video/watch/' + item.id,
+      });
+    }
   }
 
-  // ═══ Build Result ═══
-  const allWatchItems = [...continueWatching, ...recommendations];
+  // Sort viewed items by last watched date
+  viewedItems.sort((a, b) => {
+    if (!a.lastWatched) return 1;
+    if (!b.lastWatched) return -1;
+    return new Date(b.lastWatched) - new Date(a.lastWatched);
+  });
 
+  // ═══ Build Result ═══
   const result = {
     'max.profile': state.profile,
-    'max.continueWatching': {
-      items: continueWatching,
-      total: continueWatching.length,
+    'max.viewingHistory': {
+      items: viewedItems,
+      total: viewedItems.length,
     },
     'max.recommendations': {
       items: recommendations,
@@ -421,10 +487,10 @@ const railMatches = (title, keywords) => {
       total: myList.length,
     },
     exportSummary: {
-      count: allWatchItems.length + myList.length,
+      count: viewedItems.length + myList.length,
       label: 'items',
       details: [
-        continueWatching.length + ' in progress',
+        viewedItems.length + ' watched',
         recommendations.length + ' recommended',
         myList.length + ' in My List',
       ].join(', '),
@@ -436,7 +502,7 @@ const railMatches = (title, keywords) => {
 
   state.isComplete = true;
   await page.setData('result', result);
-  await page.setData('status', 'Complete! ' + result.exportSummary.details);
+  await page.setData('status', 'Complete! ' + result.exportSummary.details + ' for ' + (state.profile.name || 'Max user'));
 
   return { success: true, data: result };
 })();

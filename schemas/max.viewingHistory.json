@@ -1,0 +1,37 @@
+{
+  "name": "Max Viewing History",
+  "version": "1.0.0",
+  "scope": "max.viewingHistory",
+  "dialect": "json",
+  "description": "Movies and shows watched on Max with timestamps, progress position, and completion status",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "title": { "type": "string" },
+            "showTitle": { "type": "string" },
+            "type": { "type": "string", "enum": ["movie", "series", "episode"] },
+            "id": { "type": "string" },
+            "showId": { "type": "string" },
+            "seasonNumber": { "type": "number" },
+            "episodeNumber": { "type": "number" },
+            "duration": { "type": "number" },
+            "position": { "type": "number" },
+            "completed": { "type": "boolean" },
+            "lastWatched": { "type": "string", "format": "date-time" },
+            "url": { "type": "string" }
+          },
+          "required": ["title", "id"],
+          "additionalProperties": false
+        }
+      },
+      "total": { "type": "number" }
+    },
+    "required": ["items", "total"],
+    "additionalProperties": false
+  }
+}
