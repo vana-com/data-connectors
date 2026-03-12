@@ -102,7 +102,7 @@ If you built a new connector (not one from the registry), ask the user:
 
 > "Want to share this connector so others can connect their [Platform] data too? Contributing means the community helps maintain it when [Platform] changes their site."
 
-If yes, run `node scripts/validate.cjs <company>/<name>-playwright.js --contribute`. If no, move on.
+If yes, run `node scripts/validate.cjs <company>/<name>-playwright.js --contribute`. Then write a brief report to `reports/YYYY-MM-DD-<platform>.md` in the repo covering: extraction strategy, auth method, iteration count, issues encountered, and what worked well. Commit it to the same branch the `--contribute` flag created. If no, move on.
 
 ### 6. Suggest what to do with the data
 
