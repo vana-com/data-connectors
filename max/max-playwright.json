@@ -1,0 +1,36 @@
+{
+  "id": "max-playwright",
+  "version": "1.0.0",
+  "name": "Max",
+  "company": "Warner Bros. Discovery",
+  "description": "Exports your Max (HBO Max) profile, continue watching, recommendations, and saved list using Playwright browser automation.",
+  "connectURL": "https://play.max.com/",
+  "connectSelector": "[data-testid='default-avatar'], img[alt*='profile' i], nav",
+  "exportFrequency": "weekly",
+  "runtime": "playwright",
+  "scopes": [
+    {
+      "scope": "max.profile",
+      "label": "Your Max profile",
+      "description": "Profile information including name and subscription plan"
+    },
+    {
+      "scope": "max.continueWatching",
+      "label": "Continue Watching",
+      "description": "Shows and movies you're currently watching with progress"
+    },
+    {
+      "scope": "max.recommendations",
+      "label": "Recommendations",
+      "description": "Personalized content recommendations from Max"
+    },
+    {
+      "scope": "max.myList",
+      "label": "Your My List",
+      "description": "Titles saved to your My List / watchlist"
+    }
+  ],
+  "vectorize_config": {
+    "documents": "myList"
+  }
+}

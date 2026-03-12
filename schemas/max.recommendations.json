@@ -1,0 +1,30 @@
+{
+  "name": "Max Recommendations",
+  "version": "1.0.0",
+  "scope": "max.recommendations",
+  "dialect": "json",
+  "description": "Personalized content recommendations from Max based on viewing history",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "title": { "type": "string" },
+            "type": { "type": "string", "enum": ["movie", "series", "episode", "sport", "unknown"] },
+            "id": { "type": "string" },
+            "url": { "type": "string" },
+            "source": { "type": "string" }
+          },
+          "required": ["title", "url"],
+          "additionalProperties": false
+        }
+      },
+      "total": { "type": "number" }
+    },
+    "required": ["items", "total"],
+    "additionalProperties": false
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "Max Profile",
+  "version": "1.0.0",
+  "scope": "max.profile",
+  "dialect": "json",
+  "description": "Basic Max profile information including name, email, and subscription plan",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "name": { "type": "string" },
+      "email": { "type": "string" },
+      "plan": { "type": "string" }
+    },
+    "additionalProperties": false
+  }
+}

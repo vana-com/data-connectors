@@ -1,0 +1,29 @@
+{
+  "name": "Max My List",
+  "version": "1.0.0",
+  "scope": "max.myList",
+  "dialect": "json",
+  "description": "Titles saved to your Max watchlist / My List",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "title": { "type": "string" },
+            "type": { "type": "string", "enum": ["movie", "series", "episode", "sport", "unknown"] },
+            "id": { "type": "string" },
+            "url": { "type": "string" }
+          },
+          "required": ["title", "url"],
+          "additionalProperties": false
+        }
+      },
+      "total": { "type": "number" }
+    },
+    "required": ["items", "total"],
+    "additionalProperties": false
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "name": "Max Continue Watching",
+  "version": "1.0.0",
+  "scope": "max.continueWatching",
+  "dialect": "json",
+  "description": "Shows and movies currently in progress on Max with watch progress percentage",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "title": { "type": "string" },
+            "type": { "type": "string", "enum": ["movie", "series", "episode", "sport", "unknown"] },
+            "id": { "type": "string" },
+            "url": { "type": "string" },
+            "progressPercent": { "type": "number" },
+            "source": { "type": "string" }
+          },
+          "required": ["title", "url"],
+          "additionalProperties": false
+        }
+      },
+      "total": { "type": "number" }
+    },
+    "required": ["items", "total"],
+    "additionalProperties": false
+  }
+}
