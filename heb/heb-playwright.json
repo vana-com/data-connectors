@@ -1,0 +1,33 @@
+{
+  "id": "heb-playwright",
+  "version": "1.0.0",
+  "name": "H-E-B",
+  "company": "HEB",
+  "iconURL": "icons/heb.png",
+  "description": "Exports your H-E-B account profile, order history, and product nutrition data using Playwright browser automation.",
+  "connectURL": "https://www.heb.com/my-account/your-orders",
+  "connectSelector": "button[aria-label='My account']",
+  "exportFrequency": "weekly",
+  "runtime": "playwright",
+  "scopes": [
+    {
+      "scope": "heb.profile",
+      "label": "Account profile",
+      "description": "Your name, email, phone number, and saved delivery addresses"
+    },
+    {
+      "scope": "heb.orders",
+      "label": "Order history",
+      "description": "Curbside and delivery orders with item names, quantities, prices, and order dates"
+    },
+    {
+      "scope": "heb.nutrition",
+      "label": "Product nutrition",
+      "description": "Nutrition facts (calories, macros, sodium, fiber, vitamins) for each product ordered. Aligned to Schema.org NutritionInformation.",
+      "schema": "https://schema.org/NutritionInformation"
+    }
+  ],
+  "vectorize_config": {
+    "documents": "name"
+  }
+}

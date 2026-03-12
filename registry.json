@@ -122,6 +122,21 @@
         "script": "sha256:d58629b152ad3471e27dfb4cbe33b84d74f426a7ff330754aacdc1ec89f72f6c",
         "metadata": "sha256:d3ff5230a6ebe6ff3f655546d834e7ed59f741febdc540dd2f89894b6e5baa7a"
       }
+    },
+    {
+      "id": "heb-playwright",
+      "company": "HEB",
+      "version": "1.1.0",
+      "name": "H-E-B",
+      "description": "Exports your H-E-B account profile, order history, and product nutrition data using Playwright browser automation.",
+      "files": {
+        "script": "heb/heb-playwright.js",
+        "metadata": "heb/heb-playwright.json"
+      },
+      "checksums": {
+        "script": "sha256:83919643aaebe8e59386acc2868fd89e1ac94dc3464e26f5afedb570e96a7b9f",
+        "metadata": "sha256:d9fd648f70b2f34b148b8ce14f7e99f46fb2c118add2e168c1b7aca95d7dd122"
+      }
     }
   ]
 }

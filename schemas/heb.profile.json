@@ -1,0 +1,26 @@
+{
+  "name": "H-E-B Profile",
+  "version": "1.0.0",
+  "scope": "heb.profile",
+  "dialect": "json",
+  "description": "H-E-B account profile including name, email, phone, and delivery addresses",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "name": { "type": ["string", "null"] },
+      "email": { "type": ["string", "null"] },
+      "phone": { "type": ["string", "null"] },
+      "deliveryAddresses": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "address": { "type": "string" },
+            "label": { "type": ["string", "null"] },
+            "isPrimary": { "type": "boolean" }
+          }
+        }
+      }
+    }
+  }
+}
