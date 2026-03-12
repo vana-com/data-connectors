@@ -1,6 +1,7 @@
 # <Platform> Connector Report
 
 **Date:** YYYY-MM-DD
+**Agent:** (e.g., Claude Opus 4.6, Gemini 3.1 Pro, Kimi K2)
 **Connector:** `<company>/<name>-playwright.js`
 **Iterations:** (how many runs to get a working connector)
 
