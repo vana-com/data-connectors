@@ -186,14 +186,14 @@ function validateScript(scriptPath, check) {
       : 'Does not read credentials from process.env — automated login requires USER_LOGIN_<PLATFORM> and USER_PASSWORD_<PLATFORM>',
     'warning');
 
-  // Automated login: fills form programmatically
+  // Automated login: fills form programmatically (optional with three-tier login)
   const hasFormFill = /\.value\s*=|nativeInputValueSetter/i.test(script);
   check('script_automated_form_fill',
     hasFormFill,
     hasFormFill
       ? 'Has automated form fill logic (sets input values)'
-      : 'No automated form fill detected — connector may require manual login',
-    hasEnvCredentials ? 'error' : 'warning');
+      : 'No automated form fill detected — OK if using session capture or manual login fallback',
+    'warning');
 
   // Manual login (legacy pattern — optional for auto-login connectors)
   const hasShowBrowser = /page\.showBrowser/.test(script);
