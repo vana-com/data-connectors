@@ -1,0 +1,20 @@
+{
+  "name": "Steam Friends",
+  "scope": "steam.friends",
+  "description": "Steam friend list with persona names, avatars, and friendship dates",
+  "schema": {
+    "type": "array",
+    "items": {
+      "type": "object",
+      "properties": {
+        "steamId": { "type": "string", "description": "Friend's 64-bit Steam ID" },
+        "personaName": { "type": ["string", "null"], "description": "Friend's display name" },
+        "avatarUrl": { "type": ["string", "null"], "format": "uri", "description": "URL to the friend's avatar image" },
+        "profileUrl": { "type": ["string", "null"], "format": "uri", "description": "URL to the friend's Steam Community profile" },
+        "friendSince": { "type": ["string", "null"], "format": "date-time", "description": "When the friendship was established" },
+        "relationship": { "type": "string", "description": "Relationship type (usually 'friend')" }
+      },
+      "required": ["steamId"]
+    }
+  }
+}

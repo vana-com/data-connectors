@@ -122,6 +122,21 @@
         "script": "sha256:d58629b152ad3471e27dfb4cbe33b84d74f426a7ff330754aacdc1ec89f72f6c",
         "metadata": "sha256:d3ff5230a6ebe6ff3f655546d834e7ed59f741febdc540dd2f89894b6e5baa7a"
       }
+    },
+    {
+      "id": "steam-playwright",
+      "company": "valve",
+      "version": "1.0.0",
+      "name": "Steam",
+      "description": "Exports your Steam profile, game library with playtime stats, and friend list using the Steam Web API.",
+      "files": {
+        "script": "valve/steam-playwright.js",
+        "metadata": "valve/steam-playwright.json"
+      },
+      "checksums": {
+        "script": "sha256:3c4b768fee81c9347ae6f8da714ce7fbabd2bb16918992a2e3e34db20c49acfc",
+        "metadata": "sha256:f2cabb1d26193df8c12207ebdcd6e668c05cfc14a112264a73ac3f88fb5e2bec"
+      }
     }
   ]
 }
