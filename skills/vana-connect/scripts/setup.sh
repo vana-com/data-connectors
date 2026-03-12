@@ -7,6 +7,7 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DATACONNECT="$HOME/.dataconnect"
 
 # Skip if already set up
@@ -41,7 +42,6 @@ npx playwright install chromium 2>&1 || {
 }
 
 # 4. Copy run-connector.cjs
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [[ -f "$SCRIPT_DIR/run-connector.cjs" ]]; then
   cp "$SCRIPT_DIR/run-connector.cjs" "$DATACONNECT/run-connector.cjs"
 else
