@@ -198,7 +198,16 @@ function handleMessage(msg, resultRef) {
       break;
 
     case 'data': {
-      const val = typeof msg.value === 'string' ? msg.value : JSON.stringify(msg.value);
+      const payload = msg.value !== undefined ? msg.value : msg.data;
+      const val = typeof payload === 'string' ? payload : JSON.stringify(payload);
+      // Capture result from setData('result', ...)
+      if (msg.key === 'result' && payload) {
+        if (typeof payload === 'object') {
+          resultRef.data = payload;
+        } else if (typeof payload === 'string') {
+          try { resultRef.data = JSON.parse(payload); } catch (e) { /* not JSON */ }
+        }
+      }
       // Highlight [DEBUG] messages differently
       if (val.startsWith('[DEBUG]')) {
         print(c.yellow, '[debug] ', val.substring(8));
@@ -211,7 +220,9 @@ function handleMessage(msg, resultRef) {
     }
 
     case 'result':
-      resultRef.data = msg.data;
+      if (msg.data) {
+        resultRef.data = msg.data;
+      }
       break;
 
     case 'error':
@@ -302,10 +313,15 @@ async function main() {
     }
   });
 
-  // Wait for process to exit
-  const exitCode = await new Promise((resolve) => {
-    child.on('exit', (code) => resolve(code || 0));
-  });
+  // Wait for process to exit AND stdout to be fully consumed
+  const [exitCode] = await Promise.all([
+    new Promise((resolve) => {
+      child.on('exit', (code) => resolve(code || 0));
+    }),
+    new Promise((resolve) => {
+      stdoutRL.on('close', resolve);
+    }),
+  ]);
 
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
 
