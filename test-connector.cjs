@@ -57,6 +57,7 @@ function resolveRunnerDir() {
   const candidates = [
     // Sibling repo (same parent directory)
     path.resolve(__dirname, '..', 'data-dt-app', 'playwright-runner'),
+    path.resolve(__dirname, '..', 'data-connect', 'playwright-runner'),
     // Home directory common paths
     path.join(os.homedir(), 'Documents', 'GitHub', 'data-dt-app', 'playwright-runner'),
     path.join(os.homedir(), 'Documents', 'Github', 'data-dt-app', 'playwright-runner'),
