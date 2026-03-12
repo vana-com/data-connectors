@@ -2,27 +2,30 @@
 
 **Date:** YYYY-MM-DD
 **Connector:** `<company>/<name>-playwright.js`
+**Iterations:** (how many runs to get a working connector)
 
-## Strategy
+## Decision log
 
-- **Auth:** (e.g., API key, browser login + Amazon OAuth, requestInput for credentials)
-- **Extraction:** (e.g., httpFetch to REST API, RSS feeds, DOM scraping, captureNetwork)
-- **Why:** (one sentence on why this strategy was chosen over alternatives)
+What did you try, in what order, and why did you move on?
 
-## Results
+- (e.g., "Tried in-page fetch to /api/v1/me — got CORS error, moved to httpFetch")
+- (e.g., "httpFetch with cookies returned 403 — Cloudflare TLS binding, pivoted to DOM extraction")
+- (e.g., "CSV export page timed out after 30s — switched to RSS feeds")
 
-| Metric | Value |
-|--------|-------|
-| Scopes | |
-| Items collected | |
-| Runtime | |
-| Iterations to working connector | |
-| Validation | x/x passed |
+## Surprises
 
-## Issues encountered
+What was unexpected? What would save the next person time?
 
-- (what broke, what caused retries, what was surprising)
+- (e.g., "Login page has 4 options but all route through Amazon OAuth")
+- (e.g., "API was deprecated in 2020, no docs — had to reverse-engineer RSS feed params")
+
+## Friction
+
+What was harder than it should have been? What should the skill or tooling do better?
+
+- (e.g., "Validator flagged missing schema but didn't say which scope")
+- (e.g., "Had to run setup.sh twice because SCRIPT_DIR resolved wrong")
 
 ## What worked well
 
-- (what was smooth, what patterns transferred from other connectors)
+- (e.g., "Browser profile persisted across runs — skipped login on retries")
