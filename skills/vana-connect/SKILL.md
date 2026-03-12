@@ -63,9 +63,9 @@ Exit codes: 0 = success, 2 = needs input, 3 = legacy auth, 1 = error.
    **Option A (preferred): File-based response.** The `need-input` message includes `pendingInputPath` and `responseInputPath`. Ask the user for the requested fields, then write the response as JSON to `responseInputPath`. The connector resumes automatically — no restart needed. This works for multi-step auth (credentials first, then 2FA).
 
    ```bash
-   # Connector emits: {"type":"need-input","message":"Enter credentials","pendingInputPath":"~/.dataconnect/pending-input.json","responseInputPath":"~/.dataconnect/input-response.json",...}
-   # After asking the user, write the response:
-   echo '{"username":"alice","password":"secret"}' > ~/.dataconnect/input-response.json
+   # Connector emits: {"type":"need-input","message":"Enter credentials","pendingInputPath":"~/.dataconnect/pending-input-steam-playwright.json","responseInputPath":"~/.dataconnect/input-response-steam-playwright.json",...}
+   # After asking the user, write the response to the path from the message:
+   echo '{"username":"alice","password":"secret"}' > ~/.dataconnect/input-response-steam-playwright.json
    # Connector picks it up within 1 second and continues.
    # If it later needs 2FA, another need-input appears — write again.
    ```

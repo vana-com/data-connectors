@@ -27,9 +27,9 @@ const homedir = os.homedir();
 // File-based IPC for requestInput: when --inputs can't satisfy a request,
 // write a pending-input file and poll for a response file. This keeps the
 // connector alive while the caller (agent, Tauri app, etc.) collects user input.
-// Callers should write to input-response.json.tmp first, then rename atomically.
-const PENDING_INPUT_PATH = path.join(homedir, '.dataconnect', 'pending-input.json');
-const INPUT_RESPONSE_PATH = path.join(homedir, '.dataconnect', 'input-response.json');
+// Callers should write to the response path, then the connector picks it up.
+// Paths are scoped by connector name so multiple connectors can run in parallel.
+// Initialized after arg parsing (needs connectorPath).
 
 // ─── Arg parsing ─────────────────────────────────────────────
 
@@ -62,6 +62,11 @@ if (!connectorPath) {
   console.error('Usage: node run-connector.cjs <connector-path> [start-url] [--inputs \'{"key":"val"}\'] [--pretty]');
   process.exit(1);
 }
+
+// Scope IPC files by connector name so multiple connectors can run in parallel.
+const connectorSlug = path.basename(connectorPath, path.extname(connectorPath));
+const PENDING_INPUT_PATH = path.join(homedir, '.dataconnect', `pending-input-${connectorSlug}.json`);
+const INPUT_RESPONSE_PATH = path.join(homedir, '.dataconnect', `input-response-${connectorSlug}.json`);
 
 // ─── Pretty output helpers ───────────────────────────────────
 
