@@ -122,6 +122,21 @@
         "script": "sha256:d58629b152ad3471e27dfb4cbe33b84d74f426a7ff330754aacdc1ec89f72f6c",
         "metadata": "sha256:d3ff5230a6ebe6ff3f655546d834e7ed59f741febdc540dd2f89894b6e5baa7a"
       }
+    },
+    {
+      "id": "uber-playwright",
+      "company": "uber",
+      "version": "1.0.0",
+      "name": "Uber",
+      "description": "Exports your Uber trip history and receipts using Playwright browser automation.",
+      "files": {
+        "script": "uber/uber-playwright.js",
+        "metadata": "uber/uber-playwright.json"
+      },
+      "checksums": {
+        "script": "sha256:9a855466007921841f52ccc7e9a9ee327602b68473ad4d9e6136955890788c9a",
+        "metadata": "sha256:b0f05adabc155708ba15356104bba28728da1e5e28265b34337e45f44cd5ae2f"
+      }
     }
   ]
 }

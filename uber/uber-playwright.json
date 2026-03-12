@@ -1,0 +1,27 @@
+{
+  "id": "uber-playwright",
+  "version": "1.0.0",
+  "name": "Uber",
+  "company": "Uber",
+  "iconURL": "icons/uber.svg",
+  "description": "Exports your Uber trip history and receipts using Playwright browser automation.",
+  "connectURL": "https://m.uber.com",
+  "connectSelector": "[data-testid]",
+  "exportFrequency": "weekly",
+  "runtime": "playwright",
+  "scopes": [
+    {
+      "scope": "uber.trips",
+      "label": "Your trip history",
+      "description": "Complete history of your Uber rides including pickup/dropoff locations, dates, and driver info"
+    },
+    {
+      "scope": "uber.receipts",
+      "label": "Your receipts",
+      "description": "Fare breakdowns and receipt details for each trip"
+    }
+  ],
+  "vectorize_config": {
+    "documents": "trips"
+  }
+}
