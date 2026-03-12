@@ -1,0 +1,26 @@
+{
+  "name": "{{Platform}} {{Scope Name}}",
+  "version": "1.0.0",
+  "scope": "{{platform}}.{{scope}}",
+  "dialect": "json",
+  "description": "{{Description of the exported data}}",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "title": { "type": "string" }
+          },
+          "required": ["id", "title"],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": ["items"],
+    "additionalProperties": false
+  }
+}
