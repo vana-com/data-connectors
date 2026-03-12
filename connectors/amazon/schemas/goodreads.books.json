@@ -1,0 +1,79 @@
+{
+  "name": "goodreads books",
+  "version": "1.0.0",
+  "scope": "goodreads.books",
+  "dialect": "json",
+  "description": "Complete Goodreads library with titles, authors, ratings, reviews, shelf assignments, and reading dates.",
+  "schema": {
+    "type": "array",
+    "items": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Book title, may include series info in parentheses"
+        },
+        "author": {
+          "type": "string",
+          "description": "Primary author name"
+        },
+        "isbn": {
+          "type": "string",
+          "description": "10-digit ISBN"
+        },
+        "isbn13": {
+          "type": "string",
+          "description": "13-digit ISBN"
+        },
+        "myRating": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5,
+          "description": "User's star rating (1-5), 0 if unrated"
+        },
+        "averageRating": {
+          "type": "number",
+          "description": "Community average rating on Goodreads"
+        },
+        "publisher": {
+          "type": "string",
+          "description": "Book publisher name"
+        },
+        "numberOfPages": {
+          "type": ["integer", "null"],
+          "description": "Page count, null if unknown"
+        },
+        "yearPublished": {
+          "type": "string",
+          "description": "Year the book was published"
+        },
+        "dateRead": {
+          "type": "string",
+          "description": "When the user finished reading (RFC 2822 date string)"
+        },
+        "dateAdded": {
+          "type": "string",
+          "description": "When the book was added to the user's library (RFC 2822 date string)"
+        },
+        "exclusiveShelf": {
+          "type": "string",
+          "description": "Primary shelf: 'read', 'currently-reading', or 'to-read'"
+        },
+        "bookshelves": {
+          "type": "string",
+          "description": "Comma-separated list of all shelves this book is on"
+        },
+        "myReview": {
+          "type": "string",
+          "description": "User's text review of the book (HTML may be present)"
+        },
+        "bookId": {
+          "type": "string",
+          "description": "Goodreads numeric book ID"
+        }
+      },
+      "required": ["title", "exclusiveShelf"],
+      "additionalProperties": true
+    }
+  }
+}
