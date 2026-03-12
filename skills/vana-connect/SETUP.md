@@ -27,7 +27,7 @@ If the setup script doesn't work for your environment, follow these steps indivi
 mkdir -p ~/.dataconnect/connectors
 cd ~/.dataconnect
 
-git clone --depth 1 --filter=blob:none --sparse --branch docs/upstream-asks \
+git clone --depth 1 --filter=blob:none --sparse --branch main \
   https://github.com/vana-com/data-connect.git _data-connect
 cd _data-connect && git sparse-checkout set playwright-runner
 cp -r playwright-runner ../playwright-runner

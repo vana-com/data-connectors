@@ -24,7 +24,7 @@ mkdir -p "$DATACONNECT/connectors"
 echo "Downloading playwright-runner..."
 cd "$DATACONNECT"
 rm -rf _data-connect
-git clone --depth 1 --filter=blob:none --sparse --branch docs/upstream-asks \
+git clone --depth 1 --filter=blob:none --sparse --branch main \
   https://github.com/vana-com/data-connect.git _data-connect 2>&1
 cd _data-connect && git sparse-checkout set playwright-runner 2>&1
 cp -r playwright-runner ../playwright-runner
