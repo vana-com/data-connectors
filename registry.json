@@ -49,6 +49,21 @@
       }
     },
     {
+      "id": "instagram-ads-playwright",
+      "company": "meta",
+      "version": "1.0.0",
+      "name": "Instagram Ads",
+      "description": "Exports your Instagram ad interests — advertisers and ad topics.",
+      "files": {
+        "script": "meta/instagram-ads-playwright.js",
+        "metadata": "meta/instagram-ads-playwright.json"
+      },
+      "checksums": {
+        "script": "sha256:ef759279f73e52a05b063cf8e6a6bceb63409039f35f529b342bc1af004c972d",
+        "metadata": "sha256:eb8445f13391f47c40fecbef5026ebc03e82acdfbce0b69bb91d2d1df50bc954"
+      }
+    },
+    {
       "id": "linkedin-playwright",
       "company": "linkedin",
       "version": "5.0.0",
