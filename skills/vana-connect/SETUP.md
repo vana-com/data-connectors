@@ -3,10 +3,10 @@
 This setup exists to let the skill use the published canary CLI:
 
 ```bash
-pnpm dlx @opendatalabs/connect@canary
+npx -y @opendatalabs/connect@canary
 ```
 
-Skip runtime setup if `pnpm dlx @opendatalabs/connect@canary status --json` reports `"runtime":"installed"` or `"runtime":{"installed":true,...}`.
+Skip runtime setup if `npx -y @opendatalabs/connect@canary status --json` reports `"runtime":"installed"` or `"runtime":{"installed":true,...}`.
 
 ## Prerequisites
 
@@ -16,7 +16,7 @@ Skip runtime setup if `pnpm dlx @opendatalabs/connect@canary status --json` repo
 ## Verify the published CLI
 
 ```bash
-pnpm dlx @opendatalabs/connect@canary --help
+npx -y @opendatalabs/connect@canary --help
 ```
 
 ## Local development fallback
@@ -39,7 +39,7 @@ ls /home/tnunamak/code/vana-connect/dist/cli/bin.js
 Use the published CLI to provision the runtime:
 
 ```bash
-pnpm dlx @opendatalabs/connect@canary setup --yes
+npx -y @opendatalabs/connect@canary setup --yes
 ```
 
 Before running, tell the user this downloads a browser engine and some dependencies into `~/.dataconnect/`. This is a one-time step.
@@ -47,7 +47,7 @@ Before running, tell the user this downloads a browser engine and some dependenc
 ## Verify
 
 ```bash
-pnpm dlx @opendatalabs/connect@canary status
+npx -y @opendatalabs/connect@canary status
 ```
 
 You should see `Runtime: installed`. If not, inspect the log path surfaced by the CLI and only fall back to the older script-level flow if the CLI setup path is blocked.
@@ -64,7 +64,7 @@ bash skills/vana-connect/scripts/setup.sh
 
 | Path | Purpose |
 |------|---------|
-| `pnpm dlx @opendatalabs/connect@canary` | Published canary CLI entrypoint |
+| `npx -y @opendatalabs/connect@canary` | Published canary CLI entrypoint |
 | `/home/tnunamak/code/vana-connect/dist/cli/bin.js` | Local development fallback |
 | `~/.dataconnect/playwright-runner/` | Runner process |
 | `~/.dataconnect/run-connector.cjs` | Batch-mode runner wrapper |

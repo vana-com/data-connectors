@@ -17,7 +17,7 @@ Connect personal data from web platforms using the `vana` CLI and local browser 
 Prefer the published canary CLI:
 
 ```bash
-pnpm dlx @opendatalabs/connect@canary
+npx -y @opendatalabs/connect@canary
 ```
 
 If the canary CLI is unavailable or the user is explicitly testing local changes, fall back to:
@@ -31,13 +31,13 @@ If neither path is available, follow `SETUP.md` in this folder.
 Before connecting a source, check runtime state with:
 
 ```bash
-pnpm dlx @opendatalabs/connect@canary status --json
+npx -y @opendatalabs/connect@canary status --json
 ```
 
 If the runtime is missing, tell the user: "I need to do a one-time setup first. This downloads a browser engine and some dependencies into `~/.dataconnect/` and usually takes about a minute." Then run:
 
 ```bash
-pnpm dlx @opendatalabs/connect@canary setup --yes
+npx -y @opendatalabs/connect@canary setup --yes
 ```
 
 ## Flow
@@ -45,7 +45,7 @@ pnpm dlx @opendatalabs/connect@canary setup --yes
 ### 1. Explore available sources
 
 ```bash
-pnpm dlx @opendatalabs/connect@canary sources --json
+npx -y @opendatalabs/connect@canary sources --json
 ```
 
 This is the source of truth for what the CLI can currently connect. Prefer it over inspecting repo files manually.
@@ -59,7 +59,7 @@ If the requested platform is present, use the CLI flow below.
 Start with the agent-safe probe:
 
 ```bash
-pnpm dlx @opendatalabs/connect@canary connect <platform> --json --no-input
+npx -y @opendatalabs/connect@canary connect <platform> --json --no-input
 ```
 
 This will:
@@ -72,13 +72,13 @@ This will:
 If the outcome is `needs_input`, rerun interactively:
 
 ```bash
-pnpm dlx @opendatalabs/connect@canary connect <platform>
+npx -y @opendatalabs/connect@canary connect <platform>
 ```
 
 If the user specifically wants to inspect current state before rerunning, use:
 
 ```bash
-pnpm dlx @opendatalabs/connect@canary status
+npx -y @opendatalabs/connect@canary status
 ```
 
 ### 3. Handle outcomes
