@@ -1,19 +1,25 @@
 # Connect -- Setup
 
-This setup exists to let the skill use the built local CLI at:
+This setup exists to let the skill use the published canary CLI:
 
 ```bash
-node /home/tnunamak/code/vana-connect/dist/cli/bin.js
+pnpm dlx @opendatalabs/connect@canary
 ```
 
-Skip runtime setup if `node /home/tnunamak/code/vana-connect/dist/cli/bin.js status --json` reports `"runtime":{"installed":true,...}`.
+Skip runtime setup if `pnpm dlx @opendatalabs/connect@canary status --json` reports `"runtime":"installed"` or `"runtime":{"installed":true,...}`.
 
 ## Prerequisites
 
 - Node.js v18+
 - Git
 
-## Build the CLI
+## Verify the published CLI
+
+```bash
+pnpm dlx @opendatalabs/connect@canary --help
+```
+
+## Local development fallback
 
 From `/home/tnunamak/code/vana-connect`:
 
@@ -30,10 +36,10 @@ ls /home/tnunamak/code/vana-connect/dist/cli/bin.js
 
 ## Install the runtime
 
-Once the CLI is built, use it to provision the runtime:
+Use the published CLI to provision the runtime:
 
 ```bash
-node /home/tnunamak/code/vana-connect/dist/cli/bin.js setup --yes
+pnpm dlx @opendatalabs/connect@canary setup --yes
 ```
 
 Before running, tell the user this downloads a browser engine and some dependencies into `~/.dataconnect/`. This is a one-time step.
@@ -41,7 +47,7 @@ Before running, tell the user this downloads a browser engine and some dependenc
 ## Verify
 
 ```bash
-node /home/tnunamak/code/vana-connect/dist/cli/bin.js status
+pnpm dlx @opendatalabs/connect@canary status
 ```
 
 You should see `Runtime: installed`. If not, inspect the log path surfaced by the CLI and only fall back to the older script-level flow if the CLI setup path is blocked.
@@ -58,7 +64,8 @@ bash skills/vana-connect/scripts/setup.sh
 
 | Path | Purpose |
 |------|---------|
-| `/home/tnunamak/code/vana-connect/dist/cli/bin.js` | Local development CLI entrypoint |
+| `pnpm dlx @opendatalabs/connect@canary` | Published canary CLI entrypoint |
+| `/home/tnunamak/code/vana-connect/dist/cli/bin.js` | Local development fallback |
 | `~/.dataconnect/playwright-runner/` | Runner process |
 | `~/.dataconnect/run-connector.cjs` | Batch-mode runner wrapper |
 | `~/.dataconnect/connectors/` | Connector scripts |

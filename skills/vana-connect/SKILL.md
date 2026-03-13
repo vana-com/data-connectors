@@ -14,24 +14,30 @@ Connect personal data from web platforms using the `vana` CLI and local browser 
 
 ## Setup
 
-Use the built local CLI directly during development:
+Prefer the published canary CLI:
+
+```bash
+pnpm dlx @opendatalabs/connect@canary
+```
+
+If the canary CLI is unavailable or the user is explicitly testing local changes, fall back to:
 
 ```bash
 node /home/tnunamak/code/vana-connect/dist/cli/bin.js
 ```
 
-If `/home/tnunamak/code/vana-connect/dist/cli/bin.js` does not exist, follow `SETUP.md` in this folder to build it first.
+If neither path is available, follow `SETUP.md` in this folder.
 
 Before connecting a source, check runtime state with:
 
 ```bash
-node /home/tnunamak/code/vana-connect/dist/cli/bin.js status --json
+pnpm dlx @opendatalabs/connect@canary status --json
 ```
 
 If the runtime is missing, tell the user: "I need to do a one-time setup first. This downloads a browser engine and some dependencies into `~/.dataconnect/` and usually takes about a minute." Then run:
 
 ```bash
-node /home/tnunamak/code/vana-connect/dist/cli/bin.js setup --yes
+pnpm dlx @opendatalabs/connect@canary setup --yes
 ```
 
 ## Flow
@@ -39,7 +45,7 @@ node /home/tnunamak/code/vana-connect/dist/cli/bin.js setup --yes
 ### 1. Explore available sources
 
 ```bash
-node /home/tnunamak/code/vana-connect/dist/cli/bin.js sources --json
+pnpm dlx @opendatalabs/connect@canary sources --json
 ```
 
 This is the source of truth for what the CLI can currently connect. Prefer it over inspecting repo files manually.
@@ -53,7 +59,7 @@ If the requested platform is present, use the CLI flow below.
 Start with the agent-safe probe:
 
 ```bash
-node /home/tnunamak/code/vana-connect/dist/cli/bin.js connect <platform> --json --no-input
+pnpm dlx @opendatalabs/connect@canary connect <platform> --json --no-input
 ```
 
 This will:
@@ -66,13 +72,13 @@ This will:
 If the outcome is `needs_input`, rerun interactively:
 
 ```bash
-node /home/tnunamak/code/vana-connect/dist/cli/bin.js connect <platform>
+pnpm dlx @opendatalabs/connect@canary connect <platform>
 ```
 
 If the user specifically wants to inspect current state before rerunning, use:
 
 ```bash
-node /home/tnunamak/code/vana-connect/dist/cli/bin.js status
+pnpm dlx @opendatalabs/connect@canary status
 ```
 
 ### 3. Handle outcomes
