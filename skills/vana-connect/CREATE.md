@@ -7,7 +7,7 @@ Build a data connector for a platform that isn't in the registry yet.
 - `reference/PAGE-API.md` -- full `page` object API
 - `reference/PATTERNS.md` -- data extraction approaches and code examples
 
-All `node scripts/...` commands refer to `skills/vana-connect/scripts/` in the data-connectors repo. `run-connector.cjs` is at `~/.dataconnect/run-connector.cjs` (installed by SETUP.md).
+All `node scripts/...` commands refer to `skills/vana-connect/scripts/` in the data-connectors repo. Use the `vana` CLI to exercise connectors; only fall back to raw scripts when debugging connector internals.
 
 ## Connector Format
 
@@ -167,7 +167,7 @@ Run the connector and validate in one step:
 
 ```bash
 node scripts/validate.cjs <company>/<name>-playwright.js && \
-  node ~/.dataconnect/run-connector.cjs <company>/<name>-playwright.js [start-url] && \
+  vana connect <platform> && \
   node scripts/validate.cjs <company>/<name>-playwright.js --check-result ~/.dataconnect/last-result.json
 ```
 

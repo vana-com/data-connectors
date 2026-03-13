@@ -1,6 +1,6 @@
 # Connect -- Setup
 
-This setup exists to let the skill use a real installed `vana` CLI when available, with canary npm as the fallback.
+This setup exists to let the skill use a real installed `vana` CLI when available, with the published canary CLI as the fallback.
 
 ## Preferred path
 
@@ -27,11 +27,6 @@ npx -y @opendatalabs/connect@canary
 ```
 
 Skip runtime setup if `npx -y @opendatalabs/connect@canary status --json` reports `"runtime":"installed"` or `"runtime":{"installed":true,...}`.
-
-## Prerequisites
-
-- Node.js v18+
-- Git
 
 ## Verify the published CLI
 
@@ -101,8 +96,7 @@ bash skills/vana-connect/scripts/setup.sh
 | `vana` | Preferred installed CLI entrypoint |
 | `npx -y @opendatalabs/connect@canary` | Published canary CLI entrypoint |
 | `/home/tnunamak/code/vana-connect/dist/cli/bin.js` | Local development fallback |
-| `~/.dataconnect/playwright-runner/` | Runner process |
-| `~/.dataconnect/run-connector.cjs` | Batch-mode runner wrapper |
 | `~/.dataconnect/connectors/` | Connector scripts |
 | `~/.dataconnect/browser-profiles/` | Persistent sessions (cookies) |
 | `~/.dataconnect/last-result.json` | Most recent result |
+| `~/.dataconnect/logs/` | Setup and run logs surfaced by the CLI |
