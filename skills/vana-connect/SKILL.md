@@ -28,6 +28,20 @@ vana
 
 If `vana` is not on `PATH`, fall back to the published canary CLI:
 
+If the user wants the real installed CLI and not a transient package runner, install `vana` first:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vana-com/vana-connect/main/install/install.sh | sh
+```
+
+Then use:
+
+```bash
+vana
+```
+
+If the installer path is unavailable, the release channel is too old for the needed CLI behavior, or the user is explicitly testing prerelease changes, fall back to the published canary CLI:
+
 ```bash
 npx -y @opendatalabs/connect@canary
 ```

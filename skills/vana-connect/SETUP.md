@@ -20,7 +20,19 @@ Skip runtime setup if `vana status --json` reports `"runtime":"installed"` or `"
 
 ## Fallback path
 
-If `vana` is not installed yet, use the published canary package:
+If `vana` is not installed yet, prefer the official installer so the user gets a real installed CLI:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vana-com/vana-connect/main/install/install.sh | sh
+```
+
+Then verify:
+
+```bash
+vana --help
+```
+
+If the installer path is unavailable or the released CLI does not yet contain the needed behavior, use the published canary package:
 
 ```bash
 npx -y @opendatalabs/connect@canary
