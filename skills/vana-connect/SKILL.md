@@ -26,9 +26,7 @@ If that succeeds, use:
 vana
 ```
 
-If `vana` is not on `PATH`, fall back to the published canary CLI:
-
-If the user wants the real installed CLI and not a transient package runner, install `vana` first:
+If `vana` is not on `PATH`, prefer installing the real CLI before falling back to a transient package runner:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/vana-com/vana-connect/main/install/install.sh | sh
