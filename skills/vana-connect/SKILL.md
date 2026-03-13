@@ -14,7 +14,19 @@ Connect personal data from web platforms using the `vana` CLI and local browser 
 
 ## Setup
 
-Prefer the published canary CLI:
+Prefer an installed `vana` binary when it is available:
+
+```bash
+command -v vana
+```
+
+If that succeeds, use:
+
+```bash
+vana
+```
+
+If `vana` is not on `PATH`, fall back to the published canary CLI:
 
 ```bash
 npx -y @opendatalabs/connect@canary
@@ -28,7 +40,13 @@ node /home/tnunamak/code/vana-connect/dist/cli/bin.js
 
 If neither path is available, follow `SETUP.md` in this folder.
 
-Before connecting a source, check runtime state with:
+Before connecting a source, check runtime state with the highest-priority available CLI:
+
+```bash
+vana status --json
+```
+
+If `vana` is unavailable, use:
 
 ```bash
 npx -y @opendatalabs/connect@canary status --json
@@ -37,12 +55,26 @@ npx -y @opendatalabs/connect@canary status --json
 If the runtime is missing, tell the user: "I need to do a one-time setup first. This downloads a browser engine and some dependencies into `~/.dataconnect/` and usually takes about a minute." Then run:
 
 ```bash
+vana setup --yes
+```
+
+If `vana` is unavailable, use:
+
+```bash
 npx -y @opendatalabs/connect@canary setup --yes
 ```
 
 ## Flow
 
 ### 1. Explore available sources
+
+Use `vana sources --json` if `vana` is installed:
+
+```bash
+vana sources --json
+```
+
+Otherwise use:
 
 ```bash
 npx -y @opendatalabs/connect@canary sources --json
@@ -58,6 +90,14 @@ If the requested platform is present, use the CLI flow below.
 
 Start with the agent-safe probe:
 
+Use `vana connect <platform> --json --no-input` if `vana` is installed:
+
+```bash
+vana connect <platform> --json --no-input
+```
+
+Otherwise use:
+
 ```bash
 npx -y @opendatalabs/connect@canary connect <platform> --json --no-input
 ```
@@ -71,11 +111,27 @@ This will:
 
 If the outcome is `needs_input`, rerun interactively:
 
+Use `vana connect <platform>` if `vana` is installed:
+
+```bash
+vana connect <platform>
+```
+
+Otherwise use:
+
 ```bash
 npx -y @opendatalabs/connect@canary connect <platform>
 ```
 
 If the user specifically wants to inspect current state before rerunning, use:
+
+Use `vana status` if `vana` is installed:
+
+```bash
+vana status
+```
+
+Otherwise use:
 
 ```bash
 npx -y @opendatalabs/connect@canary status
@@ -147,3 +203,11 @@ The user can't see what you're doing behind the scenes. Keep them informed at ke
 4. **Check session first** -- try without credentials if a browser profile exists
 5. **Read connectors before running them**
 6. **Use the CLI as the primary interface** -- only drop to raw scripts when debugging or updating connector internals
+
+## CLI fallback order
+
+Use this order when choosing the CLI entrypoint:
+
+1. `vana` if it is already installed and on `PATH`
+2. `npx -y @opendatalabs/connect@canary`
+3. `node /home/tnunamak/code/vana-connect/dist/cli/bin.js` only for local development or debugging
