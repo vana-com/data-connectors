@@ -10,85 +10,165 @@ description: >
 
 # Connect
 
-Connect personal data from web platforms using local browser automation.
+Connect personal data from web platforms using the `vana` CLI and local browser automation.
 
 ## Setup
 
-If `~/.dataconnect/playwright-runner/index.cjs` or `~/.dataconnect/run-connector.cjs` does not exist, setup is needed. Tell the user: "I need to do a one-time setup first — this downloads a browser engine and some dependencies to `~/.dataconnect/`. It'll take about a minute." Then follow `SETUP.md` (co-located with this file).
+Prefer an installed `vana` binary when it is available:
+
+```bash
+command -v vana
+```
+
+If that succeeds, use:
+
+```bash
+vana
+```
+
+If `vana` is not on `PATH`, prefer installing the real CLI before falling back to a transient package runner:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vana-com/vana-connect/main/install/install.sh | sh
+```
+
+Then use:
+
+```bash
+vana
+```
+
+If the installer path is unavailable, the release channel is too old for the needed CLI behavior, or the user is explicitly testing prerelease changes, fall back to the published canary CLI:
+
+```bash
+npx -y @opendatalabs/connect@canary
+```
+
+If the canary CLI is unavailable or the user is explicitly testing local changes, fall back to:
+
+```bash
+node /home/tnunamak/code/vana-connect/dist/cli/bin.js
+```
+
+If neither path is available, follow `SETUP.md` in this folder.
+
+Before connecting a source, check runtime state with the highest-priority available CLI:
+
+```bash
+vana status --json
+```
+
+If `vana` is unavailable, use:
+
+```bash
+npx -y @opendatalabs/connect@canary status --json
+```
+
+If the runtime is missing, tell the user: "I need to do a one-time setup first. This downloads a browser engine and some dependencies into `~/.dataconnect/` and usually takes about a minute." Then run:
+
+```bash
+vana setup --yes
+```
+
+If `vana` is unavailable, use:
+
+```bash
+npx -y @opendatalabs/connect@canary setup --yes
+```
 
 ## Flow
 
-### 1. Find a connector
+### 1. Explore available sources
+
+Use `vana sources --json` if `vana` is installed:
 
 ```bash
-node scripts/fetch-connector.cjs <platform>
+vana sources --json
 ```
 
-This searches the registry and downloads the connector + metadata + schemas in one step. It prints JSON: `{ "found": true, "connectorPath": "..." }` on success, `{ "found": false }` if no connector exists.
-
-If found, let the user know there's an existing connector and this should be quick.
-
-**If no connector exists for the platform,** tell the user you'll build one — this involves researching the platform's data APIs, writing the extraction code, and testing it. Let them know it'll take a bit and they're welcome to do something else while you work. Then read `CREATE.md` and follow it. Continue from step 2 with the newly created connector.
-
-### 2. Read the connector
-
-Before running, read the connector script to understand:
-- What URL it starts from (`page.goto()` or `connectURL` in metadata)
-- Whether it uses `requestInput` (batch-compatible) or `showBrowser`/`promptUser` (browser login)
-- What data it collects
-
-### 3. Run it
+Otherwise use:
 
 ```bash
-node ~/.dataconnect/run-connector.cjs <connector-path> [start-url]
-node ~/.dataconnect/run-connector.cjs <connector-path> [start-url] --inputs '{"username":"x","password":"y"}'
+npx -y @opendatalabs/connect@canary sources --json
 ```
 
-**Stdout** is line-delimited JSON:
+This is the source of truth for what the CLI can currently connect. Prefer it over inspecting repo files manually.
 
-| type | meaning | action |
-|------|---------|--------|
-| `need-input` | Connector needs credentials or 2FA | Ask user, write response file (see below) |
-| `legacy-auth` | Legacy auth, can't run headless | See legacy section |
-| `result` | Data saved to `resultPath` | Read the file |
-| `error` | Failure | Report to user |
+If the requested platform is present, use the CLI flow below.
 
-Exit codes: 0 = success, 2 = needs input, 3 = legacy auth, 1 = error.
+**If no connector exists for the platform,** tell the user you'll build one — this involves researching the platform's data APIs, writing the extraction code, and testing it. Let them know it'll take a bit and they're welcome to do something else while you work. Then read `CREATE.md` and follow it.
 
-### 4. Handle auth
+### 2. Connect with the CLI
 
-1. Check if `~/.dataconnect/browser-profiles/{script-filename}/` exists -- try without `--inputs` first (session may still be valid)
-2. If `need-input` appears in stdout: the connector is paused, waiting for input. Two options:
+Start with the agent-safe probe:
 
-   **Option A (preferred): File-based response.** The `need-input` message includes `pendingInputPath` and `responseInputPath`. Ask the user for the requested fields, then write the response as JSON to `responseInputPath`. The connector resumes automatically — no restart needed. This works for multi-step auth (credentials first, then 2FA).
+Use `vana connect <platform> --json --no-input` if `vana` is installed:
 
-   ```bash
-   # Connector emits: {"type":"need-input","message":"Enter credentials","pendingInputPath":"~/.dataconnect/pending-input-steam-playwright.json","responseInputPath":"~/.dataconnect/input-response-steam-playwright.json",...}
-   # After asking the user, write the response to the path from the message:
-   echo '{"username":"alice","password":"secret"}' > ~/.dataconnect/input-response-steam-playwright.json
-   # Connector picks it up within 1 second and continues.
-   # If it later needs 2FA, another need-input appears — write again.
-   ```
+```bash
+vana connect <platform> --json --no-input
+```
 
-   **Option B: Pre-supply with `--inputs`.** If you know all inputs upfront, pass them at launch. Fields are consumed as each `requestInput` call is made.
+Otherwise use:
 
-   ```bash
-   node ~/.dataconnect/run-connector.cjs <connector-path> --inputs '{"username":"x","password":"y"}'
-   ```
+```bash
+npx -y @opendatalabs/connect@canary connect <platform> --json --no-input
+```
 
-TOTP codes expire in ~30 seconds — write the response file immediately after receiving a code. Cookies saved in browser profiles persist for days to weeks.
+This will:
 
-#### Legacy connectors
+- ensure the runtime is installed
+- resolve and cache the connector
+- try a saved session if one exists
+- return structured events and a final outcome such as `needs_input`, `legacy_auth`, `connected_local_only`, or `connected_and_ingested`
 
-Exit code 3 means the connector uses `showBrowser`/`promptUser` instead of `requestInput`:
+If the outcome is `needs_input`, rerun interactively:
 
-1. Try without `--inputs` -- if a browser profile exists, login may be skipped.
-2. Check for a migrated version on the `main` branch.
-3. Write a login script to establish a session, then run the stock connector.
+Use `vana connect <platform>` if `vana` is installed:
 
-### 5. Validate, present results, and offer to contribute
+```bash
+vana connect <platform>
+```
 
-On success, immediately run validation — before presenting results to the user:
+Otherwise use:
+
+```bash
+npx -y @opendatalabs/connect@canary connect <platform>
+```
+
+If the user specifically wants to inspect current state before rerunning, use:
+
+Use `vana status` if `vana` is installed:
+
+```bash
+vana status
+```
+
+Otherwise use:
+
+```bash
+npx -y @opendatalabs/connect@canary status
+```
+
+### 3. Handle outcomes
+
+The CLI emits structured JSON events in `--json` mode.
+
+Key outcomes:
+
+- `needs_input`
+  The connector needs a live login or another manual step. Explain that you'll rerun interactively.
+- `legacy_auth`
+  The connector still depends on `showBrowser` / `promptUser`. Explain that this source still needs a headed/manual session path and may not work in fully headless batch mode yet.
+- `connected_local_only`
+  Data was collected locally but no Personal Server target was available.
+- `connected_and_ingested`
+  Data was collected and synced to the Personal Server.
+
+If setup, fetch, or run output is truncated, the CLI may point to a full log file under `~/.dataconnect/logs/`. Use that rather than re-running blindly.
+
+### 4. Validate, present results, and offer to contribute
+
+If you built or modified a connector, immediately run validation — before presenting results to the user:
 
 ```bash
 node scripts/validate.cjs <company>/<name>-playwright.js --check-result ~/.dataconnect/last-result.json
@@ -104,7 +184,7 @@ If you built a new connector (not one from the registry), ask the user:
 
 If yes, run `node scripts/validate.cjs <company>/<name>-playwright.js --contribute`. If no, move on.
 
-### 6. Suggest what to do with the data
+### 5. Suggest what to do with the data
 
 After the contribution question is resolved (or if using an existing connector), suggest use cases from `RECIPES.md`: user profile generation, personal knowledge base, data backup, cross-platform synthesis, activity analytics.
 
@@ -121,7 +201,7 @@ The user can't see what you're doing behind the scenes. Keep them informed at ke
 3. **After collection**, summarize results in human terms — not file paths:
    - Good: "Connected! I collected 249 issues, 63 projects, 9 teams, and your profile from Linear."
    - Bad: "Data saved to ~/.dataconnect/last-result.json"
-   - Read the result file and build the summary from `exportSummary` and the scoped keys.
+   - Prefer the CLI outcome plus the result file. Build the summary from `exportSummary` and the scoped keys.
 
 4. **On failure**, explain what went wrong and what the user can do:
    - Auth failed → "Login didn't work. Can you double-check your credentials?"
@@ -134,3 +214,12 @@ The user can't see what you're doing behind the scenes. Keep them informed at ke
 3. **One platform at a time**
 4. **Check session first** -- try without credentials if a browser profile exists
 5. **Read connectors before running them**
+6. **Use the CLI as the primary interface** -- only drop to raw scripts when debugging or updating connector internals
+
+## CLI fallback order
+
+Use this order when choosing the CLI entrypoint:
+
+1. `vana` if it is already installed and on `PATH`
+2. `npx -y @opendatalabs/connect@canary`
+3. `node /home/tnunamak/code/vana-connect/dist/cli/bin.js` only for local development or debugging

@@ -130,7 +130,7 @@ console.log([header, ...rows].join('\n'));
 Run the connector on a schedule (cron, agent heartbeat, etc.) and timestamp each export:
 
 ```bash
-node run-connector.cjs <connector> <url>
+vana connect <platform>
 cp ~/.dataconnect/last-result.json ~/backups/<platform>-$(date +%Y-%m-%d).json
 ```
 
