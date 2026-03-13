@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "scope": "instagram.ads",
   "dialect": "json",
-  "description": "Advertisers the user has seen ads from and ad topic interests based on their Instagram activity",
+  "description": "Advertisers the user has seen ads from, ad topic interests, and targeting categories based on their Instagram activity",
   "schema": {
     "type": "object",
     "properties": {
@@ -28,9 +28,20 @@
           "required": ["name"],
           "additionalProperties": false
         }
+      },
+      "categories": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "description": { "type": ["string", "null"] }
+          },
+          "required": ["name"]
+        }
       }
     },
-    "required": ["advertisers", "ad_topics"],
+    "required": ["advertisers", "ad_topics", "categories"],
     "additionalProperties": false
   }
 }
