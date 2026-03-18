@@ -320,16 +320,133 @@ const extractOrdersFromDOM = async () => {
   let isLoggedIn = await checkLoginStatus();
 
   if (!isLoggedIn) {
-    await page.showBrowser('https://shop.app/account/order-history');
-    await page.setData('status', 'Please log in to Shop app...');
+    // Check if there's an email input on the page (Shop uses email + verification code, not password)
+    const hasEmailField = await page.evaluate(`
+      !!document.querySelector('input[type="email"], input[name="email"]')
+    `);
 
-    await page.promptUser(
-      'Please log in to Shop app. Click "Done" when you see your order history.',
-      async () => {
-        return await checkLoginStatus();
-      },
-      2000
-    );
+    if (hasEmailField) {
+      const { email } = await page.requestInput({
+        message: "Log in to Shop — enter your email address",
+        schema: {
+          type: "object",
+          properties: {
+            email: { type: "string", description: "Shop/Shopify account email" },
+          },
+          required: ["email"],
+        },
+      });
+
+      await page.evaluate(`
+        (() => {
+          const emailInput = document.querySelector('input[type="email"], input[name="email"]');
+          if (emailInput) {
+            emailInput.value = ${JSON.stringify(email)};
+            emailInput.dispatchEvent(new Event('input', {bubbles:true}));
+            emailInput.dispatchEvent(new Event('change', {bubbles:true}));
+          }
+        })()
+      `);
+      await page.sleep(500);
+      await page.evaluate(`
+        (() => {
+          const btn = document.querySelector('button[type="submit"]');
+          if (btn) btn.click();
+        })()
+      `);
+      await page.sleep(3000);
+
+      // Shop typically sends a verification code to email (no password)
+      const hasCodeField = await page.evaluate(`
+        !!document.querySelector('input[name="code"]') ||
+        !!document.querySelector('input[type="tel"]') ||
+        !!document.querySelector('input[inputmode="numeric"]') ||
+        !!document.querySelector('input[autocomplete="one-time-code"]')
+      `);
+
+      if (hasCodeField) {
+        const { code } = await page.requestInput({
+          message: "Enter the verification code Shop sent to your email",
+          schema: {
+            type: "object",
+            properties: { code: { type: "string", description: "Verification code from email" } },
+            required: ["code"],
+          },
+        });
+        await page.evaluate(`
+          (() => {
+            const input = document.querySelector('input[name="code"]') ||
+                          document.querySelector('input[type="tel"]') ||
+                          document.querySelector('input[inputmode="numeric"]') ||
+                          document.querySelector('input[autocomplete="one-time-code"]');
+            if (input) {
+              input.value = ${JSON.stringify(code)};
+              input.dispatchEvent(new Event('input', {bubbles:true}));
+              input.dispatchEvent(new Event('change', {bubbles:true}));
+            }
+          })()
+        `);
+        await page.evaluate(`
+          (() => {
+            const btn = document.querySelector('button[type="submit"]');
+            if (btn) btn.click();
+          })()
+        `);
+        await page.sleep(5000);
+      }
+
+      // Check for password field (some Shopify accounts may have passwords)
+      const hasPasswordField = await page.evaluate(`
+        !!document.querySelector('input[type="password"]')
+      `);
+      if (hasPasswordField) {
+        const { password } = await page.requestInput({
+          message: "Enter your Shop/Shopify password",
+          schema: {
+            type: "object",
+            properties: {
+              password: { type: "string", format: "password" },
+            },
+            required: ["password"],
+          },
+        });
+        await page.evaluate(`
+          (() => {
+            const passwordInput = document.querySelector('input[type="password"]');
+            if (passwordInput) {
+              passwordInput.value = ${JSON.stringify(password)};
+              passwordInput.dispatchEvent(new Event('input', {bubbles:true}));
+            }
+          })()
+        `);
+        await page.evaluate(`
+          (() => {
+            const btn = document.querySelector('button[type="submit"]');
+            if (btn) btn.click();
+          })()
+        `);
+        await page.sleep(5000);
+      }
+
+      await page.goto('https://shop.app/account/order-history');
+      await page.sleep(3000);
+      isLoggedIn = await checkLoginStatus();
+    }
+
+    // Fallback to headed browser if programmatic login failed
+    if (!isLoggedIn) {
+      const { headed } = await page.showBrowser('https://shop.app/account/order-history');
+      if (headed) {
+        await page.setData('status', 'Please complete login in the browser...');
+        await page.promptUser(
+          'Complete any remaining verification, then click "Done".',
+          async () => await checkLoginStatus(),
+          2000
+        );
+        await page.goHeadless();
+      }
+      isLoggedIn = await checkLoginStatus();
+    }
 
     await page.setData('status', 'Login completed');
     await page.sleep(1500);

@@ -14,7 +14,7 @@
         "metadata": "openai/chatgpt-playwright.json"
       },
       "checksums": {
-        "script": "sha256:96836d093a74f111831aae5f20373f315c750af02afad7e9c9fdc50e7ae4c3d1",
+        "script": "sha256:7b7fa1c2f45044d2cddbb5d88adb6e0b9ac5bb092c487a03f507287985144dd7",
         "metadata": "sha256:fac97ec68120203746863e6bb7592b9cb2c7c0f0721afe4ede75eb43bde5fd43"
       }
     },
@@ -44,7 +44,7 @@
         "metadata": "meta/instagram-playwright.json"
       },
       "checksums": {
-        "script": "sha256:71b23ac4fa59141c3cc4205172b95334d21967b4f76fcb8f5aa13352043af974",
+        "script": "sha256:0e9ab81053ae335f0fa345625228b8da9624bd79c2f125ccf84d53323be22dcf",
         "metadata": "sha256:52e18cea6927de37cab8a31dec53976fa0a0452388acf743e3bbb143f878583e"
       }
     },
@@ -59,7 +59,7 @@
         "metadata": "linkedin/linkedin-playwright.json"
       },
       "checksums": {
-        "script": "sha256:8115ddcc5032a5831125790840a5fad3b86148411f1f67c326443fc3da8a9d39",
+        "script": "sha256:690168524998774f6f1046f03b684d612e5b5f1211218548ac0301e31e19770b",
         "metadata": "sha256:4ea8939d310ef75c4f58d30c1a33f9256aee1c37661b655982da40be25c9ecad"
       }
     },
@@ -74,7 +74,7 @@
         "metadata": "spotify/spotify-playwright.json"
       },
       "checksums": {
-        "script": "sha256:26f5aa145e5ef6d7ce6abd791287d6e0ad2e2d68aa2769a938ff47d40b7e952c",
+        "script": "sha256:7bdb19c9b4f30497426cd48d0e15d5aaf91b063a7254de9a6cfdc20f802838cb",
         "metadata": "sha256:f2d6a4cdf12069e8f4993faee97e31fa1fa9e4b039c7d9e1bd1e3447c6a3cd09"
       }
     },
@@ -89,7 +89,7 @@
         "metadata": "google/youtube-playwright.json"
       },
       "checksums": {
-        "script": "sha256:e854b5681de1bf2622bac48351108e3f150610f1b563dd25e4a19789c119352f",
+        "script": "sha256:5fdab4350be5f9deeca90e09f2641ddc3ab486c7d416f68a5145ae66c5d3f42d",
         "metadata": "sha256:c40624e50b86812f5a295ffcb99d175eb763d6de9029a4278fb026cfd67faa3f"
       }
     },
@@ -104,7 +104,7 @@
         "metadata": "shopify/shop-playwright.json"
       },
       "checksums": {
-        "script": "sha256:ecb31dd5c1ae1d9ff37895644ac453a90bc15f3e9c598e648388b3932094a34f",
+        "script": "sha256:c9fe0902497f7cbd0595c84e4b1dc860fc8d6daa08e6f5ac4ff7edea6070e51e",
         "metadata": "sha256:e0d1161c4186ea9106ac2ef0fd76b4076646b1edd597ac39812ea79d2a3fe6a8"
       }
     },
@@ -119,7 +119,7 @@
         "metadata": "oura/oura-playwright.json"
       },
       "checksums": {
-        "script": "sha256:d58629b152ad3471e27dfb4cbe33b84d74f426a7ff330754aacdc1ec89f72f6c",
+        "script": "sha256:81666d2baa0a2c8663613d4dfce5fbd00143608dff510364f5ec2ad78d6a28f4",
         "metadata": "sha256:d3ff5230a6ebe6ff3f655546d834e7ed59f741febdc540dd2f89894b6e5baa7a"
       }
     },
@@ -134,7 +134,7 @@
         "metadata": "uber/uber-playwright.json"
       },
       "checksums": {
-        "script": "sha256:9a855466007921841f52ccc7e9a9ee327602b68473ad4d9e6136955890788c9a",
+        "script": "sha256:84caf7e146aa19bf79b8acaf02fa6c26af2ceb440cc6ab799b1bf256c0163762",
         "metadata": "sha256:b0f05adabc155708ba15356104bba28728da1e5e28265b34337e45f44cd5ae2f"
       }
     }

@@ -208,17 +208,204 @@ const scrapeTripDetailsFromPage = async () => {
     }
   }
 
-  // Tier 3: Manual login — open headed browser and ask user
+  // Tier 3: requestInput-based login
   if (!isLoggedIn) {
-    await page.setData('status', 'Opening browser for manual login...');
-    await page.showBrowser('https://auth.uber.com/v2/');
-    await page.promptUser(
-      'Please log in to Uber. Login will be detected automatically when you reach the Uber home page.',
-      async () => await checkLoginStatus(),
-      3000
-    );
-    isLoggedIn = true;
-    await page.setData('status', 'Manual login successful');
+    await page.goto('https://auth.uber.com/v2/');
+    await page.sleep(3000);
+
+    const hasEmailField = await page.evaluate(`
+      !!document.querySelector('input[name="email"]') ||
+      !!document.querySelector('input[name="username"]') ||
+      !!document.querySelector('input[id="useridInput"]') ||
+      !!document.querySelector('input[type="email"]') ||
+      !!document.querySelector('input[type="text"]')
+    `);
+
+    if (hasEmailField) {
+      const { email } = await page.requestInput({
+        message: "Log in to Uber — enter your email or phone number",
+        schema: {
+          type: "object",
+          properties: {
+            email: { type: "string", description: "Uber email or phone number" },
+          },
+          required: ["email"],
+        },
+      });
+
+      await page.evaluate(`
+        (() => {
+          const emailInput = document.querySelector('input[name="email"]') ||
+                             document.querySelector('input[name="username"]') ||
+                             document.querySelector('input[id="useridInput"]') ||
+                             document.querySelector('input[type="email"]') ||
+                             document.querySelector('input[type="text"]');
+          if (emailInput) {
+            const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+              window.HTMLInputElement.prototype, 'value'
+            ).set;
+            nativeInputValueSetter.call(emailInput, ${JSON.stringify(email)});
+            emailInput.dispatchEvent(new Event('input', { bubbles: true }));
+            emailInput.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+        })()
+      `);
+      await page.sleep(1000);
+      await page.evaluate(`
+        (() => {
+          const btn = document.querySelector('button[type="submit"]') ||
+                      document.querySelector('button[id="forward-button"]');
+          if (btn) btn.click();
+        })()
+      `);
+      await page.sleep(3000);
+
+      // Check if password field appeared (Uber sometimes uses OTP instead)
+      const hasPasswordField = await page.evaluate(`
+        !!document.querySelector('input[name="password"]') ||
+        !!document.querySelector('input[type="password"]')
+      `);
+
+      if (hasPasswordField) {
+        const { password } = await page.requestInput({
+          message: "Enter your Uber password",
+          schema: {
+            type: "object",
+            properties: {
+              password: { type: "string", format: "password" },
+            },
+            required: ["password"],
+          },
+        });
+
+        await page.evaluate(`
+          (() => {
+            const passwordInput = document.querySelector('input[name="password"]') ||
+                                  document.querySelector('input[type="password"]');
+            if (passwordInput) {
+              const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+                window.HTMLInputElement.prototype, 'value'
+              ).set;
+              nativeInputValueSetter.call(passwordInput, ${JSON.stringify(password)});
+              passwordInput.dispatchEvent(new Event('input', { bubbles: true }));
+              passwordInput.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+          })()
+        `);
+        await page.sleep(1000);
+        await page.evaluate(`
+          (() => {
+            const btn = document.querySelector('button[type="submit"]') ||
+                        document.querySelector('button[id="forward-button"]');
+            if (btn) btn.click();
+          })()
+        `);
+        await page.sleep(5000);
+      } else {
+        // Uber may use OTP — prompt for it
+        const hasOtpField = await page.evaluate(`
+          !!document.querySelector('input[name="otp"]') ||
+          !!document.querySelector('input[name="smsPin"]') ||
+          !!document.querySelector('input[type="tel"]')
+        `);
+        if (hasOtpField) {
+          const { code } = await page.requestInput({
+            message: "Enter the verification code Uber sent to your phone",
+            schema: {
+              type: "object",
+              properties: { code: { type: "string", description: "Verification code (SMS or app)" } },
+              required: ["code"],
+            },
+          });
+          await page.evaluate(`
+            (() => {
+              const input = document.querySelector('input[name="otp"]') ||
+                            document.querySelector('input[name="smsPin"]') ||
+                            document.querySelector('input[type="tel"]');
+              if (input) {
+                const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+                  window.HTMLInputElement.prototype, 'value'
+                ).set;
+                nativeInputValueSetter.call(input, ${JSON.stringify(code)});
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+              }
+            })()
+          `);
+          await page.evaluate(`
+            (() => {
+              const btn = document.querySelector('button[type="submit"]') ||
+                          document.querySelector('button[id="forward-button"]');
+              if (btn) btn.click();
+            })()
+          `);
+          await page.sleep(5000);
+        }
+      }
+
+      // Handle 2FA after password
+      const needs2fa = await page.evaluate(`
+        !!document.querySelector('input[name="otp"]') ||
+        !!document.querySelector('input[name="smsPin"]') ||
+        !!document.querySelector('input[type="tel"]')
+      `);
+      if (needs2fa) {
+        const { code } = await page.requestInput({
+          message: "Enter your Uber 2FA verification code",
+          schema: {
+            type: "object",
+            properties: { code: { type: "string", description: "Verification code (SMS or authenticator)" } },
+            required: ["code"],
+          },
+        });
+        await page.evaluate(`
+          (() => {
+            const input = document.querySelector('input[name="otp"]') ||
+                          document.querySelector('input[name="smsPin"]') ||
+                          document.querySelector('input[type="tel"]');
+            if (input) {
+              const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+                window.HTMLInputElement.prototype, 'value'
+              ).set;
+              nativeInputValueSetter.call(input, ${JSON.stringify(code)});
+              input.dispatchEvent(new Event('input', { bubbles: true }));
+              input.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+          })()
+        `);
+        await page.evaluate(`
+          (() => {
+            const btn = document.querySelector('button[type="submit"]') ||
+                        document.querySelector('button[id="forward-button"]');
+            if (btn) btn.click();
+          })()
+        `);
+        await page.sleep(5000);
+      }
+
+      await page.goto('https://m.uber.com');
+      await page.sleep(3000);
+      isLoggedIn = await checkLoginStatus();
+    }
+
+    // Fallback to headed browser if programmatic login failed
+    if (!isLoggedIn) {
+      const { headed } = await page.showBrowser('https://auth.uber.com/v2/');
+      if (headed) {
+        await page.setData('status', 'Please complete login in the browser...');
+        await page.promptUser(
+          'Complete any remaining verification, then click "Done".',
+          async () => await checkLoginStatus(),
+          3000
+        );
+        await page.goHeadless();
+      }
+      isLoggedIn = await checkLoginStatus();
+    }
+
+    if (isLoggedIn) {
+      await page.setData('status', 'Login successful');
+    }
   }
 
   // ═══ PHASE 2: Data Collection (headless) ═══
