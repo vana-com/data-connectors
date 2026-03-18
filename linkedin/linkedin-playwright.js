@@ -190,35 +190,131 @@ const extractYears = (obj) => {
   }
 
   if (!isAuthenticated) {
-    await page.showBrowser('https://www.linkedin.com/login');
-    await page.setData('status', 'Please log in to LinkedIn...');
+    // Try requestInput-based login
+    await page.goto('https://www.linkedin.com/login');
     await page.sleep(2000);
 
-    await page.promptUser(
-      'Please log in to LinkedIn. Click "Done" when you see your feed.',
-      async () => {
-        return await checkLoginStatus();
-      },
-      2000
-    );
+    const hasLoginForm = await page.evaluate(`!!document.querySelector('input[name="session_key"]')`);
 
-    await page.setData('status', 'Login completed');
-    await page.sleep(2000);
+    if (hasLoginForm) {
+      const { email, password } = await page.requestInput({
+        message: "Log in to LinkedIn",
+        schema: {
+          type: "object",
+          properties: {
+            email: { type: "string", description: "LinkedIn email or phone number" },
+            password: { type: "string", format: "password" },
+          },
+          required: ["email", "password"],
+        },
+      });
 
-    isAuthenticated = await checkApiAuth();
-    if (!isAuthenticated) {
-      try {
-        await page.goto('https://www.linkedin.com/feed/');
-        await page.sleep(3000);
-      } catch (e) {
-        await page.sleep(2000);
+      await page.evaluate(`
+        (() => {
+          const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+            window.HTMLInputElement.prototype, 'value'
+          ).set;
+
+          const emailInput = document.querySelector('input[name="session_key"]');
+          const passwordInput = document.querySelector('input[name="session_password"]');
+
+          if (emailInput) {
+            emailInput.focus();
+            nativeInputValueSetter.call(emailInput, ${JSON.stringify(email)});
+            emailInput.dispatchEvent(new Event('input', { bubbles: true }));
+            emailInput.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+          if (passwordInput) {
+            passwordInput.focus();
+            nativeInputValueSetter.call(passwordInput, ${JSON.stringify(password)});
+            passwordInput.dispatchEvent(new Event('input', { bubbles: true }));
+            passwordInput.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+        })()
+      `);
+      await page.sleep(500);
+      await page.evaluate(`
+        (() => {
+          const btn = document.querySelector('button[type="submit"]');
+          if (btn) btn.click();
+        })()
+      `);
+      await page.sleep(5000);
+
+      // Handle 2FA / security verification
+      const needs2fa = await page.evaluate(`
+        !!document.querySelector('input[name="pin"]') ||
+        !!document.querySelector('#input__email_verification_pin') ||
+        window.location.href.includes('/checkpoint/')
+      `);
+      if (needs2fa) {
+        const { code } = await page.requestInput({
+          message: "Enter your LinkedIn verification code",
+          schema: {
+            type: "object",
+            properties: { code: { type: "string", description: "Verification code from email or authenticator" } },
+            required: ["code"],
+          },
+        });
+        await page.evaluate(`
+          (() => {
+            const input = document.querySelector('input[name="pin"]') ||
+                          document.querySelector('#input__email_verification_pin') ||
+                          document.querySelector('input[type="text"]');
+            if (input) {
+              const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+                window.HTMLInputElement.prototype, 'value'
+              ).set;
+              nativeInputValueSetter.call(input, ${JSON.stringify(code)});
+              input.dispatchEvent(new Event('input', { bubbles: true }));
+              input.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+          })()
+        `);
+        await page.evaluate(`document.querySelector('button[type="submit"]')?.click()`);
+        await page.sleep(5000);
       }
+
       isAuthenticated = await checkApiAuth();
+      if (!isAuthenticated) {
+        try {
+          await page.goto('https://www.linkedin.com/feed/');
+          await page.sleep(3000);
+        } catch (e) {
+          await page.sleep(2000);
+        }
+        isAuthenticated = await checkApiAuth();
+      }
     }
 
+    // Fallback to headed browser if programmatic login failed
     if (!isAuthenticated) {
-      await page.setData('error', 'Login failed. Could not authenticate with LinkedIn API.');
-      return;
+      const { headed } = await page.showBrowser('https://www.linkedin.com/login');
+      if (headed) {
+        await page.setData('status', 'Please complete login in the browser...');
+        await page.promptUser(
+          'Complete any remaining verification, then click "Done".',
+          async () => await checkLoginStatus(),
+          2000
+        );
+        await page.goHeadless();
+      }
+
+      isAuthenticated = await checkApiAuth();
+      if (!isAuthenticated) {
+        try {
+          await page.goto('https://www.linkedin.com/feed/');
+          await page.sleep(3000);
+        } catch (e) {
+          await page.sleep(2000);
+        }
+        isAuthenticated = await checkApiAuth();
+      }
+
+      if (!isAuthenticated) {
+        await page.setData('error', 'Login failed. Could not authenticate with LinkedIn API.');
+        return;
+      }
     }
   }
 

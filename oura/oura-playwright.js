@@ -131,20 +131,76 @@ const fetchDailyDataChunked = async (startDate, endDate, chunkDays) => {
   }
 
   if (!isLoggedIn) {
-    await page.showBrowser('https://cloud.ouraring.com/user/sign-in');
-    await page.setData('status', 'Please log in to your Oura account...');
-    await page.sleep(3000);
+    await page.goto('https://cloud.ouraring.com/user/sign-in');
+    await page.sleep(2000);
 
-    isLoggedIn = await checkLoginStatus();
+    // Check if login form is present
+    const hasLoginForm = await page.evaluate(`
+      !!document.querySelector('input[type="email"], input[name="email"]') &&
+      !!document.querySelector('input[type="password"], input[name="password"]')
+    `);
 
-    if (!isLoggedIn) {
-      await page.promptUser(
-        'Please log in to your Oura account. Click "Done" when you see the dashboard.',
-        async () => {
-          return await checkLoginStatus();
+    if (hasLoginForm) {
+      const { email, password } = await page.requestInput({
+        message: "Log in to your Oura account",
+        schema: {
+          type: "object",
+          properties: {
+            email: { type: "string", description: "Oura account email" },
+            password: { type: "string", format: "password" },
+          },
+          required: ["email", "password"],
         },
-        2000,
-      );
+      });
+
+      await page.evaluate(`
+        (() => {
+          const emailInput = document.querySelector('input[type="email"], input[name="email"]');
+          if (emailInput) {
+            emailInput.value = ${JSON.stringify(email)};
+            emailInput.dispatchEvent(new Event('input', {bubbles:true}));
+            emailInput.dispatchEvent(new Event('change', {bubbles:true}));
+          }
+        })()
+      `);
+      await page.evaluate(`
+        (() => {
+          const passwordInput = document.querySelector('input[type="password"], input[name="password"]');
+          if (passwordInput) {
+            passwordInput.value = ${JSON.stringify(password)};
+            passwordInput.dispatchEvent(new Event('input', {bubbles:true}));
+            passwordInput.dispatchEvent(new Event('change', {bubbles:true}));
+          }
+        })()
+      `);
+      await page.sleep(500);
+      await page.evaluate(`
+        (() => {
+          const btn = document.querySelector('button[type="submit"]');
+          if (btn) btn.click();
+        })()
+      `);
+      await page.sleep(5000);
+
+      isLoggedIn = await checkLoginStatus();
+    }
+
+    // Fallback to headed browser if programmatic login failed
+    if (!isLoggedIn) {
+      const { headed } = await page.showBrowser('https://cloud.ouraring.com/user/sign-in');
+      if (headed) {
+        await page.setData('status', 'Please complete login in the browser...');
+        await page.promptUser(
+          'Complete any remaining verification, then click "Done".',
+          async () => await checkLoginStatus(),
+          2000,
+        );
+        await page.goHeadless();
+      } else {
+        await page.setData('error', 'Oura login failed.');
+        return;
+      }
+      isLoggedIn = await checkLoginStatus();
     }
 
     await page.setData('status', 'Login completed');
