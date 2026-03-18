@@ -320,6 +320,26 @@ const spClientFetch = async (path) => {
     await page.goto('https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F');
     await page.sleep(2000);
 
+    // Dismiss Spotify cookie consent banner if present
+    await page.evaluate(`
+      (() => {
+        const buttons = document.querySelectorAll('button');
+        for (const btn of buttons) {
+          const text = (btn.textContent || '').trim().toLowerCase();
+          if (text.includes('accept cookies') || text.includes('accept all') ||
+              text === 'accept' || text.includes('allow all')) {
+            btn.click();
+            return 'dismissed cookie banner';
+          }
+        }
+        // Also try the cookie consent banner's accept button by ID
+        const acceptBtn = document.querySelector('#onetrust-accept-btn-handler');
+        if (acceptBtn) { acceptBtn.click(); return 'dismissed via onetrust'; }
+        return null;
+      })()
+    `);
+    await page.sleep(1000);
+
     // Check if standard login form is present
     const hasLoginForm = await page.evaluate(`
       !!document.querySelector('input#login-username, input[name="username"]') &&
@@ -394,6 +414,28 @@ const spClientFetch = async (path) => {
         `);
         await page.evaluate(`document.querySelector('button[type="submit"]')?.click()`);
         await page.sleep(5000);
+      }
+
+      // Dismiss any post-login interstitials (cookie consent on redirect, etc.)
+      for (let dismissAttempt = 0; dismissAttempt < 3; dismissAttempt++) {
+        await page.evaluate(`
+          (() => {
+            const buttons = document.querySelectorAll('button');
+            for (const btn of buttons) {
+              const text = (btn.textContent || '').trim().toLowerCase();
+              if (text.includes('accept cookies') || text.includes('accept all') ||
+                  text === 'accept' || text.includes('allow all') ||
+                  text === 'not now' || text === 'skip' || text === 'continue') {
+                btn.click();
+                return 'dismissed: ' + text;
+              }
+            }
+            const acceptBtn = document.querySelector('#onetrust-accept-btn-handler');
+            if (acceptBtn) { acceptBtn.click(); return 'dismissed via onetrust'; }
+            return null;
+          })()
+        `);
+        await page.sleep(1500);
       }
 
       // Wait for redirect to open.spotify.com

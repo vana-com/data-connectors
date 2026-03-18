@@ -383,6 +383,26 @@ const scrapeTripDetailsFromPage = async () => {
         await page.sleep(5000);
       }
 
+      // Dismiss any Uber interstitials (cookie consent, promotional dialogs)
+      for (let dismissAttempt = 0; dismissAttempt < 3; dismissAttempt++) {
+        await page.evaluate(`
+          (() => {
+            const buttons = document.querySelectorAll('button');
+            for (const btn of buttons) {
+              const text = (btn.textContent || '').trim().toLowerCase();
+              if (text.includes('accept all') || text.includes('accept cookies') ||
+                  text === 'not now' || text === 'skip' || text === 'continue' ||
+                  text === 'dismiss' || text === 'got it' || text === 'ok') {
+                btn.click();
+                return 'dismissed: ' + text;
+              }
+            }
+            return null;
+          })()
+        `);
+        await page.sleep(1000);
+      }
+
       await page.goto('https://m.uber.com');
       await page.sleep(3000);
       isLoggedIn = await checkLoginStatus();

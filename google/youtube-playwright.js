@@ -905,6 +905,49 @@ const scrapeHistory = async () => {
           await page.sleep(5000);
         }
 
+        // Dismiss Google interstitials that appear after login
+        // (consent screens, "I agree", recovery prompts, etc.)
+        for (let dismissAttempt = 0; dismissAttempt < 5; dismissAttempt++) {
+          const dismissed = await page.evaluate(`
+            (() => {
+              const buttons = document.querySelectorAll('button, input[type="button"], input[type="submit"]');
+              for (const btn of buttons) {
+                const text = (btn.textContent || btn.value || '').trim().toLowerCase();
+                // Google consent / Terms of Service
+                if (text === 'i agree' || text === 'accept' || text === 'accept all' ||
+                    text === 'agree' || text === 'continue') {
+                  btn.click();
+                  return 'dismissed: ' + text;
+                }
+                // "Not now" for recovery phone/email prompts, 2-step verification setup
+                if (text === 'not now' || text === 'skip' || text === 'no thanks' ||
+                    text === 'done' || text === 'next') {
+                  // Only click "next" if it looks like a consent/interstitial, not a login step
+                  if (text === 'next' && document.querySelector('input[type="password"]')) continue;
+                  btn.click();
+                  return 'dismissed: ' + text;
+                }
+                // "Confirm" for "Is this your device?" prompts
+                if (text === 'confirm' || text === 'yes') {
+                  btn.click();
+                  return 'dismissed: ' + text;
+                }
+              }
+
+              // Cookie consent — Google-style
+              const consentBtns = document.querySelectorAll('[aria-label*="Accept all"], [aria-label*="Reject all"]');
+              if (consentBtns.length > 0) {
+                consentBtns[0].click();
+                return 'dismissed cookie consent';
+              }
+
+              return null;
+            })()
+          `);
+          if (!dismissed) break;
+          await page.sleep(2000);
+        }
+
         // Wait for redirect to YouTube
         for (let i = 0; i < 10; i++) {
           state.isLoggedIn = await checkLoginStatus();

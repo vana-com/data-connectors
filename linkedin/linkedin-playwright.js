@@ -275,6 +275,34 @@ const extractYears = (obj) => {
         await page.sleep(5000);
       }
 
+      // Dismiss LinkedIn interstitials (cookie consent, messaging prompts)
+      for (let dismissAttempt = 0; dismissAttempt < 3; dismissAttempt++) {
+        await page.evaluate(`
+          (() => {
+            const buttons = document.querySelectorAll('button');
+            for (const btn of buttons) {
+              const text = (btn.textContent || '').trim().toLowerCase();
+              // Cookie consent banner
+              if (text.includes('accept & join') || text.includes('accept cookies') ||
+                  text.includes('accept all') || text.includes('agree')) {
+                btn.click();
+                return 'dismissed cookie consent';
+              }
+              // "Skip for now" or "Not now" prompts
+              if (text === 'not now' || text === 'skip' || text === 'skip for now' || text === 'dismiss') {
+                btn.click();
+                return 'dismissed interstitial';
+              }
+            }
+            // Also try the cookie consent action buttons by their class
+            const consentBtn = document.querySelector('.artdeco-global-alert__action');
+            if (consentBtn) { consentBtn.click(); return 'dismissed via alert action'; }
+            return null;
+          })()
+        `);
+        await page.sleep(1500);
+      }
+
       isAuthenticated = await checkApiAuth();
       if (!isAuthenticated) {
         try {

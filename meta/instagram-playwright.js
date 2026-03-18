@@ -150,6 +150,47 @@ const fetchWebInfo = async () => {
       }
     }
 
+    // Dismiss Instagram interstitials that appear after login
+    // These block the page and prevent fetchWebInfo() from working
+    for (let dismissAttempt = 0; dismissAttempt < 3; dismissAttempt++) {
+      await page.evaluate(`
+        (() => {
+          // Cookie consent banner — "Allow All Cookies" or "Decline Optional Cookies"
+          const cookieBtns = document.querySelectorAll('button');
+          for (const btn of cookieBtns) {
+            const text = (btn.textContent || '').trim().toLowerCase();
+            if (text.includes('allow all cookies') || text.includes('allow essential and optional cookies') ||
+                text.includes('decline optional cookies') || text.includes('accept all')) {
+              btn.click();
+              return 'dismissed cookie banner';
+            }
+          }
+
+          // "Save Your Login Info?" dialog — click "Not Now"
+          // "Turn on Notifications?" dialog — click "Not Now"
+          for (const btn of cookieBtns) {
+            const text = (btn.textContent || '').trim().toLowerCase();
+            if (text === 'not now' || text === 'skip') {
+              btn.click();
+              return 'dismissed interstitial: ' + text;
+            }
+          }
+
+          // "We Noticed an Unusual Login Attempt" — click "This Was Me"
+          for (const btn of cookieBtns) {
+            const text = (btn.textContent || '').trim().toLowerCase();
+            if (text === 'this was me') {
+              btn.click();
+              return 'dismissed security prompt';
+            }
+          }
+
+          return 'no interstitials found';
+        })()
+      `);
+      await page.sleep(2000);
+    }
+
     // Check if login succeeded
     let newWebInfo = await fetchWebInfo();
     let loginSucceeded = !!(newWebInfo && newWebInfo.username);
@@ -171,6 +212,26 @@ const fetchWebInfo = async () => {
       } else {
         await page.setData('error', 'Instagram login failed.');
         return { error: 'Instagram login failed' };
+      }
+
+      // Dismiss any remaining interstitials after headed browser login
+      for (let dismissAttempt = 0; dismissAttempt < 3; dismissAttempt++) {
+        await page.evaluate(`
+          (() => {
+            const btns = document.querySelectorAll('button');
+            for (const btn of btns) {
+              const text = (btn.textContent || '').trim().toLowerCase();
+              if (text.includes('allow all cookies') || text.includes('allow essential and optional cookies') ||
+                  text.includes('decline optional cookies') || text.includes('accept all') ||
+                  text === 'not now' || text === 'skip' || text === 'this was me') {
+                btn.click();
+                return 'dismissed: ' + text;
+              }
+            }
+            return 'none';
+          })()
+        `);
+        await page.sleep(1500);
       }
       newWebInfo = await fetchWebInfo();
     }
