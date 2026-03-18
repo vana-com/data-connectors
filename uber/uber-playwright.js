@@ -22,8 +22,18 @@ const checkLoginStatus = async () => {
       (() => {
         const url = window.location.href;
         if (url.includes('auth.uber.com')) return false;
-        if (url.includes('m.uber.com')) return true;
-        if (url.includes('riders.uber.com')) return true;
+        if (url.includes('m.uber.com') || url.includes('riders.uber.com')) {
+          // URL alone is not enough — m.uber.com shows a landing page
+          // even without auth. Check for authenticated UI elements.
+          return !!(
+            document.querySelector('[data-testid="user-avatar"]') ||
+            document.querySelector('[data-baseweb="avatar"]') ||
+            document.querySelector('a[href*="activity"]') ||
+            document.querySelector('a[href*="trips"]') ||
+            document.querySelector('div[data-testid="bottom-nav"]') ||
+            document.querySelector('img[alt*="profile" i]')
+          );
+        }
         return false;
       })()
     `);
