@@ -320,6 +320,8 @@ const fetchConversationDetail = async (organizationId, conversation) => {
       href: conversation.href,
       createdAt: conversation.createdAt || null,
       updatedAt: conversation.updatedAt || null,
+      starred: conversation.starred ?? null,
+      projectId: conversation.projectId || null,
       messageCount: 0,
       messages: [],
       fetchError: response?.error || response?.text || `HTTP ${response?.status || 0}`,
