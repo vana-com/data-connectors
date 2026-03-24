@@ -358,15 +358,77 @@ const extractStarred = async (username) => {
   let loggedIn = await isLoggedIn();
 
   if (!loggedIn) {
-    await page.showBrowser("https://github.com/login");
+    await page.goto("https://github.com/login");
     await page.sleep(2000);
-    await page.setData("status", "Please log in to GitHub...");
 
-    await page.promptUser(
-      "Please log in to GitHub. Click 'Done' after the homepage loads.",
-      async () => await isLoggedIn(),
-      2000,
-    );
+    // Only attempt programmatic login if the form is present
+    const hasLoginForm = await page.evaluate(`
+      !!document.querySelector('#login_field') && !!document.querySelector('#password')
+    `);
+
+    if (hasLoginForm) {
+      const { username: loginUser, password } = await page.requestInput({
+        message: "Log in to GitHub",
+        schema: {
+          type: "object",
+          properties: {
+            username: { type: "string", description: "GitHub username or email" },
+            password: { type: "string", format: "password" },
+          },
+          required: ["username", "password"],
+        },
+      });
+
+      await page.evaluate(`document.querySelector('#login_field').value = ${JSON.stringify(loginUser)}`);
+      await page.evaluate(`document.querySelector('#login_field').dispatchEvent(new Event('input', {bubbles:true}))`);
+      await page.evaluate(`document.querySelector('#password').value = ${JSON.stringify(password)}`);
+      await page.evaluate(`document.querySelector('#password').dispatchEvent(new Event('input', {bubbles:true}))`);
+      await page.evaluate(`document.querySelector('input[type="submit"], button[type="submit"]').click()`);
+      await page.sleep(3000);
+
+      // Handle 2FA if present
+      const needs2fa = await page.evaluate(`!!document.querySelector('#app_totp, #sms_totp, [name="otp"]')`);
+      if (needs2fa) {
+        const { code } = await page.requestInput({
+          message: "Enter your GitHub 2FA code",
+          schema: {
+            type: "object",
+            properties: { code: { type: "string" } },
+            required: ["code"],
+          },
+        });
+        await page.evaluate(`
+          (() => {
+            const input = document.querySelector('#app_totp, #sms_totp, [name="otp"]');
+            if (input) {
+              input.value = ${JSON.stringify(code)};
+              input.dispatchEvent(new Event('input', {bubbles:true}));
+            }
+          })()
+        `);
+        await page.evaluate(`document.querySelector('button[type="submit"]')?.click()`);
+        await page.sleep(3000);
+      }
+
+      loggedIn = await isLoggedIn();
+    }
+
+    // If programmatic login failed or form wasn't found, fall back to headed
+    if (!loggedIn) {
+      const { headed } = await page.showBrowser("https://github.com/login");
+      if (headed) {
+        await page.setData("status", "Please complete login in the browser...");
+        await page.promptUser(
+          "Complete any remaining verification, then click 'Done'.",
+          async () => await isLoggedIn(),
+          2000,
+        );
+        await page.goHeadless();
+      } else {
+        await page.setData("error", "GitHub login failed. Login form not found or credentials incorrect.");
+        return;
+      }
+    }
 
     loggedIn = await isLoggedIn();
   }
@@ -377,7 +439,6 @@ const extractStarred = async (username) => {
   }
 
   await page.setData("status", "Login confirmed. Collecting data in background...");
-  await page.goHeadless();
 
   await page.setProgress({
     phase: { step: 1, total: 3, label: "Profile" },
