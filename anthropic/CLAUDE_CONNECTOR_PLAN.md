@@ -321,11 +321,26 @@ Rule:
 
 - no broadening of scope unless it is cheap, stable, and clearly improves downstream use
 
+### Step 4
+
+If auth automation is pursued, do it as a separate fast-follow PR and keep the scope narrow:
+
+- support Claude native email/password only
+- keep Google login manual-only
+- do not block connector usefulness on multi-provider auth automation
+
+Reason:
+
+- the current connector already works and is mergeable with manual login
+- Google automation is a different class of problem from Claude-native email/password
+- separating auth automation from the current PR keeps review and rollback risk much lower
+
 ## Open Questions
 
 - Does Claude expose project conversations through a distinct project-scoped API route?
 - If so, should those conversations stay inside the global `claude.conversations` export or be attached to projects?
 - Are artifacts exposed by a usable API or only by UI navigation?
+- Is Claude native email/password login stable enough to justify a maintained automated login path?
 
 ## Claude-Specific Learnings
 
@@ -339,3 +354,5 @@ Rule:
 - after changing the connector, re-run the repo registration step so `vana` picks up the new script hash
 - prefer validating with a real `vana connect claude --json --no-input` run, not only the structural validator
 - if a field may legitimately be `null`, avoid marking it as required in the schema because the current validator can report it as missing
+- manual login is an acceptable and common connector tradeoff when auth is brittle or includes anti-bot checks, CAPTCHA, SSO, or third-party identity flows
+- for Claude specifically, email/password automation is a reasonable fast-follow candidate; Google automation should be treated as later work unless there is a very strong product reason to take it on
