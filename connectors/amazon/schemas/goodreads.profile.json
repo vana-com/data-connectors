@@ -1,0 +1,69 @@
+{
+  "name": "goodreads profile",
+  "version": "1.0.0",
+  "scope": "goodreads.profile",
+  "dialect": "json",
+  "description": "Goodreads user profile including display name, reading statistics, shelf counts, and average rating.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "userId": {
+        "type": "string",
+        "description": "Numeric Goodreads user ID"
+      },
+      "profileUrl": {
+        "type": "string",
+        "format": "uri",
+        "description": "Full URL to the user's Goodreads profile page"
+      },
+      "name": {
+        "type": "string",
+        "description": "User's display name on Goodreads"
+      },
+      "bio": {
+        "type": "string",
+        "description": "User's profile biography text"
+      },
+      "location": {
+        "type": "string",
+        "description": "User's location as shown on their profile"
+      },
+      "joined": {
+        "type": "string",
+        "description": "When the user joined Goodreads (e.g. 'January 2009')"
+      },
+      "avatarUrl": {
+        "type": "string",
+        "format": "uri",
+        "description": "URL to the user's profile avatar image"
+      },
+      "shelves": {
+        "type": "object",
+        "description": "Book counts per shelf",
+        "additionalProperties": {
+          "type": "integer",
+          "description": "Number of books on this shelf"
+        }
+      },
+      "stats": {
+        "type": "object",
+        "description": "Additional reading statistics from the profile page",
+        "additionalProperties": true
+      },
+      "averageUserRating": {
+        "type": ["string", "null"],
+        "description": "User's average star rating across all rated books (e.g. '3.5')"
+      },
+      "totalBooks": {
+        "type": "integer",
+        "description": "Total number of books across all shelves"
+      },
+      "totalRated": {
+        "type": "integer",
+        "description": "Number of books the user has given a star rating"
+      }
+    },
+    "required": ["userId", "profileUrl", "totalBooks"],
+    "additionalProperties": true
+  }
+}
