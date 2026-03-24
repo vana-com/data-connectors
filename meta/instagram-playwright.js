@@ -89,27 +89,155 @@ const fetchWebInfo = async () => {
   const isLoggedIn = webInfo && webInfo.username;
 
   if (!isLoggedIn) {
-    // Show browser so user can log in
-    await page.showBrowser('https://www.instagram.com/accounts/login/');
+    await page.goto('https://www.instagram.com/accounts/login/');
     await page.sleep(2000);
 
-    // Wait for user to log in - callback auto-detects login completion
-    await page.promptUser(
-      'Please log in to Instagram.',
-      async () => {
-        const info = await fetchWebInfo();
-        return !!(info && info.username);
-      },
-      2000
-    );
+    // Check if standard login form is present
+    const hasLoginForm = await page.evaluate(`
+      !!document.querySelector('input[name="username"]') && !!document.querySelector('input[name="password"]')
+    `);
 
-    // Re-fetch web info after login
-    const newWebInfo = await fetchWebInfo();
+    if (hasLoginForm) {
+      const { username: loginUser, password } = await page.requestInput({
+        message: "Log in to Instagram",
+        schema: {
+          type: "object",
+          properties: {
+            username: { type: "string", description: "Instagram username, email, or phone number" },
+            password: { type: "string", format: "password" },
+          },
+          required: ["username", "password"],
+        },
+      });
+
+      await page.evaluate(`document.querySelector('input[name="username"]').value = ${JSON.stringify(loginUser)}`);
+      await page.evaluate(`document.querySelector('input[name="username"]').dispatchEvent(new Event('input', {bubbles:true}))`);
+      await page.evaluate(`document.querySelector('input[name="password"]').value = ${JSON.stringify(password)}`);
+      await page.evaluate(`document.querySelector('input[name="password"]').dispatchEvent(new Event('input', {bubbles:true}))`);
+      await page.evaluate(`document.querySelector('button[type="submit"]').click()`);
+      await page.sleep(5000);
+
+      // Handle 2FA / suspicious login challenge
+      const needs2fa = await page.evaluate(`
+        !!document.querySelector('input[name="verificationCode"]') ||
+        !!document.querySelector('input[name="security_code"]') ||
+        !!document.querySelector('input[aria-label="Security Code"]') ||
+        !!document.querySelector('input[name="approvals_code"]')
+      `);
+      if (needs2fa) {
+        const { code } = await page.requestInput({
+          message: "Enter your Instagram security/verification code",
+          schema: {
+            type: "object",
+            properties: { code: { type: "string", description: "6-digit verification code" } },
+            required: ["code"],
+          },
+        });
+        await page.evaluate(`
+          (() => {
+            const input = document.querySelector('input[name="verificationCode"]') ||
+                          document.querySelector('input[name="security_code"]') ||
+                          document.querySelector('input[aria-label="Security Code"]') ||
+                          document.querySelector('input[name="approvals_code"]');
+            if (input) {
+              input.value = ${JSON.stringify(code)};
+              input.dispatchEvent(new Event('input', {bubbles:true}));
+            }
+          })()
+        `);
+        await page.evaluate(`document.querySelector('button[type="button"], button[type="submit"]')?.click()`);
+        await page.sleep(3000);
+      }
+    }
+
+    // Dismiss Instagram interstitials that appear after login
+    // These block the page and prevent fetchWebInfo() from working
+    for (let dismissAttempt = 0; dismissAttempt < 3; dismissAttempt++) {
+      await page.evaluate(`
+        (() => {
+          // Cookie consent banner — "Allow All Cookies" or "Decline Optional Cookies"
+          const cookieBtns = document.querySelectorAll('button');
+          for (const btn of cookieBtns) {
+            const text = (btn.textContent || '').trim().toLowerCase();
+            if (text.includes('allow all cookies') || text.includes('allow essential and optional cookies') ||
+                text.includes('decline optional cookies') || text.includes('accept all')) {
+              btn.click();
+              return 'dismissed cookie banner';
+            }
+          }
+
+          // "Save Your Login Info?" dialog — click "Not Now"
+          // "Turn on Notifications?" dialog — click "Not Now"
+          for (const btn of cookieBtns) {
+            const text = (btn.textContent || '').trim().toLowerCase();
+            if (text === 'not now' || text === 'skip') {
+              btn.click();
+              return 'dismissed interstitial: ' + text;
+            }
+          }
+
+          // "We Noticed an Unusual Login Attempt" — click "This Was Me"
+          for (const btn of cookieBtns) {
+            const text = (btn.textContent || '').trim().toLowerCase();
+            if (text === 'this was me') {
+              btn.click();
+              return 'dismissed security prompt';
+            }
+          }
+
+          return 'no interstitials found';
+        })()
+      `);
+      await page.sleep(2000);
+    }
+
+    // Check if login succeeded
+    let newWebInfo = await fetchWebInfo();
+    let loginSucceeded = !!(newWebInfo && newWebInfo.username);
+
+    // Fallback to headed browser if programmatic login failed
+    if (!loginSucceeded) {
+      const { headed } = await page.showBrowser('https://www.instagram.com/accounts/login/');
+      if (headed) {
+        await page.setData('status', 'Please complete login in the browser...');
+        await page.promptUser(
+          'Complete any remaining verification, then click "Done".',
+          async () => {
+            const info = await fetchWebInfo();
+            return !!(info && info.username);
+          },
+          2000
+        );
+        await page.goHeadless();
+      } else {
+        await page.setData('error', 'Instagram login failed.');
+        return { error: 'Instagram login failed' };
+      }
+
+      // Dismiss any remaining interstitials after headed browser login
+      for (let dismissAttempt = 0; dismissAttempt < 3; dismissAttempt++) {
+        await page.evaluate(`
+          (() => {
+            const btns = document.querySelectorAll('button');
+            for (const btn of btns) {
+              const text = (btn.textContent || '').trim().toLowerCase();
+              if (text.includes('allow all cookies') || text.includes('allow essential and optional cookies') ||
+                  text.includes('decline optional cookies') || text.includes('accept all') ||
+                  text === 'not now' || text === 'skip' || text === 'this was me') {
+                btn.click();
+                return 'dismissed: ' + text;
+              }
+            }
+            return 'none';
+          })()
+        `);
+        await page.sleep(1500);
+      }
+      newWebInfo = await fetchWebInfo();
+    }
+
     state.webInfo = newWebInfo;
     await page.setData('status', 'Login completed');
-
-    // Switch to headless — browser window disappears for data collection
-    await page.goHeadless();
   } else {
     await page.setData('status', 'Session restored from previous login');
   }

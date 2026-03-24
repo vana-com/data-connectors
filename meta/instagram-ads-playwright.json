@@ -1,0 +1,22 @@
+{
+  "id": "instagram-ads-playwright",
+  "version": "1.0.0",
+  "name": "Instagram Ads",
+  "company": "Meta",
+  "iconURL": "icons/instagram.svg",
+  "description": "Exports your Instagram ad interests — advertisers and ad topics.",
+  "connectURL": "https://accountscenter.instagram.com/ads/",
+  "connectSelector": "[role='button'][aria-label*='advertiser' i], [role='list'] [role='listitem']",
+  "exportFrequency": "daily",
+  "runtime": "playwright",
+  "scopes": [
+    {
+      "scope": "instagram.ads",
+      "label": "Your ad interests",
+      "description": "Advertisers you've interacted with and ad topics based on your activity"
+    }
+  ],
+  "vectorize_config": {
+    "documents": "name"
+  }
+}

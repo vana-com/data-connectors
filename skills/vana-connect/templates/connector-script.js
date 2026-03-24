@@ -10,8 +10,8 @@
 
 // ─── Credentials ─────────────────────────────────────────────
 
-const PLATFORM_LOGIN = process.env.USER_LOGIN_{{PLATFORM_UPPER}} || '';
-const PLATFORM_PASSWORD = process.env.USER_PASSWORD_{{PLATFORM_UPPER}} || '';
+let PLATFORM_LOGIN = process.env.USER_LOGIN_{{PLATFORM_UPPER}} || '';
+let PLATFORM_PASSWORD = process.env.USER_PASSWORD_{{PLATFORM_UPPER}} || '';
 
 // ─── Login Detection ─────────────────────────────────────────
 
@@ -104,23 +104,31 @@ const fetchApi = async (endpoint) => {
 (async () => {
   const TOTAL_STEPS = 3;
 
-  // ═══ PHASE 1: Login (three-tier strategy) ═══
-  // Tier 1: Check if already logged in (session from browser profile)
-  // Tier 2: Try automated login if credentials available
-  // Tier 3: Fall back to manual login via headed browser
+  // ═══ PHASE 1: Automated Login ═══
   await page.setData('status', 'Checking login status...');
   await page.goto('{{PLATFORM_URL}}');
   await page.sleep(2000);
 
   let isLoggedIn = await checkLoginStatus();
 
-  if (isLoggedIn) {
-    await page.setData('status', 'Session restored from browser profile');
-  }
-
-  // Tier 2: Automated login with credentials from .env
-  if (!isLoggedIn && PLATFORM_LOGIN && PLATFORM_PASSWORD) {
-    await page.setData('status', 'Attempting automated login...');
+  if (!isLoggedIn) {
+    // Try .env credentials first, fall back to requestInput
+    if (!PLATFORM_LOGIN || !PLATFORM_PASSWORD) {
+      const creds = await page.requestInput({
+        message: 'Enter your {{PLATFORM_NAME}} credentials',
+        schema: {
+          type: 'object',
+          properties: {
+            username: { type: 'string', title: 'Email or username' },
+            password: { type: 'string', title: 'Password' }
+          },
+          required: ['username', 'password']
+        }
+      });
+      PLATFORM_LOGIN = creds.username;
+      PLATFORM_PASSWORD = creds.password;
+    }
+    await page.setData('status', 'Logging in...');
     await performLogin();
     await page.sleep(2000);
 
@@ -129,25 +137,16 @@ const fetchApi = async (endpoint) => {
       await page.sleep(3000);
       isLoggedIn = await checkLoginStatus();
     }
-    if (isLoggedIn) {
-      await page.setData('status', 'Automated login successful');
+    if (!isLoggedIn) {
+      await page.setData('error', 'Automated login failed. Check credentials or login flow.');
+      return;
     }
+    await page.setData('status', 'Login successful');
+  } else {
+    await page.setData('status', 'Session restored from previous login');
   }
 
-  // Tier 3: Manual login — open headed browser and ask user
-  if (!isLoggedIn) {
-    await page.setData('status', 'Automated login unavailable — opening browser for manual login...');
-    await page.showBrowser('{{LOGIN_URL}}');
-    await page.promptUser(
-      'Please log in to {{PLATFORM_NAME}}. Login will be detected automatically.',
-      async () => await checkLoginStatus(),
-      2000
-    );
-    isLoggedIn = true;
-    await page.setData('status', 'Manual login successful');
-  }
-
-  // ═══ PHASE 2: Data Collection (headless) ═══
+  // ═══ PHASE 2: Data Collection ═══
   await page.goHeadless();
 
   // ═══ STEP 1: Fetch primary data ═══

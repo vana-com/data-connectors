@@ -10,9 +10,10 @@ description: >
 
 # Autonomous Data Connector Creator
 
-Fully autonomous, zero human-in-the-loop connector creation. The agent writes a Playwright
-connector script, tests it against the live site using credentials from `.env`, validates
-the output, iterates until quality, and caches the result for deterministic reuse.
+Create data connectors end-to-end with minimal human intervention. The agent writes a
+Playwright connector script, tests it against the live site, validates the output, and
+iterates until quality. For platforms with complex auth (Google, Uber, Cloudflare-protected
+sites), the agent asks the user to log in once via a headed browser, then works autonomously.
 
 ## Input
 
@@ -20,9 +21,17 @@ the output, iterates until quality, and caches the result for deterministic reus
 - **Data description** (optional): what data to extract. If not specified, extract all
   commonly useful personal data (profile, content, settings).
 
-## Credentials Convention
+## Authentication Strategy
 
-Credentials are stored in `.env` at the project root:
+### Three-tier login (cascading)
+
+| Tier | Method | Best for |
+|------|--------|----------|
+| 1 | Session from browser profile | All platforms — reuses previous login |
+| 2 | Automated credentials (`.env`) | Simple login forms (LinkedIn, Spotify) |
+| 3 | Manual login via capture-session | Complex auth (Google, Uber, Cloudflare, 2FA) |
+
+### Credentials in `.env`
 
 ```
 USER_LOGIN_TWITTER=user@example.com
@@ -30,10 +39,18 @@ USER_PASSWORD_TWITTER=secretpassword
 ```
 
 Pattern: `USER_LOGIN_<PLATFORM_UPPER>` and `USER_PASSWORD_<PLATFORM_UPPER>`.
-The platform name is uppercased (e.g., `LINKEDIN`, `REDDIT`, `INSTAGRAM`).
 
-The connector script reads these via `process.env` and performs automated login —
-filling the form fields programmatically and submitting. No manual browser interaction.
+### Session Capture (for complex auth)
+
+For platforms where automated login will likely fail (Google, Uber, Amazon, etc.):
+
+```bash
+node capture-session.cjs <platform> <login-url>
+```
+
+This opens a headed browser. The user logs in manually (handles CAPTCHAs, 2FA, OAuth).
+The session persists in `~/.dataconnect/browser-profiles/<platform>-playwright/` and is
+automatically reused by the connector during testing.
 
 ## Workflow
 
@@ -81,6 +98,45 @@ If web search doesn't reveal clear APIs, use Chrome browser automation tools to:
 
 ---
 
+### Step 1.5 — Ensure Session (if needed)
+
+**Goal:** Make sure a valid browser session exists for platforms with complex auth.
+
+**Determine if session capture is needed:**
+- **YES** if the platform uses: OAuth (Google, GitHub SSO), 2FA/MFA, CAPTCHAs, Cloudflare
+  protection, multi-step login, phone verification, or device-based auth
+- **YES** if the platform is known to block automated login (Google, Uber, Amazon, Apple, etc.)
+- **NO** if the platform has a simple email+password form (LinkedIn, Spotify, Reddit, etc.)
+
+**If session capture IS needed:**
+
+1. Check for existing session:
+   ```bash
+   ls sessions/<platform>.json 2>/dev/null && echo "Session exists" || echo "No session"
+   ```
+
+2. Check if the browser profile exists:
+   ```bash
+   ls ~/.dataconnect/browser-profiles/<platform>-playwright/ 2>/dev/null && echo "Profile exists" || echo "No profile"
+   ```
+
+3. If no session/profile, tell the user and run capture:
+   ```bash
+   node capture-session.cjs <platform> <login-url> --timeout 300
+   ```
+   This opens a headed browser. Wait for the user to log in (up to 5 minutes).
+   Use `--timeout 600` for slower platforms. Use `--check-url <url>` if auto-detection
+   struggles (e.g., `--check-url myaccount.google.com`).
+
+4. Verify the session was captured:
+   ```bash
+   cat sessions/<platform>.json | head -5
+   ```
+
+**If session capture is NOT needed:** skip to Step 2.
+
+---
+
 ### Step 2 — Create Connector Files
 
 **Read these reference files** for patterns, API reference, and templates:
@@ -90,18 +146,32 @@ If web search doesn't reveal clear APIs, use Chrome browser automation tools to:
 - `reference/templates/connector-metadata.json` — metadata template
 - `reference/templates/schema.json` — schema template
 
+**IMPORTANT: File locations.** The harness is at `harness/`. Connector files go in the
+**parent directory** (the repo root) alongside existing connectors:
+
+```
+data-connectors/          ← repo root (parent of harness/)
+├── <company>/            ← connector files go HERE
+│   ├── <name>-playwright.js
+│   └── <name>-playwright.json
+├── schemas/              ← schemas go HERE
+│   └── <platform>.<scope>.json
+├── registry.json         ← update this in Step 7
+└── harness/              ← you are here (working directory)
+```
+
 **Create these files:**
 
-1. **`<company>/<name>-playwright.json`** — Metadata file
+1. **`../<company>/<name>-playwright.json`** — Metadata file
    - Use template: `reference/templates/connector-metadata.json`
    - `connectSelector` is CRITICAL — must only match when user is logged in
    - Include `scopes` array with all data categories
 
-2. **`<company>/<name>-playwright.js`** — Connector script
+2. **`../<company>/<name>-playwright.js`** — Connector script
    - Use template: `reference/templates/connector-script.js`
-   - MUST read credentials from `process.env.USER_LOGIN_<PLATFORM>` / `process.env.USER_PASSWORD_<PLATFORM>`
-   - MUST perform automated login (fill form, submit) when not already logged in
-   - MUST handle login failure with a clear error message
+   - MUST implement three-tier login: (1) session from profile, (2) automated credentials, (3) manual via `page.promptUser`
+   - SHOULD read credentials from `process.env.USER_LOGIN_<PLATFORM>` / `process.env.USER_PASSWORD_<PLATFORM>` for tier 2
+   - MUST handle all login tiers gracefully — never hard-fail if credentials are missing
    - MUST use `page.evaluate('string')` — NOT `page.evaluate(() => ...)` (function refs don't work)
    - MUST interpolate variables with `JSON.stringify()` into evaluate strings
    - MUST include error handling for API failures
@@ -109,60 +179,52 @@ If web search doesn't reveal clear APIs, use Chrome browser automation tools to:
    - MUST include `exportSummary` with count, label, details
    - SHOULD rate-limit API calls with `page.sleep(300-1000)` between requests
 
-3. **`schemas/<platform>.<scope>.json`** — One per scope
+3. **`../schemas/<platform>.<scope>.json`** — One per scope
    - Use template: `reference/templates/schema.json`
    - Define the exact shape of data each scope produces
    - Use `additionalProperties: false` for strict validation
    - Mark truly required fields as `required`
 
-#### Automated Login Pattern
+#### Three-Tier Login Pattern
 
-The connector MUST handle login programmatically. Key pattern:
+The connector MUST implement cascading login:
 
 ```javascript
 const PLATFORM_LOGIN = process.env.USER_LOGIN_PLATFORMNAME || '';
 const PLATFORM_PASSWORD = process.env.USER_PASSWORD_PLATFORMNAME || '';
 
-const performLogin = async () => {
-  const loginStr = JSON.stringify(PLATFORM_LOGIN);
-  const passwordStr = JSON.stringify(PLATFORM_PASSWORD);
+// ... checkLoginStatus() and performLogin() defined above ...
 
-  await page.goto('https://platform.com/login');
-  await page.sleep(2000);
+// In the main flow:
+let isLoggedIn = await checkLoginStatus();
 
-  // Fill login form — adapt selectors per platform
-  await page.evaluate(`
-    (() => {
-      const emailInput = document.querySelector('input[name="username"]');
-      const passwordInput = document.querySelector('input[type="password"]');
-      if (emailInput) {
-        emailInput.focus();
-        emailInput.value = ${loginStr};
-        emailInput.dispatchEvent(new Event('input', { bubbles: true }));
-        emailInput.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-      if (passwordInput) {
-        passwordInput.focus();
-        passwordInput.value = ${passwordStr};
-        passwordInput.dispatchEvent(new Event('input', { bubbles: true }));
-        passwordInput.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-    })()
-  `);
-  await page.sleep(500);
+// Tier 1: Session from browser profile (automatic)
+if (isLoggedIn) {
+  await page.setData('status', 'Session restored from browser profile');
+}
 
-  // Submit
-  await page.evaluate(`
-    (() => {
-      const btn = document.querySelector('button[type="submit"]');
-      if (btn) btn.click();
-    })()
-  `);
-  await page.sleep(3000);
-};
+// Tier 2: Automated login with .env credentials
+if (!isLoggedIn && PLATFORM_LOGIN && PLATFORM_PASSWORD) {
+  await performLogin();
+  isLoggedIn = await checkLoginStatus();
+}
+
+// Tier 3: Manual login via headed browser (always works)
+if (!isLoggedIn) {
+  await page.showBrowser('https://platform.com/login');
+  await page.promptUser(
+    'Please log in to Platform. Login will be detected automatically.',
+    async () => await checkLoginStatus(),
+    2000
+  );
+  isLoggedIn = true;
+}
+
+await page.goHeadless();
+// ... data collection ...
 ```
 
-**Adapt for specific platforms:**
+**Automated login tips (for Tier 2):**
 - **Multi-step login** (email → next page → password): split into two fills with navigation between
 - **React/Vue apps** that ignore `.value =`: use `nativeInputValueSetter` pattern:
   ```javascript
@@ -172,7 +234,7 @@ const performLogin = async () => {
   nativeInputValueSetter.call(emailInput, ${loginStr});
   emailInput.dispatchEvent(new Event('input', { bubbles: true }));
   ```
-- **CAPTCHA/2FA**: log a clear error — these can't be automated
+- **CAPTCHA/2FA**: Tier 3 handles this automatically — user logs in manually
 
 ---
 
@@ -181,7 +243,7 @@ const performLogin = async () => {
 Run the structural validator:
 
 ```bash
-node scripts/validate-connector.cjs ./<company>/<name>-playwright.js
+node scripts/validate-connector.cjs ../<company>/<name>-playwright.js
 ```
 
 This checks:
@@ -198,25 +260,35 @@ Re-run the validator after each fix until the report shows `"valid": true`.
 
 ---
 
-### Step 4 — Test (Fully Automated)
+### Step 4 — Test
 
-Ensure `.env` has the credentials:
+**Check if session or credentials are available:**
 ```bash
-grep -q "USER_LOGIN_<PLATFORM_UPPER>" .env && echo "Credentials found" || echo "ERROR: Set credentials in .env"
+# Check for captured session (from Step 1.5)
+ls ~/.dataconnect/browser-profiles/<platform>-playwright/ 2>/dev/null && echo "Session profile exists" || echo "No session profile"
+
+# Check for .env credentials
+grep -q "USER_LOGIN_<PLATFORM_UPPER>" .env 2>/dev/null && echo "Credentials found" || echo "No credentials"
 ```
 
-Run the connector in headless mode:
+**Run the connector:**
 
 ```bash
-node test-connector.cjs ./<company>/<name>-playwright.js --headless
+# If session profile exists, headless mode works (session auto-restored):
+node test-connector.cjs ../<company>/<name>-playwright.js --headless
+
+# If no session and no credentials, run headed (Tier 3 manual login will trigger):
+node test-connector.cjs ../<company>/<name>-playwright.js
 ```
 
-**What happens (fully automated, no human needed):**
-1. The playwright-runner spawns a headless browser
-2. The connector reads credentials from `process.env`
-3. Automated login: navigates to login page, fills form, submits
-4. Data collection: fetches all scoped data
-5. Result is saved to `./connector-result.json`
+**What happens:**
+1. The playwright-runner spawns a browser (headless or headed)
+2. The connector tries three-tier login:
+   - Tier 1: Checks for existing session in browser profile
+   - Tier 2: Tries automated login with .env credentials (if available)
+   - Tier 3: Opens headed browser for manual login (if needed)
+3. Data collection: fetches all scoped data
+4. Result is saved to `./connector-result.json`
 
 **If the playwright-runner is not found:** The test-connector.cjs will show an error.
 Set `PLAYWRIGHT_RUNNER_DIR` env var pointing to the playwright-runner directory.
@@ -225,6 +297,7 @@ Set `PLAYWRIGHT_RUNNER_DIR` env var pointing to the playwright-runner directory.
 - `[error]` messages — connector has bugs
 - `[status] COMPLETE` — success, check the result file
 - `[status] ERROR` — failure, read the error message
+- `WAITING_FOR_USER` — connector needs manual login (Tier 3)
 - Process hanging — likely a missing `await` or infinite loop
 
 ---
@@ -234,7 +307,7 @@ Set `PLAYWRIGHT_RUNNER_DIR` env var pointing to the playwright-runner directory.
 After the test produces `connector-result.json`, validate it:
 
 ```bash
-node scripts/validate-connector.cjs ./<company>/<name>-playwright.js --check-result ./connector-result.json
+node scripts/validate-connector.cjs ../<company>/<name>-playwright.js --check-result ./connector-result.json
 ```
 
 This checks:
@@ -262,7 +335,7 @@ If testing or output validation fails:
    - Schema violations? → Data shape doesn't match schema; fix schema or data transform
    - Script crash? → Check for missing awaits, null references, syntax errors in evaluate strings
 4. **Fix the connector script** (and/or schemas)
-5. **Re-run the test:** `node test-connector.cjs ./<company>/<name>-playwright.js --headless`
+5. **Re-run the test:** `node test-connector.cjs ../<company>/<name>-playwright.js --headless`
 6. **Re-validate output**
 7. **Repeat until all checks pass**
 
@@ -277,20 +350,52 @@ ask for guidance rather than continuing to loop.
 
 ---
 
-### Step 7 — Finalize
+### Step 7 — Finalize & Register
 
 Once all validations pass:
 
 1. **Generate checksums:**
    ```bash
-   shasum -a 256 <company>/<name>-playwright.js | awk '{print "sha256:" $1}'
-   shasum -a 256 <company>/<name>-playwright.json | awk '{print "sha256:" $1}'
+   shasum -a 256 ../<company>/<name>-playwright.js | awk '{print "sha256:" $1}'
+   shasum -a 256 ../<company>/<name>-playwright.json | awk '{print "sha256:" $1}'
    ```
 
-2. **Report success** with:
-   - Path to all created files
+2. **Add entry to `../registry.json`:**
+   Read the existing registry, then add a new entry to the `connectors` array:
+   ```json
+   {
+     "id": "<name>-playwright",
+     "company": "<company>",
+     "version": "1.0.0",
+     "name": "<PlatformDisplayName>",
+     "description": "Exports your <Platform> <data description> using Playwright browser automation.",
+     "files": {
+       "script": "<company>/<name>-playwright.js",
+       "metadata": "<company>/<name>-playwright.json"
+     },
+     "checksums": {
+       "script": "sha256:<script_checksum>",
+       "metadata": "sha256:<metadata_checksum>"
+     }
+   }
+   ```
+   Also update the `lastUpdated` field to today's date.
+
+3. **Report success** with:
+   - Path to all created files (connector, metadata, schemas)
    - Validation report summary
    - Data collected (scope names, item counts)
+   - Registry entry added
+   - Instructions for creating a PR (see below)
+
+4. **PR instructions** — tell the user:
+   ```
+   To create a pull request:
+     cd .. && git add <company>/ schemas/ registry.json
+     git commit -m "feat: add <platform> connector"
+     git push origin <branch>
+     gh pr create --title "feat: add <platform> connector"
+   ```
 
 ---
 
@@ -298,14 +403,17 @@ Once all validations pass:
 
 A connector is COMPLETE when ALL of these are true:
 
+- [ ] Connector files created at `../<company>/` (NOT inside `harness/`)
+- [ ] Schema files created at `../schemas/` (NOT inside `harness/`)
 - [ ] Metadata JSON has all required fields including scopes
-- [ ] Script reads credentials from `process.env` and performs automated login
-- [ ] Script handles login failure with clear error message
+- [ ] Script implements three-tier login (session → automated → manual via promptUser)
+- [ ] Script handles all login tiers gracefully (never hard-fails on missing credentials)
 - [ ] `node scripts/validate-connector.cjs` exits with code 0 (structure valid)
 - [ ] `node test-connector.cjs --headless` completes without errors
 - [ ] `node scripts/validate-connector.cjs --check-result` exits with code 0 (output valid)
 - [ ] All declared scopes produce non-empty, schema-compliant data
 - [ ] exportSummary has accurate count and details
+- [ ] Registry entry added to `../registry.json` with correct checksums
 
 ## Critical Rules
 
@@ -316,4 +424,5 @@ A connector is COMPLETE when ALL of these are true:
 5. **Always handle errors** — check for `_error` or non-ok responses in API calls
 6. **IIFE wrapper required** — script body must be `(async () => { ... })()`
 7. **Credentials stay on-device** — never send tokens/passwords to external servers
-8. **Credentials from .env only** — read via `process.env.USER_LOGIN_<PLATFORM>` / `process.env.USER_PASSWORD_<PLATFORM>`
+8. **Credentials from .env** — read via `process.env.USER_LOGIN_<PLATFORM>` / `process.env.USER_PASSWORD_<PLATFORM>` (for Tier 2)
+9. **Always include Tier 3 fallback** — `page.promptUser` for manual login ensures connectors work even without credentials or sessions
