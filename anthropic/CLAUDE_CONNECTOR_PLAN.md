@@ -342,6 +342,12 @@ Reason:
 - Are artifacts exposed by a usable API or only by UI navigation?
 - Is Claude native email/password login stable enough to justify a maintained automated login path?
 
+## Testing Follow-up
+
+- automated tests are not a blocker for the current PR
+- the most reasonable fast-follow test work would be helper- and fixture-level coverage for normalization logic
+- full end-to-end automated testing against Claude auth and live session flows would be higher-cost and more brittle, so it should not be the first testing investment
+
 ## Claude-Specific Learnings
 
 - the local repo can be exercised directly through `vana` when run from the repo root; this is the right execution path for this project
