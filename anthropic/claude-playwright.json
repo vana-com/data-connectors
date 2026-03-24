@@ -1,0 +1,27 @@
+{
+  "id": "claude-playwright",
+  "version": "1.1.0",
+  "name": "Claude",
+  "company": "Anthropic",
+  "iconURL": "icons/claude.svg",
+  "description": "Exports your Claude conversations and projects from claude.ai using Playwright browser automation.",
+  "connectURL": "https://claude.ai/login",
+  "connectSelector": "button[data-testid='user-menu-button']",
+  "exportFrequency": "weekly",
+  "runtime": "playwright",
+  "scopes": [
+    {
+      "scope": "claude.conversations",
+      "label": "Your Claude conversations",
+      "description": "Claude conversations including chat metadata and, when available, full thread messages from Claude's authenticated APIs."
+    },
+    {
+      "scope": "claude.projects",
+      "label": "Your Claude projects",
+      "description": "Claude projects including project metadata and, when available, project detail from Claude's authenticated APIs."
+    }
+  ],
+  "vectorize_config": {
+    "documents": "title"
+  }
+}

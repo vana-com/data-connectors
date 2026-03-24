@@ -1,0 +1,92 @@
+{
+  "name": "Claude Projects",
+  "version": "1.1.0",
+  "scope": "claude.projects",
+  "dialect": "json",
+  "description": "Claude projects including project ids, titles, labels, relative URLs, and project detail when the authenticated project API is available.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "profile": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": ["string", "null"],
+            "description": "Display name shown in the Claude user menu."
+          },
+          "plan": {
+            "type": ["string", "null"],
+            "description": "Current Claude plan label shown in the user menu."
+          }
+        },
+        "required": ["name", "plan"],
+        "additionalProperties": false
+      },
+      "organizationId": {
+        "type": ["string", "null"],
+        "description": "Active Claude organization id used for authenticated API requests."
+      },
+      "projects": {
+        "type": "array",
+        "description": "Projects collected from Claude, enriched with project detail when possible.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": ["string", "null"],
+              "description": "Project identifier parsed from the sidebar route when available."
+            },
+            "title": {
+              "type": "string",
+              "description": "Project title shown in the Claude sidebar."
+            },
+            "href": {
+              "type": "string",
+              "description": "Relative Claude route for the project."
+            },
+            "label": {
+              "type": ["string", "null"],
+              "description": "Accessible label for the project entry, if present."
+            },
+            "createdAt": {
+              "type": ["string", "null"],
+              "description": "Project creation timestamp if Claude returned one."
+            },
+            "updatedAt": {
+              "type": ["string", "null"],
+              "description": "Project update timestamp if Claude returned one."
+            },
+            "archived": {
+              "type": ["boolean", "null"],
+              "description": "Whether the project appears archived."
+            },
+            "detail": {
+              "description": "Raw Claude project detail payload when fetched successfully.",
+              "type": ["object", "array", "null"]
+            },
+            "fetchError": {
+              "type": ["string", "null"],
+              "description": "Error captured when Claude project detail could not be fetched."
+            }
+          },
+          "required": ["id", "title", "href", "label", "createdAt", "updatedAt", "archived"],
+          "additionalProperties": false
+        }
+      },
+      "total": {
+        "type": "number",
+        "description": "Number of projects exported."
+      },
+      "source": {
+        "type": "string",
+        "description": "How the data was collected for this export."
+      },
+      "apiError": {
+        "type": ["string", "null"],
+        "description": "Top-level API error message when Claude project APIs were unavailable."
+      }
+    },
+    "required": ["profile", "organizationId", "projects", "total", "source"],
+    "additionalProperties": false
+  }
+}
