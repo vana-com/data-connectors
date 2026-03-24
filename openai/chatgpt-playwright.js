@@ -333,25 +333,157 @@ const fetchConversationBatch = async (accessToken, deviceId, convIds) => {
   }
 
   if (!isLoggedIn) {
-    // Need user interaction — ensure browser is visible (headed mode)
-    await page.showBrowser('https://chatgpt.com/');
-    await page.setData('status', 'Please log in to ChatGPT...');
+    // Navigate to ChatGPT login page
+    await page.goto('https://chatgpt.com/auth/login');
     await page.sleep(3000);
-
     await dismissInterruptingDialogs();
     await page.sleep(1000);
 
-    isLoggedIn = await checkLoginStatus();
+    // Click "Log in" button to reach auth.openai.com
+    await page.evaluate(`
+      (() => {
+        const buttons = document.querySelectorAll('button, a');
+        for (const btn of buttons) {
+          const text = (btn.textContent || '').trim().toLowerCase();
+          if (text === 'log in') { btn.click(); return true; }
+        }
+        return false;
+      })()
+    `);
+    await page.sleep(3000);
 
-    if (!isLoggedIn) {
-      await page.promptUser(
-        'Please log in to ChatGPT. Click "Done" when you see the chat interface.',
-        async () => {
-          await dismissInterruptingDialogs();
-          return await checkLoginStatus();
+    // Check if we're on the OpenAI auth page with email field
+    const hasEmailField = await page.evaluate(`
+      !!document.querySelector('input[name="email"]') ||
+      !!document.querySelector('input[type="email"]') ||
+      !!document.querySelector('#email-input')
+    `);
+
+    if (hasEmailField) {
+      const { email } = await page.requestInput({
+        message: "Log in to ChatGPT — enter your OpenAI account email",
+        schema: {
+          type: "object",
+          properties: {
+            email: { type: "string", description: "OpenAI account email address" },
+          },
+          required: ["email"],
         },
-        2000
-      );
+      });
+
+      await page.evaluate(`
+        (() => {
+          const emailInput = document.querySelector('input[name="email"]') ||
+                             document.querySelector('input[type="email"]') ||
+                             document.querySelector('#email-input');
+          if (emailInput) {
+            emailInput.value = ${JSON.stringify(email)};
+            emailInput.dispatchEvent(new Event('input', {bubbles:true}));
+            emailInput.dispatchEvent(new Event('change', {bubbles:true}));
+          }
+        })()
+      `);
+      await page.sleep(500);
+      await page.evaluate(`
+        (() => {
+          const btn = document.querySelector('button[type="submit"]') ||
+                      document.querySelector('button._button-login-id');
+          if (btn) btn.click();
+        })()
+      `);
+      await page.sleep(3000);
+
+      // Password page
+      const hasPasswordField = await page.evaluate(`
+        !!document.querySelector('input[type="password"]') ||
+        !!document.querySelector('input[name="password"]')
+      `);
+
+      if (hasPasswordField) {
+        const { password } = await page.requestInput({
+          message: "Enter your OpenAI account password",
+          schema: {
+            type: "object",
+            properties: {
+              password: { type: "string", format: "password" },
+            },
+            required: ["password"],
+          },
+        });
+
+        await page.evaluate(`
+          (() => {
+            const passwordInput = document.querySelector('input[type="password"]') ||
+                                  document.querySelector('input[name="password"]');
+            if (passwordInput) {
+              passwordInput.value = ${JSON.stringify(password)};
+              passwordInput.dispatchEvent(new Event('input', {bubbles:true}));
+              passwordInput.dispatchEvent(new Event('change', {bubbles:true}));
+            }
+          })()
+        `);
+        await page.sleep(500);
+        await page.evaluate(`
+          (() => {
+            const btn = document.querySelector('button[type="submit"]') ||
+                        document.querySelector('button._button-login-password');
+            if (btn) btn.click();
+          })()
+        `);
+        await page.sleep(5000);
+
+        // Handle 2FA if present
+        const needs2fa = await page.evaluate(`
+          !!document.querySelector('input[name="code"]') ||
+          !!document.querySelector('input[type="tel"]') ||
+          !!document.querySelector('input[inputmode="numeric"]')
+        `);
+        if (needs2fa) {
+          const { code } = await page.requestInput({
+            message: "Enter your OpenAI 2FA verification code",
+            schema: {
+              type: "object",
+              properties: { code: { type: "string", description: "6-digit verification code" } },
+              required: ["code"],
+            },
+          });
+          await page.evaluate(`
+            (() => {
+              const input = document.querySelector('input[name="code"]') ||
+                            document.querySelector('input[type="tel"]') ||
+                            document.querySelector('input[inputmode="numeric"]');
+              if (input) {
+                input.value = ${JSON.stringify(code)};
+                input.dispatchEvent(new Event('input', {bubbles:true}));
+              }
+            })()
+          `);
+          await page.evaluate(`document.querySelector('button[type="submit"]')?.click()`);
+          await page.sleep(5000);
+        }
+      }
+
+      await dismissInterruptingDialogs();
+      await page.sleep(2000);
+      isLoggedIn = await checkLoginStatus();
+    }
+
+    // Fallback to headed browser if programmatic login failed
+    // (needed for SSO flows: Google, Microsoft, Apple)
+    if (!isLoggedIn) {
+      const { headed } = await page.showBrowser('https://chatgpt.com/');
+      if (headed) {
+        await page.setData('status', 'Please complete login in the browser (SSO or remaining verification)...');
+        await page.promptUser(
+          'Complete login in the browser, then click "Done".',
+          async () => {
+            await dismissInterruptingDialogs();
+            return await checkLoginStatus();
+          },
+          2000
+        );
+        await page.goHeadless();
+      }
     }
 
     await page.setData('status', 'Login completed');

@@ -1,15 +1,47 @@
 {
   "id": "linkedin-playwright",
-  "version": "4.0.0",
+  "version": "1.0.0",
   "name": "LinkedIn",
   "company": "LinkedIn",
   "iconURL": "icons/linkedin.svg",
-  "description": "Exports your LinkedIn profile including experience, education, and skills using Playwright browser automation.",
+  "description": "Exports your LinkedIn profile, work experience, education, skills, languages, and connections using Playwright browser automation.",
   "connectURL": "https://www.linkedin.com/login",
   "connectSelector": "a[href*='/feed/'], .feed-identity-module, .global-nav__me",
   "exportFrequency": "weekly",
   "runtime": "playwright",
+  "scopes": [
+    {
+      "scope": "linkedin.profile",
+      "label": "Your Profile",
+      "description": "Your LinkedIn profile including name, headline, location, about, and profile picture"
+    },
+    {
+      "scope": "linkedin.experience",
+      "label": "Your Work Experience",
+      "description": "Your work experience including job titles, companies, dates, locations, and descriptions"
+    },
+    {
+      "scope": "linkedin.education",
+      "label": "Your Education",
+      "description": "Your education history including schools, degrees, years, and grades"
+    },
+    {
+      "scope": "linkedin.skills",
+      "label": "Your Skills",
+      "description": "Your skills and endorsement counts"
+    },
+    {
+      "scope": "linkedin.languages",
+      "label": "Your Languages",
+      "description": "Your languages and proficiency levels"
+    },
+    {
+      "scope": "linkedin.connections",
+      "label": "Your Connections",
+      "description": "Your LinkedIn connections with names, headlines, profile URLs, and date connected"
+    }
+  ],
   "vectorize_config": {
-    "documents": "experience"
+    "documents": "connections"
   }
 }

@@ -781,18 +781,197 @@ const scrapeHistory = async () => {
     state.isLoggedIn = await checkLoginStatus();
 
     if (!state.isLoggedIn) {
-      await page.showBrowser('https://www.youtube.com/');
+      // Navigate to Google sign-in for YouTube
+      await page.goto('https://accounts.google.com/ServiceLogin?service=youtube&continue=https%3A%2F%2Fwww.youtube.com%2F');
       await page.sleep(2000);
 
-      await page.promptUser(
-        'Please log in to YouTube (Google account). Click "Done" once you are logged in.',
-        async () => checkLoginStatus(),
-        2000
-      );
+      // Check if Google login email field is present
+      const hasEmailField = await page.evaluate(`
+        !!document.querySelector('input[type="email"]') ||
+        !!document.querySelector('#identifierId')
+      `);
 
-      state.isLoggedIn = await checkLoginStatus();
+      if (hasEmailField) {
+        const { email } = await page.requestInput({
+          message: "Log in to YouTube with your Google account — enter your email",
+          schema: {
+            type: "object",
+            properties: {
+              email: { type: "string", description: "Google account email" },
+            },
+            required: ["email"],
+          },
+        });
+
+        await page.evaluate(`
+          (() => {
+            const emailInput = document.querySelector('input[type="email"]') ||
+                               document.querySelector('#identifierId');
+            if (emailInput) {
+              emailInput.value = ${JSON.stringify(email)};
+              emailInput.dispatchEvent(new Event('input', {bubbles:true}));
+              emailInput.dispatchEvent(new Event('change', {bubbles:true}));
+            }
+          })()
+        `);
+        await page.sleep(500);
+        // Click Next button
+        await page.evaluate(`
+          (() => {
+            const btn = document.querySelector('#identifierNext button') ||
+                        document.querySelector('button[type="submit"]') ||
+                        document.querySelector('#identifierNext');
+            if (btn) btn.click();
+          })()
+        `);
+        await page.sleep(3000);
+
+        // Password page
+        const hasPasswordField = await page.evaluate(`
+          !!document.querySelector('input[type="password"]') ||
+          !!document.querySelector('input[name="Passwd"]')
+        `);
+
+        if (hasPasswordField) {
+          const { password } = await page.requestInput({
+            message: "Enter your Google account password",
+            schema: {
+              type: "object",
+              properties: {
+                password: { type: "string", format: "password" },
+              },
+              required: ["password"],
+            },
+          });
+
+          await page.evaluate(`
+            (() => {
+              const passwordInput = document.querySelector('input[type="password"]') ||
+                                    document.querySelector('input[name="Passwd"]');
+              if (passwordInput) {
+                passwordInput.value = ${JSON.stringify(password)};
+                passwordInput.dispatchEvent(new Event('input', {bubbles:true}));
+                passwordInput.dispatchEvent(new Event('change', {bubbles:true}));
+              }
+            })()
+          `);
+          await page.sleep(500);
+          await page.evaluate(`
+            (() => {
+              const btn = document.querySelector('#passwordNext button') ||
+                          document.querySelector('button[type="submit"]') ||
+                          document.querySelector('#passwordNext');
+              if (btn) btn.click();
+            })()
+          `);
+          await page.sleep(5000);
+        }
+
+        // Handle 2FA if present
+        const needs2fa = await page.evaluate(`
+          !!document.querySelector('input[name="totpPin"]') ||
+          !!document.querySelector('input[type="tel"]') ||
+          window.location.href.includes('challenge')
+        `);
+        if (needs2fa) {
+          const { code } = await page.requestInput({
+            message: "Enter your Google 2FA verification code",
+            schema: {
+              type: "object",
+              properties: { code: { type: "string", description: "2FA code from authenticator app or SMS" } },
+              required: ["code"],
+            },
+          });
+          await page.evaluate(`
+            (() => {
+              const input = document.querySelector('input[name="totpPin"]') ||
+                            document.querySelector('input[type="tel"]') ||
+                            document.querySelector('#totpPin');
+              if (input) {
+                input.value = ${JSON.stringify(code)};
+                input.dispatchEvent(new Event('input', {bubbles:true}));
+                input.dispatchEvent(new Event('change', {bubbles:true}));
+              }
+            })()
+          `);
+          await page.sleep(500);
+          await page.evaluate(`
+            (() => {
+              const btn = document.querySelector('#totpNext button') ||
+                          document.querySelector('button[type="submit"]');
+              if (btn) btn.click();
+            })()
+          `);
+          await page.sleep(5000);
+        }
+
+        // Dismiss Google interstitials that appear after login
+        // (consent screens, "I agree", recovery prompts, etc.)
+        for (let dismissAttempt = 0; dismissAttempt < 5; dismissAttempt++) {
+          const dismissed = await page.evaluate(`
+            (() => {
+              const buttons = document.querySelectorAll('button, input[type="button"], input[type="submit"]');
+              for (const btn of buttons) {
+                const text = (btn.textContent || btn.value || '').trim().toLowerCase();
+                // Google consent / Terms of Service
+                if (text === 'i agree' || text === 'accept' || text === 'accept all' ||
+                    text === 'agree' || text === 'continue') {
+                  btn.click();
+                  return 'dismissed: ' + text;
+                }
+                // "Not now" for recovery phone/email prompts, 2-step verification setup
+                if (text === 'not now' || text === 'skip' || text === 'no thanks' ||
+                    text === 'done' || text === 'next') {
+                  // Only click "next" if it looks like a consent/interstitial, not a login step
+                  if (text === 'next' && document.querySelector('input[type="password"]')) continue;
+                  btn.click();
+                  return 'dismissed: ' + text;
+                }
+                // "Confirm" for "Is this your device?" prompts
+                if (text === 'confirm' || text === 'yes') {
+                  btn.click();
+                  return 'dismissed: ' + text;
+                }
+              }
+
+              // Cookie consent — Google-style
+              const consentBtns = document.querySelectorAll('[aria-label*="Accept all"], [aria-label*="Reject all"]');
+              if (consentBtns.length > 0) {
+                consentBtns[0].click();
+                return 'dismissed cookie consent';
+              }
+
+              return null;
+            })()
+          `);
+          if (!dismissed) break;
+          await page.sleep(2000);
+        }
+
+        // Wait for redirect to YouTube
+        for (let i = 0; i < 10; i++) {
+          state.isLoggedIn = await checkLoginStatus();
+          if (state.isLoggedIn) break;
+          await page.sleep(2000);
+        }
+      }
+
+      // Fallback to headed browser if programmatic login failed
+      if (!state.isLoggedIn) {
+        const { headed } = await page.showBrowser('https://www.youtube.com/');
+        if (headed) {
+          await page.setData('status', 'Please complete login in the browser...');
+          await page.promptUser(
+            'Complete any remaining verification, then click "Done".',
+            async () => checkLoginStatus(),
+            2000
+          );
+          await page.goHeadless();
+        }
+        state.isLoggedIn = await checkLoginStatus();
+      }
+
       await page.setData('status', 'Login completed');
-      await page.goHeadless();
     } else {
       await page.setData('status', 'Session restored from previous login');
     }

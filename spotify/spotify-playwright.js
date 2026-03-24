@@ -317,19 +317,151 @@ const spClientFetch = async (path) => {
   let token = await getAccessToken();
 
   if (!token) {
-    await page.showBrowser('https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F');
-    await page.setData('status', 'Please log in to Spotify...');
-    await page.sleep(3000);
+    await page.goto('https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F');
+    await page.sleep(2000);
 
-    // Wait for full login completion:
-    // - User must reach open.spotify.com (not still on accounts/challenge pages)
-    // - Token must be non-anonymous (sp_dc cookie set)
-    // This prevents premature detection during email confirmation code flows.
-    await page.promptUser(
-      'Please log in to Spotify. Click "Done" when you see the Spotify player.',
-      async () => await checkLoginComplete(),
-      3000
-    );
+    // Dismiss Spotify cookie consent banner if present
+    await page.evaluate(`
+      (() => {
+        const buttons = document.querySelectorAll('button');
+        for (const btn of buttons) {
+          const text = (btn.textContent || '').trim().toLowerCase();
+          if (text.includes('accept cookies') || text.includes('accept all') ||
+              text === 'accept' || text.includes('allow all')) {
+            btn.click();
+            return 'dismissed cookie banner';
+          }
+        }
+        // Also try the cookie consent banner's accept button by ID
+        const acceptBtn = document.querySelector('#onetrust-accept-btn-handler');
+        if (acceptBtn) { acceptBtn.click(); return 'dismissed via onetrust'; }
+        return null;
+      })()
+    `);
+    await page.sleep(1000);
+
+    // Check if standard login form is present
+    const hasLoginForm = await page.evaluate(`
+      !!document.querySelector('input#login-username, input[name="username"]') &&
+      !!document.querySelector('input#login-password, input[name="password"]')
+    `);
+
+    if (hasLoginForm) {
+      const { username, password } = await page.requestInput({
+        message: "Log in to Spotify",
+        schema: {
+          type: "object",
+          properties: {
+            username: { type: "string", description: "Spotify username or email" },
+            password: { type: "string", format: "password" },
+          },
+          required: ["username", "password"],
+        },
+      });
+
+      await page.evaluate(`
+        (() => {
+          const usernameInput = document.querySelector('input#login-username, input[name="username"]');
+          if (usernameInput) {
+            usernameInput.value = ${JSON.stringify(username)};
+            usernameInput.dispatchEvent(new Event('input', {bubbles:true}));
+            usernameInput.dispatchEvent(new Event('change', {bubbles:true}));
+          }
+        })()
+      `);
+      await page.evaluate(`
+        (() => {
+          const passwordInput = document.querySelector('input#login-password, input[name="password"]');
+          if (passwordInput) {
+            passwordInput.value = ${JSON.stringify(password)};
+            passwordInput.dispatchEvent(new Event('input', {bubbles:true}));
+            passwordInput.dispatchEvent(new Event('change', {bubbles:true}));
+          }
+        })()
+      `);
+      await page.sleep(500);
+      await page.evaluate(`
+        (() => {
+          const btn = document.querySelector('button#login-button, button[type="submit"]');
+          if (btn) btn.click();
+        })()
+      `);
+      await page.sleep(5000);
+
+      // Handle email confirmation code if Spotify sends one
+      const needsEmailCode = await page.evaluate(`
+        !!document.querySelector('input[name="code"]') ||
+        window.location.href.includes('challenge')
+      `);
+      if (needsEmailCode) {
+        const { code } = await page.requestInput({
+          message: "Enter the verification code sent to your email by Spotify",
+          schema: {
+            type: "object",
+            properties: { code: { type: "string", description: "Verification code from email" } },
+            required: ["code"],
+          },
+        });
+        await page.evaluate(`
+          (() => {
+            const input = document.querySelector('input[name="code"]') ||
+                          document.querySelector('input[type="text"]');
+            if (input) {
+              input.value = ${JSON.stringify(code)};
+              input.dispatchEvent(new Event('input', {bubbles:true}));
+            }
+          })()
+        `);
+        await page.evaluate(`document.querySelector('button[type="submit"]')?.click()`);
+        await page.sleep(5000);
+      }
+
+      // Dismiss any post-login interstitials (cookie consent on redirect, etc.)
+      for (let dismissAttempt = 0; dismissAttempt < 3; dismissAttempt++) {
+        await page.evaluate(`
+          (() => {
+            const buttons = document.querySelectorAll('button');
+            for (const btn of buttons) {
+              const text = (btn.textContent || '').trim().toLowerCase();
+              if (text.includes('accept cookies') || text.includes('accept all') ||
+                  text === 'accept' || text.includes('allow all') ||
+                  text === 'not now' || text === 'skip' || text === 'continue') {
+                btn.click();
+                return 'dismissed: ' + text;
+              }
+            }
+            const acceptBtn = document.querySelector('#onetrust-accept-btn-handler');
+            if (acceptBtn) { acceptBtn.click(); return 'dismissed via onetrust'; }
+            return null;
+          })()
+        `);
+        await page.sleep(1500);
+      }
+
+      // Wait for redirect to open.spotify.com
+      for (let i = 0; i < 10; i++) {
+        const onPlayer = await checkLoginComplete();
+        if (onPlayer) break;
+        await page.sleep(2000);
+      }
+    }
+
+    // Check if we made it to the player
+    const loginOk = await checkLoginComplete();
+
+    // Fallback to headed browser if programmatic login failed
+    if (!loginOk) {
+      const { headed } = await page.showBrowser('https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F');
+      if (headed) {
+        await page.setData('status', 'Please complete login in the browser...');
+        await page.promptUser(
+          'Complete any remaining verification, then click "Done".',
+          async () => await checkLoginComplete(),
+          3000
+        );
+        await page.goHeadless();
+      }
+    }
 
     await page.setData('status', 'Login completed. Capturing session...');
 

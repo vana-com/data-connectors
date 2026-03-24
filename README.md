@@ -1,6 +1,6 @@
 # Data Connectors
 
-Playwright-based data connectors for [DataConnect](https://github.com/vana-com/data-connect). Each connector exports a user's data from a web platform using browser automation — credentials never leave the device.
+Playwright-based data connectors for [DataConnect](https://github.com/vana-com/data-connect). Each connector exports a user's data from a web platform using browser automation. Credentials never leave the device.
 
 ## Connectors
 
@@ -8,23 +8,40 @@ Playwright-based data connectors for [DataConnect](https://github.com/vana-com/d
 |----------|---------|---------|--------|
 | ChatGPT | OpenAI | playwright | chatgpt.conversations, chatgpt.memories |
 | GitHub | GitHub | playwright | github.profile, github.repositories, github.starred |
-| Instagram | Meta | playwright | instagram.profile, instagram.posts |
+| [H-E-B](heb/) | HEB | playwright | heb.profile, heb.orders, heb.nutrition |
+| Instagram | Meta | playwright | instagram.profile, instagram.posts, instagram.ads |
 | LinkedIn | LinkedIn | playwright | linkedin.profile, .experience, .education, .skills, .languages |
+| Oura Ring | Oura | playwright | oura.readiness, oura.sleep, oura.activity |
+| Shop | Shopify | playwright | shop.orders |
 | Spotify | Spotify | playwright | spotify.profile, spotify.savedTracks, spotify.playlists |
 | Whole Foods Market | Whole Foods | playwright | wholefoods.profile, wholefoods.orders, wholefoods.nutrition |
 | YouTube | Google | playwright | youtube.profile, youtube.subscriptions, youtube.playlists, youtube.playlistItems, youtube.likes, youtube.watchLater, youtube.history (top 50 recent items) |
 
+## Running a connector
+
+```bash
+node run-connector.cjs ./github/github-playwright.js              # JSON output (for agents)
+node run-connector.cjs ./github/github-playwright.js --pretty      # colored output (for humans)
+node run-connector.cjs ./github/github-playwright.js --inputs '{"username":"x","password":"y"}'
+```
+
+See [`skills/vana-connect/`](skills/vana-connect/) for the agent skill: setup, running, creating new connectors, and data recipes.
+
 ## Repository structure
 
 ```
-connectors/
+├── run-connector.cjs              # Connector runner (symlink)
 ├── registry.json                  # Central registry (checksums, versions)
-├── test-connector.cjs             # Standalone test runner (see Testing locally)
+├── skills/vana-connect/           # Agent skill (setup, create, run, recipes)
 ├── types/
 │   └── connector.d.ts             # TypeScript type definitions
 ├── schemas/                       # JSON schemas for exported data
 │   ├── chatgpt.conversations.json
 │   └── ...
+├── heb/
+│   ├── heb-playwright.js          # Connector script
+│   ├── heb-playwright.json        # Metadata
+│   └── README.md                  # Setup (USDA API key)
 ├── openai/
 │   ├── chatgpt-playwright.js      # Connector script
 │   └── chatgpt-playwright.json    # Metadata
@@ -47,24 +64,24 @@ connectors/
 
 Each connector consists of two files inside a `<company>/` directory:
 
-- **`<name>-playwright.js`** — the connector script (plain JS, runs inside the Playwright runner sidecar)
-- **`<name>-playwright.json`** — metadata (display name, login URL, selectors, scopes)
+- **`<name>-playwright.js`** -- the connector script (plain JS, runs inside the Playwright runner sidecar)
+- **`<name>-playwright.json`** -- metadata (display name, login URL, selectors, scopes)
 
 ---
 
 ## How connectors work
 
-Connectors run in a sandboxed Playwright browser managed by the DataConnect app. The runner provides a `page` API object (not raw Playwright). The browser starts **headless**; connectors call `page.showBrowser()` when login is needed and `page.goHeadless()` after.
+Connectors run in a sandboxed Playwright browser managed by the DataConnect app. The runner provides a `page` API object (not raw Playwright). The browser starts headless; connectors call `page.showBrowser()` when login is needed and `page.goHeadless()` after.
 
 ### Two-phase architecture
 
-**Phase 1 — Login (visible browser)**
+**Phase 1 -- Login (visible browser)**
 1. Navigate to the platform's login page (headless)
 2. Check if the user is already logged in via persistent session
 3. If not, show the browser so the user can log in manually
 4. Extract auth tokens/cookies once logged in
 
-**Phase 2 — Data collection (headless)**
+**Phase 2 -- Data collection (headless)**
 1. Switch to headless mode (browser disappears)
 2. Fetch data via API calls, network capture, or DOM scraping
 3. Report structured progress to the UI
@@ -72,7 +89,7 @@ Connectors run in a sandboxed Playwright browser managed by the DataConnect app.
 
 ### Scoped result format
 
-Connectors return a **scoped result object** where data keys use the format `source.category` (e.g., `linkedin.profile`, `chatgpt.conversations`). The frontend auto-detects these scoped keys (any key containing a `.` that isn't a metadata field) and POSTs each scope separately to the Personal Server at `POST /v1/data/{scope}`.
+Connectors return a scoped result object where data keys use the format `source.category` (e.g., `linkedin.profile`, `chatgpt.conversations`). The frontend auto-detects scoped keys (any key containing a `.` that isn't a metadata field) and POSTs each scope separately to the Personal Server at `POST /v1/data/{scope}`.
 
 ```javascript
 const result = {
@@ -99,176 +116,68 @@ Metadata keys (`exportSummary`, `timestamp`, `version`, `platform`) are not trea
 
 ## Building a new connector
 
-### 1. Create the metadata file
+See [`skills/vana-connect/CREATE.md`](skills/vana-connect/CREATE.md) for the full walkthrough. Summary:
 
-Create `connectors/<company>/<name>-playwright.json`:
-
-```json
-{
-  "id": "<name>-playwright",
-  "version": "1.0.0",
-  "name": "Platform Name",
-  "company": "Company",
-  "description": "Exports your ... using Playwright browser automation.",
-  "connectURL": "https://platform.com/login",
-  "connectSelector": "css-selector-for-logged-in-state",
-  "exportFrequency": "daily",
-  "runtime": "playwright",
-  "vectorize_config": { "documents": "field_name" }
-}
-```
-
-- `runtime` must be `"playwright"`
-- `connectURL` is where the browser navigates initially
-- `connectSelector` detects whether the user is logged in (e.g. an element only visible post-login)
-
-### 2. Create the connector script
-
-Create `connectors/<company>/<name>-playwright.js`:
-
-```javascript
-// State management
-const state = { isComplete: false };
-
-// ─── Login check ──────────────────────────────────────
-const checkLoginStatus = async () => {
-  try {
-    return await page.evaluate(`
-      (() => {
-        const hasLoggedInEl = !!document.querySelector('LOGGED_IN_SELECTOR');
-        const hasLoginForm = !!document.querySelector('LOGIN_FORM_SELECTOR');
-        return hasLoggedInEl && !hasLoginForm;
-      })()
-    `);
-  } catch { return false; }
-};
-
-// ─── Main flow ────────────────────────────────────────
-(async () => {
-  // Phase 1: Login
-  await page.setData('status', 'Checking login status...');
-  await page.sleep(2000);
-
-  if (!(await checkLoginStatus())) {
-    await page.showBrowser('https://platform.com/login');
-    await page.setData('status', 'Please log in...');
-    await page.promptUser(
-      'Please log in. Click "Done" when ready.',
-      async () => await checkLoginStatus(),
-      2000
-    );
-  }
-
-  // Phase 2: Headless data collection
-  await page.goHeadless();
-
-  await page.setProgress({
-    phase: { step: 1, total: 2, label: 'Fetching profile' },
-    message: 'Loading profile data...',
-  });
-
-  // ... fetch your data here ...
-  const items = [];
-
-  // Build result using scoped keys (exportSummary is required)
-  const result = {
-    'platform.items': {
-      items: items,
-      total: items.length,
-    },
-    exportSummary: {
-      count: items.length,
-      label: items.length === 1 ? 'item' : 'items',
-    },
-    timestamp: new Date().toISOString(),
-    version: '1.0.0-playwright',
-    platform: 'platform-name',
-  };
-
-  state.isComplete = true;
-  await page.setData('result', result);
-})();
-```
-
-### 3. Add a data schema (optional)
-
-Create `connectors/schemas/<platform>.<scope>.json` to describe the exported data format:
-
-```json
-{
-  "name": "Platform Items",
-  "version": "1.0.0",
-  "scope": "platform.items",
-  "dialect": "json",
-  "description": "Description of the exported data",
-  "schema": {
-    "type": "object",
-    "properties": {
-      "items": {
-        "type": "array",
-        "items": {
-          "properties": {
-            "id": { "type": "string" },
-            "title": { "type": "string" }
-          },
-          "required": ["id", "title"]
-        }
-      }
-    },
-    "required": ["items"]
-  }
-}
-```
-
-### 4. Update the registry
-
-Add your connector to `registry.json`. Generate checksums with:
-
-```bash
-shasum -a 256 <company>/<name>-playwright.js | awk '{print "sha256:" $1}'
-shasum -a 256 <company>/<name>-playwright.json | awk '{print "sha256:" $1}'
-```
-
-Then add an entry to the `connectors` array:
-
-```json
-{
-  "id": "<name>-playwright",
-  "company": "<company>",
-  "version": "1.0.0",
-  "name": "Platform Name",
-  "description": "...",
-  "files": {
-    "script": "<company>/<name>-playwright.js",
-    "metadata": "<company>/<name>-playwright.json"
-  },
-  "checksums": {
-    "script": "sha256:<hash>",
-    "metadata": "sha256:<hash>"
-  }
-}
-```
+1. **Scaffold:** `node scripts/scaffold.cjs <platform> [company]` -- generates script, metadata, and stub schema
+2. **Implement:** Write login + data collection logic (see CREATE.md for auth patterns, extraction strategies, and reference connectors)
+3. **Validate structure:** `node scripts/validate-connector.cjs <company>/<name>-playwright.js`
+4. **Test:** `node run-connector.cjs <company>/<name>-playwright.js --inputs '{"username":"x","password":"y"}'`
+5. **Validate output:** `node scripts/validate-connector.cjs <company>/<name>-playwright.js --check-result ~/.dataconnect/last-result.json`
+6. **Register:** `node scripts/register.cjs <company>/<name>-playwright.js` -- adds entry + checksums to `registry.json`
 
 ---
 
 ## Page API reference
 
-The `page` object is available as a global in connector scripts:
+The `page` object is available as a global in connector scripts. The runner implementation lives in [data-connect/playwright-runner](https://github.com/vana-com/data-connect/tree/main/playwright-runner).
 
 | Method | Description |
 |--------|-------------|
 | `page.evaluate(jsString)` | Run JS in browser context, return result |
-| `page.goto(url)` | Navigate to URL |
+| `page.screenshot()` | Take a JPEG screenshot, returns base64 string |
+| `page.requestInput({message, schema?})` | Request data from the driver (credentials, 2FA codes, etc.) |
+| `page.goto(url, options?)` | Navigate to URL |
 | `page.sleep(ms)` | Wait for milliseconds |
 | `page.setData(key, value)` | Send data to host (`'status'`, `'error'`, `'result'`) |
 | `page.setProgress({phase, message, count})` | Structured progress for the UI |
-| `page.showBrowser(url?)` | Switch to headed mode (visible browser) |
-| `page.goHeadless()` | Switch to headless mode (invisible) |
-| `page.promptUser(msg, checkFn, interval)` | Show prompt, poll `checkFn` until truthy |
+| `page.showBrowser(url?)` | Escalate to headed mode; returns `{ headed: true/false }` |
+| `page.goHeadless()` | Switch to headless mode (no-op if already headless) |
+| `page.promptUser(msg, checkFn, interval)` | Poll `checkFn` until truthy |
 | `page.captureNetwork({urlPattern, bodyPattern, key})` | Register a network capture |
 | `page.getCapturedResponse(key)` | Get captured response or `null` |
+| `page.hasCapturedResponse(key)` | Check if a response was captured |
 | `page.clearNetworkCaptures()` | Clear all captures |
 | `page.closeBrowser()` | Close browser, keep process for HTTP work |
+| `page.httpFetch(url, options?)` | Node.js fetch with auto-injected cookies from the browser session |
+
+### `showBrowser` — headed escalation
+
+`showBrowser` switches the browser to headed mode for cases that require live human interaction (e.g., interactive CAPTCHAs). It returns `{ headed: true }` on success or `{ headed: false }` if the driver doesn't support headed mode. Connectors should check the return value and handle the fallback:
+
+```javascript
+const { headed } = await page.showBrowser(url);
+if (!headed) {
+  // Headed not available — retry, skip, or report error
+}
+```
+
+For normal login flows, use `requestInput` to ask the driver for credentials without showing a browser:
+
+```javascript
+const { email, password } = await page.requestInput({
+  message: 'Log in to ChatGPT',
+  schema: {
+    type: 'object',
+    properties: {
+      email: { type: 'string', format: 'email' },
+      password: { type: 'string', format: 'password' }
+    },
+    required: ['email', 'password']
+  }
+});
+```
+
+The runner relays the request to the driver (Tauri app, agent, CLI) and resolves with the response. The `schema` field uses JSON Schema — the same format used by OpenAI, Anthropic, and Google for LLM tool definitions. See the [headless-first runner spec](https://github.com/vana-com/data-connect/blob/main/docs/260310-headless-first-runner-spec.md) for the full protocol design.
 
 ### Progress reporting
 
@@ -280,10 +189,10 @@ await page.setProgress({
 });
 ```
 
-- `phase.step` / `phase.total` — drives the step indicator ("Step 1 of 3")
-- `phase.label` — short label for the current phase
-- `message` — human-readable progress text
-- `count` — numeric count for progress tracking
+- `phase.step` / `phase.total` -- drives the step indicator ("Step 1 of 3")
+- `phase.label` -- short label for the current phase
+- `message` -- human-readable progress text
+- `count` -- numeric count for progress tracking
 
 ---
 
@@ -328,25 +237,31 @@ This copies your connector files to `~/.dataconnect/connectors/` where the runni
 
 ### Standalone test runner
 
-You can test connectors directly without starting the full DataConnect app using the included test runner. It spawns the playwright-runner as a child process and pretty-prints the JSON protocol messages.
+Test connectors without the full DataConnect app. The runner spawns playwright-runner as a child process and outputs JSON protocol messages.
 
 **Prerequisites:** The [DataConnect](https://github.com/vana-com/data-connect) repo cloned alongside this one (the runner auto-detects `../data-dt-app/playwright-runner`), or set `PLAYWRIGHT_RUNNER_DIR` to point to the playwright-runner directory.
 
 ```bash
-# Run a connector in headed mode (browser visible — default)
-node test-connector.cjs ./linkedin/linkedin-playwright.js
+# Run a connector (headed by default, browser visible)
+node run-connector.cjs ./linkedin/linkedin-playwright.js
+
+# Colored, human-readable output
+node run-connector.cjs ./linkedin/linkedin-playwright.js --pretty
+
+# Pre-supply credentials
+node run-connector.cjs ./linkedin/linkedin-playwright.js --inputs '{"username":"x","password":"y"}'
 
 # Run headless (no visible browser)
-node test-connector.cjs ./linkedin/linkedin-playwright.js --headless
+node run-connector.cjs ./linkedin/linkedin-playwright.js --headless
 
 # Override the initial URL
-node test-connector.cjs ./linkedin/linkedin-playwright.js --url https://linkedin.com/feed
+node run-connector.cjs ./linkedin/linkedin-playwright.js --url https://linkedin.com/feed
 
 # Save result to a custom path (default: ./connector-result.json)
-node test-connector.cjs ./linkedin/linkedin-playwright.js --output ./my-result.json
+node run-connector.cjs ./linkedin/linkedin-playwright.js --output ./my-result.json
 ```
 
-The runner reads the connector's sibling `.json` metadata to automatically resolve the `connectURL`. In headed mode, the browser stays visible throughout the run (the `goHeadless()` call becomes a no-op), making it easy to observe what the connector is doing.
+The runner reads the connector's sibling `.json` metadata to resolve the `connectURL`. In headed mode, `goHeadless()` becomes a no-op so the browser stays visible throughout.
 
 ---
 
@@ -357,9 +272,9 @@ The runner reads the connector's sibling `.json` metadata to automatically resol
 1. Fork this repo
 2. Create a branch: `git checkout -b feat/<platform>-connector`
 3. Add your files in `connectors/<company>/`:
-   - `<name>-playwright.js` — connector script
-   - `<name>-playwright.json` — metadata
-   - `schemas/<platform>.<scope>.json` — data schema (optional but encouraged)
+   - `<name>-playwright.js` -- connector script
+   - `<name>-playwright.json` -- metadata
+   - `schemas/<platform>.<scope>.json` -- data schema (optional but encouraged)
 4. Test locally using the instructions above
 5. Update `registry.json` with your connector entry and checksums
 6. Open a pull request
@@ -375,14 +290,14 @@ The runner reads the connector's sibling `.json` metadata to automatically resol
 
 ### Guidelines
 
-- **Credentials stay on-device.** Connectors run in a local browser. Never send tokens or passwords to external servers.
-- **Use `page.setProgress()`** to report progress. Users should see what's happening during long exports.
+- **Credentials stay on-device.** Never send tokens or passwords to external servers.
+- **Use `page.setProgress()`** to report progress during long exports.
 - **Include `exportSummary`** in the result. The UI uses it to display what was collected.
-- **Handle errors gracefully.** Use `page.setData('error', message)` and provide clear error messages.
-- **Prefer API fetch over DOM scraping** when the platform has usable APIs. APIs are more stable than DOM structure.
-- **Avoid relying on CSS class names** — many platforms obfuscate them. Use structural selectors, heading text, and content heuristics instead.
-- **Rate-limit API calls.** Add `page.sleep()` between requests to avoid triggering rate limits.
-- **Test pagination edge cases** — empty results, single page, large datasets.
+- **Handle errors.** Use `page.setData('error', message)` with clear error messages.
+- **Prefer API fetch over DOM scraping.** APIs are more stable than DOM structure.
+- **Avoid obfuscated CSS class names.** Use structural selectors, heading text, and content heuristics.
+- **Rate-limit API calls.** Add `page.sleep()` between requests.
+- **Test pagination edge cases** -- empty results, single page, large datasets.
 
 ### Registry checksums
 
@@ -404,4 +319,4 @@ DataConnect fetches `registry.json` from this repo on app startup and during `np
 3. Verify SHA-256 checksums match
 4. Write to local `connectors/` directory
 
-This enables OTA connector updates without requiring a full app release.
+This enables OTA connector updates without a full app release.

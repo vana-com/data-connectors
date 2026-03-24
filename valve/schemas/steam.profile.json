@@ -1,0 +1,24 @@
+{
+  "name": "Steam Profile",
+  "scope": "steam.profile",
+  "description": "Steam user profile including persona name, avatar, level, location, and account metadata",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "steamId": { "type": "string", "description": "64-bit Steam ID" },
+      "personaName": { "type": "string", "description": "Display name on Steam" },
+      "profileUrl": { "type": "string", "format": "uri", "description": "URL to the user's Steam Community profile" },
+      "avatarUrl": { "type": "string", "format": "uri", "description": "URL to the user's full-size avatar image" },
+      "realName": { "type": ["string", "null"], "description": "Real name if set by the user" },
+      "country": { "type": ["string", "null"], "description": "ISO 3166-1 alpha-2 country code" },
+      "state": { "type": ["string", "null"], "description": "State/region code" },
+      "cityId": { "type": ["integer", "null"], "description": "Steam internal city identifier" },
+      "steamLevel": { "type": ["integer", "null"], "description": "Steam profile level" },
+      "accountCreated": { "type": ["string", "null"], "format": "date-time", "description": "When the Steam account was created" },
+      "lastLogoff": { "type": ["string", "null"], "format": "date-time", "description": "Last time the user was seen online" },
+      "personaState": { "type": "integer", "description": "Online status (0=offline, 1=online, 2=busy, 3=away, 4=snooze, 5=looking to trade, 6=looking to play)" },
+      "communityVisibilityState": { "type": "integer", "description": "Profile visibility (1=private, 3=public)" }
+    },
+    "required": ["steamId", "personaName", "profileUrl"]
+  }
+}
