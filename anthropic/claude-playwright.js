@@ -369,28 +369,39 @@ const fetchProjects = async (organizationId, sidebarProjects) => {
   const seen = new Map();
 
   for (const starred of [true, false]) {
-    const query = new URLSearchParams({
-      include_harmony_projects: 'true',
-      limit: String(PAGE_SIZE),
-      starred: String(starred),
-    }).toString();
+    let offset = 0;
 
-    const response = await fetchJson(
-      `https://claude.ai/api/organizations/${organizationId}/projects?${query}`
-    );
+    while (true) {
+      const query = new URLSearchParams({
+        include_harmony_projects: 'true',
+        limit: String(PAGE_SIZE),
+        offset: String(offset),
+        starred: String(starred),
+      }).toString();
 
-    if (!response?.ok || !response?.json) continue;
+      const response = await fetchJson(
+        `https://claude.ai/api/organizations/${organizationId}/projects?${query}`
+      );
 
-    const list = Array.isArray(response.json?.data)
-      ? response.json.data
-      : Array.isArray(response.json?.projects)
-        ? response.json.projects
-        : Array.isArray(response.json)
-          ? response.json
-          : [];
+      if (!response?.ok || !response?.json) break;
 
-    for (const item of list.map(normalizeProjectEntry)) {
-      if (item.id) seen.set(item.id, item);
+      const list = Array.isArray(response.json?.data)
+        ? response.json.data
+        : Array.isArray(response.json?.projects)
+          ? response.json.projects
+          : Array.isArray(response.json)
+            ? response.json
+            : [];
+
+      for (const item of list.map(normalizeProjectEntry)) {
+        if (item.id) seen.set(item.id, item);
+      }
+
+      const hasMore = Boolean(response.json?.has_more) || list.length === PAGE_SIZE;
+      if (!hasMore || list.length === 0) break;
+
+      offset += PAGE_SIZE;
+      await page.sleep(200);
     }
   }
 
