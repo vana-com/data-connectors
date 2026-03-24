@@ -1,9 +1,9 @@
 {
   "name": "LinkedIn Languages",
-  "version": "2.0.0",
+  "version": "1.0.0",
   "scope": "linkedin.languages",
   "dialect": "json",
-  "description": "Languages listed on LinkedIn profile with proficiency levels",
+  "description": "LinkedIn languages with proficiency levels",
   "schema": {
     "type": "object",
     "properties": {
@@ -15,7 +15,7 @@
             "name": { "type": "string" },
             "proficiency": { "type": "string" }
           },
-          "required": ["name"],
+          "required": ["name", "proficiency"],
           "additionalProperties": false
         }
       }

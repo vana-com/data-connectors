@@ -11,7 +11,8 @@
   "runtime": "playwright",
   "scopes": [
     { "scope": "instagram.profile", "label": "Your Instagram profile", "description": "Profile information including bio and follower counts" },
-    { "scope": "instagram.posts", "label": "Your Instagram posts", "description": "Published posts from your feed" }
+    { "scope": "instagram.posts", "label": "Your Instagram posts", "description": "Published posts from your feed" },
+    { "scope": "instagram.ads", "label": "Your ad interests", "description": "Advertisers you've seen and ad topics based on your activity" }
   ],
   "vectorize_config": {
     "documents": "caption"

@@ -1,6 +1,6 @@
 {
   "version": "2.0.0",
-  "lastUpdated": "2026-03-03T00:00:00Z",
+  "lastUpdated": "2026-03-09T00:00:00Z",
   "baseUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main",
   "connectors": [
     {
@@ -14,7 +14,7 @@
         "metadata": "openai/chatgpt-playwright.json"
       },
       "checksums": {
-        "script": "sha256:96836d093a74f111831aae5f20373f315c750af02afad7e9c9fdc50e7ae4c3d1",
+        "script": "sha256:7b7fa1c2f45044d2cddbb5d88adb6e0b9ac5bb092c487a03f507287985144dd7",
         "metadata": "sha256:fac97ec68120203746863e6bb7592b9cb2c7c0f0721afe4ede75eb43bde5fd43"
       }
     },
@@ -29,38 +29,38 @@
         "metadata": "github/github-playwright.json"
       },
       "checksums": {
-        "script": "sha256:602a3abbad89207c7f7ed1827765f152620e9c086ff090530e9eb70a65c14941",
+        "script": "sha256:7ab9ef25017a3735835faef408dcd181e77a05fb4d212ade0a0eaa446249afcf",
         "metadata": "sha256:27d81822ccf23eb3f4bf9f9868ade02a1141c78a2999cd081047da692b3f64ff"
       }
     },
     {
       "id": "instagram-playwright",
       "company": "meta",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "name": "Instagram",
-      "description": "Exports your Instagram profile and posts using Playwright browser automation.",
+      "description": "Exports your Instagram profile, posts, and ad interests using Playwright browser automation.",
       "files": {
         "script": "meta/instagram-playwright.js",
         "metadata": "meta/instagram-playwright.json"
       },
       "checksums": {
-        "script": "sha256:da0711993fb252e51b1f729c2148feb340d776a598435203875ea780b7cc7e65",
-        "metadata": "sha256:8d6ac7141ea9e7a06caf3a359fab2097f3fa89e7312c480fb867b8db13612eac"
+        "script": "sha256:cec6cd6fc49e245974a081ec5bee1b045ef5ba26921c25835cec82aa5dbb4998",
+        "metadata": "sha256:52e18cea6927de37cab8a31dec53976fa0a0452388acf743e3bbb143f878583e"
       }
     },
     {
       "id": "linkedin-playwright",
       "company": "linkedin",
-      "version": "4.0.0",
+      "version": "5.0.0",
       "name": "LinkedIn",
-      "description": "Exports your LinkedIn profile including experience, education, and skills using Playwright browser automation.",
+      "description": "Exports your LinkedIn profile, experience, education, skills, languages, and connections using Playwright browser automation.",
       "files": {
         "script": "linkedin/linkedin-playwright.js",
         "metadata": "linkedin/linkedin-playwright.json"
       },
       "checksums": {
-        "script": "sha256:804a4eb26872341104fe2fb6830a0a1c72a00050620e6f50b839da50f4cedf61",
-        "metadata": "sha256:f1b944a7582d48027e74e3027db530184f6a06472de4cd465a49ebc5e28601e5"
+        "script": "sha256:c5b3fb004bcbe7a0b77296ad61f5ab66f732a5799f8be0c62fe15a1f6157f229",
+        "metadata": "sha256:4ea8939d310ef75c4f58d30c1a33f9256aee1c37661b655982da40be25c9ecad"
       }
     },
     {
@@ -74,7 +74,7 @@
         "metadata": "spotify/spotify-playwright.json"
       },
       "checksums": {
-        "script": "sha256:26f5aa145e5ef6d7ce6abd791287d6e0ad2e2d68aa2769a938ff47d40b7e952c",
+        "script": "sha256:7797c8dff432ddccae78c6a7d180dbdbdaf38bdc7a282cd62026375ded7bd186",
         "metadata": "sha256:f2d6a4cdf12069e8f4993faee97e31fa1fa9e4b039c7d9e1bd1e3447c6a3cd09"
       }
     },
@@ -89,7 +89,7 @@
         "metadata": "google/youtube-playwright.json"
       },
       "checksums": {
-        "script": "sha256:e854b5681de1bf2622bac48351108e3f150610f1b563dd25e4a19789c119352f",
+        "script": "sha256:06aa761defcac73a9ecf3ed04338833a8fdf97943bf13516754535b249dbe76f",
         "metadata": "sha256:c40624e50b86812f5a295ffcb99d175eb763d6de9029a4278fb026cfd67faa3f"
       }
     },
@@ -104,14 +104,14 @@
         "metadata": "shopify/shop-playwright.json"
       },
       "checksums": {
-        "script": "sha256:ecb31dd5c1ae1d9ff37895644ac453a90bc15f3e9c598e648388b3932094a34f",
+        "script": "sha256:c9fe0902497f7cbd0595c84e4b1dc860fc8d6daa08e6f5ac4ff7edea6070e51e",
         "metadata": "sha256:e0d1161c4186ea9106ac2ef0fd76b4076646b1edd597ac39812ea79d2a3fe6a8"
       }
     },
     {
       "id": "oura-playwright",
       "company": "oura",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "name": "Oura Ring",
       "description": "Exports your Oura Ring readiness scores, sleep data, and daily activity using Playwright browser automation.",
       "files": {
@@ -119,7 +119,7 @@
         "metadata": "oura/oura-playwright.json"
       },
       "checksums": {
-        "script": "sha256:d98a7b9bcb85a871fbc5164c34ac36369f1b7745f90bd97ae5f02c880ccacab6",
+        "script": "sha256:81666d2baa0a2c8663613d4dfce5fbd00143608dff510364f5ec2ad78d6a28f4",
         "metadata": "sha256:d3ff5230a6ebe6ff3f655546d834e7ed59f741febdc540dd2f89894b6e5baa7a"
       }
     },
@@ -136,6 +136,21 @@
       "checksums": {
         "script": "sha256:4a318b3c3884661929d8625ec04fac57b9fcd0d7508b699a8a3c9eba758c8f0a",
         "metadata": "sha256:8427eb8dd0a8bd588b3f579923c6294e6897aef9d45f83bc6fd9bdce96499f77"
+      }
+    },
+    { 
+      "id": "uber-playwright",
+      "company": "uber",
+      "version": "1.0.0",
+      "name": "Uber",
+      "description": "Exports your Uber trip history and receipts using Playwright browser automation.",
+      "files": {
+        "script": "uber/uber-playwright.js",
+        "metadata": "uber/uber-playwright.json"
+      },
+      "checksums": {
+        "script": "sha256:c88b52b0bd5f51b63a61e37bd5b6fb1e7c914be668247676e16624f0c64811ed",
+        "metadata": "sha256:b0f05adabc155708ba15356104bba28728da1e5e28265b34337e45f44cd5ae2f"
       }
     }
   ]

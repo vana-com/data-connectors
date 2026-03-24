@@ -1,9 +1,9 @@
 {
   "name": "LinkedIn Skills",
-  "version": "2.0.0",
+  "version": "1.0.0",
   "scope": "linkedin.skills",
   "dialect": "json",
-  "description": "Skills listed on LinkedIn profile with endorsement counts",
+  "description": "LinkedIn skills with endorsement counts",
   "schema": {
     "type": "object",
     "properties": {
@@ -15,7 +15,7 @@
             "name": { "type": "string" },
             "endorsements": { "type": "string" }
           },
-          "required": ["name"],
+          "required": ["name", "endorsements"],
           "additionalProperties": false
         }
       }

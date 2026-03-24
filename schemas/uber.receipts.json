@@ -1,0 +1,34 @@
+{
+  "name": "Uber Receipts",
+  "version": "1.0.0",
+  "scope": "uber.receipts",
+  "dialect": "json",
+  "description": "Detailed fare breakdowns and receipt information for each Uber trip",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "receipts": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "tripId": { "type": "string" },
+            "fare": { "type": "string" },
+            "currencyCode": { "type": "string" },
+            "distance": { "type": "string" },
+            "distanceLabel": { "type": "string" },
+            "duration": { "type": "string" },
+            "durationLabel": { "type": "string" },
+            "vehicleType": { "type": "string" },
+            "surgeMultiplier": { "type": "string" },
+            "fareBreakdown": { "type": "string" }
+          },
+          "required": ["tripId"],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": ["receipts"],
+    "additionalProperties": false
+  }
+}
