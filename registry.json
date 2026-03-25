@@ -1,6 +1,6 @@
 {
   "version": "2.0.0",
-  "lastUpdated": "2026-03-09T00:00:00Z",
+  "lastUpdated": "2026-03-24T00:00:00Z",
   "baseUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main",
   "connectors": [
     {
@@ -211,6 +211,21 @@
       "checksums": {
         "script": "sha256:c88b52b0bd5f51b63a61e37bd5b6fb1e7c914be668247676e16624f0c64811ed",
         "metadata": "sha256:b0f05adabc155708ba15356104bba28728da1e5e28265b34337e45f44cd5ae2f"
+      }
+    },
+    {
+      "id": "claude-playwright",
+      "company": "Anthropic",
+      "version": "1.1.0",
+      "name": "Claude",
+      "description": "Exports your Claude conversations and projects from claude.ai using Playwright browser automation.",
+      "files": {
+        "script": "anthropic/claude-playwright.js",
+        "metadata": "anthropic/claude-playwright.json"
+      },
+      "checksums": {
+        "script": "sha256:fc4edcc5238e92a0092f6ba8eec23f228f7eb898d2a9a23ea602397b656a6270",
+        "metadata": "sha256:0edfdc3e73e503cfca05e61cd2906854c1268075b1a74edd405b3a32c6aad84e"
       }
     }
   ]
