@@ -121,6 +121,7 @@ const fetchDailyDataChunked = async (startDate, endDate, chunkDays) => {
   // ═══ PHASE 1: Browser — Login ═══
 
   await page.setData('status', 'Checking login status...');
+  await page.goto('https://cloud.ouraring.com/');
   await page.sleep(3000);
 
   let isLoggedIn = await checkLoginStatus();

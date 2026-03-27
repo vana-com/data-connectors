@@ -318,6 +318,7 @@ const fetchConversationBatch = async (accessToken, deviceId, convIds) => {
   // ═══ PHASE 1: Browser — Login & Credential Extraction ═══
 
   await page.setData('status', 'Checking login status...');
+  await page.goto('https://chatgpt.com/');
   await page.sleep(3000);
 
   // Dismiss any interrupting dialogs
