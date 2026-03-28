@@ -49,12 +49,27 @@ export interface ProgressUpdate {
   count?: number;
 }
 
-/** Payload for page.requestInput() */
+/** Payload for page.requestInput() and page.requestData() */
 export interface RequestInputPayload {
   /** Human-readable message describing what data is needed */
   message: string;
   /** JSON Schema describing the expected response shape (optional) */
   schema?: Record<string, unknown>;
+}
+
+/** Result from page.requestData() or page.requestManualAction() */
+export type InteractionResult<T = Record<string, unknown>> =
+  | { status: 'success'; data: T }
+  | { status: 'skipped'; reason: 'no-input' };
+
+/** Options for page.requestManualAction() */
+export interface ManualActionOptions {
+  /** URL to navigate the headed browser to */
+  url?: string;
+  /** Polling interval in ms (default: 2000) */
+  interval?: number;
+  /** Automatically switch back to headless after action completes (default: true) */
+  autoGoHeadless?: boolean;
 }
 
 /**
@@ -70,9 +85,26 @@ export interface PageAPI {
   screenshot(): Promise<string>;
 
   /**
-   * Request data from the driver (e.g., login credentials, 2FA codes).
-   * The runner relays the request to the driver and resolves with the response.
-   * Throws if the driver sends an error (e.g., user cancelled).
+   * Request structured data from the user (credentials, 2FA codes, etc.).
+   * Returns { status: 'success', data } or { status: 'skipped', reason: 'no-input' }.
+   * Never throws for missing input — the connector decides what to do with a skip.
+   */
+  requestData(payload: RequestInputPayload): Promise<InteractionResult>;
+
+  /**
+   * Request the user to complete a manual action in a headed browser.
+   * Opens headed browser, polls checkFn until truthy, goes headless, returns.
+   * Returns { status: 'skipped', reason: 'no-input' } in --no-input mode.
+   */
+  requestManualAction(
+    message: string,
+    checkFn: () => Promise<unknown>,
+    options?: ManualActionOptions,
+  ): Promise<InteractionResult<void>>;
+
+  /**
+   * @deprecated Use requestData() instead — it returns a result object instead of
+   * throwing in --no-input mode, letting the connector handle the skip gracefully.
    */
   requestInput(payload: RequestInputPayload): Promise<Record<string, unknown>>;
 
@@ -89,17 +121,20 @@ export interface PageAPI {
   setProgress(update: ProgressUpdate): Promise<void>;
 
   /**
-   * Escalate to headed mode for live human interaction (e.g., interactive CAPTCHAs).
-   * Returns { headed: false } if the driver doesn't support headed mode.
+   * @deprecated Use requestManualAction() instead — it merges showBrowser +
+   * promptUser + goHeadless into one call with consistent skip semantics.
    */
   showBrowser(url?: string): Promise<ShowBrowserResult>;
 
-  /** Switch to headless mode. No-op if already headless. */
+  /**
+   * @deprecated Use requestManualAction({ autoGoHeadless: false }) if you need
+   * to control headless transitions manually.
+   */
   goHeadless(): Promise<void>;
 
   /**
-   * Poll a check function until it returns truthy.
-   * Sends WAITING_FOR_USER status to the host.
+   * @deprecated Use requestManualAction() instead — promptUser is always used
+   * with showBrowser + goHeadless, and requestManualAction handles all three.
    */
   promptUser(message: string, checkFn: () => Promise<unknown>, interval?: number): Promise<void>;
 

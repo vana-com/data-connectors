@@ -361,7 +361,7 @@ const fetchConversationBatch = async (accessToken, deviceId, convIds) => {
     `);
 
     if (hasEmailField) {
-      const { email } = await page.requestInput({
+      const emailResult = await page.requestData({
         message: "Log in to ChatGPT — enter your OpenAI account email",
         schema: {
           type: "object",
@@ -371,6 +371,11 @@ const fetchConversationBatch = async (accessToken, deviceId, convIds) => {
           required: ["email"],
         },
       });
+      if (emailResult.status === 'skipped') {
+        await page.setData('error', 'Login credentials required but not available in automated mode.');
+        return;
+      }
+      const { email } = emailResult.data;
 
       await page.evaluate(`
         (() => {
@@ -401,7 +406,7 @@ const fetchConversationBatch = async (accessToken, deviceId, convIds) => {
       `);
 
       if (hasPasswordField) {
-        const { password } = await page.requestInput({
+        const passwordResult = await page.requestData({
           message: "Enter your OpenAI account password",
           schema: {
             type: "object",
@@ -411,6 +416,11 @@ const fetchConversationBatch = async (accessToken, deviceId, convIds) => {
             required: ["password"],
           },
         });
+        if (passwordResult.status === 'skipped') {
+          await page.setData('error', 'Login credentials required but not available in automated mode.');
+          return;
+        }
+        const { password } = passwordResult.data;
 
         await page.evaluate(`
           (() => {
@@ -440,7 +450,7 @@ const fetchConversationBatch = async (accessToken, deviceId, convIds) => {
           !!document.querySelector('input[inputmode="numeric"]')
         `);
         if (needs2fa) {
-          const { code } = await page.requestInput({
+          const codeResult = await page.requestData({
             message: "Enter your OpenAI 2FA verification code",
             schema: {
               type: "object",
@@ -448,6 +458,11 @@ const fetchConversationBatch = async (accessToken, deviceId, convIds) => {
               required: ["code"],
             },
           });
+          if (codeResult.status === 'skipped') {
+            await page.setData('error', 'Login credentials required but not available in automated mode.');
+            return;
+          }
+          const { code } = codeResult.data;
           await page.evaluate(`
             (() => {
               const input = document.querySelector('input[name="code"]') ||
@@ -472,18 +487,17 @@ const fetchConversationBatch = async (accessToken, deviceId, convIds) => {
     // Fallback to headed browser if programmatic login failed
     // (needed for SSO flows: Google, Microsoft, Apple)
     if (!isLoggedIn) {
-      const { headed } = await page.showBrowser('https://chatgpt.com/');
-      if (headed) {
-        await page.setData('status', 'Please complete login in the browser (SSO or remaining verification)...');
-        await page.promptUser(
-          'Complete login in the browser, then click "Done".',
-          async () => {
-            await dismissInterruptingDialogs();
-            return await checkLoginStatus();
-          },
-          2000
-        );
-        await page.goHeadless();
+      const manualResult = await page.requestManualAction(
+        'Complete login in the browser, then click "Done".',
+        async () => {
+          await dismissInterruptingDialogs();
+          return await checkLoginStatus();
+        },
+        { url: 'https://chatgpt.com/', interval: 2000 }
+      );
+      if (manualResult.status === 'skipped') {
+        await page.setData('error', 'Login required but not available in automated mode.');
+        return;
       }
     }
 

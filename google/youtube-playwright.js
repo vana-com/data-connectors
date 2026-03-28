@@ -792,7 +792,7 @@ const scrapeHistory = async () => {
       `);
 
       if (hasEmailField) {
-        const { email } = await page.requestInput({
+        const emailResult = await page.requestData({
           message: "Log in to YouTube with your Google account — enter your email",
           schema: {
             type: "object",
@@ -802,6 +802,11 @@ const scrapeHistory = async () => {
             required: ["email"],
           },
         });
+        if (emailResult.status === 'skipped') {
+          await page.setData('error', 'Login credentials required but not available in automated mode.');
+          return;
+        }
+        const { email } = emailResult.data;
 
         await page.evaluate(`
           (() => {
@@ -833,7 +838,7 @@ const scrapeHistory = async () => {
         `);
 
         if (hasPasswordField) {
-          const { password } = await page.requestInput({
+          const passwordResult = await page.requestData({
             message: "Enter your Google account password",
             schema: {
               type: "object",
@@ -843,6 +848,11 @@ const scrapeHistory = async () => {
               required: ["password"],
             },
           });
+          if (passwordResult.status === 'skipped') {
+            await page.setData('error', 'Login credentials required but not available in automated mode.');
+            return;
+          }
+          const { password } = passwordResult.data;
 
           await page.evaluate(`
             (() => {
@@ -874,7 +884,7 @@ const scrapeHistory = async () => {
           window.location.href.includes('challenge')
         `);
         if (needs2fa) {
-          const { code } = await page.requestInput({
+          const codeResult = await page.requestData({
             message: "Enter your Google 2FA verification code",
             schema: {
               type: "object",
@@ -882,6 +892,11 @@ const scrapeHistory = async () => {
               required: ["code"],
             },
           });
+          if (codeResult.status === 'skipped') {
+            await page.setData('error', 'Login credentials required but not available in automated mode.');
+            return;
+          }
+          const { code } = codeResult.data;
           await page.evaluate(`
             (() => {
               const input = document.querySelector('input[name="totpPin"]') ||
@@ -958,15 +973,14 @@ const scrapeHistory = async () => {
 
       // Fallback to headed browser if programmatic login failed
       if (!state.isLoggedIn) {
-        const { headed } = await page.showBrowser('https://www.youtube.com/');
-        if (headed) {
-          await page.setData('status', 'Please complete login in the browser...');
-          await page.promptUser(
-            'Complete any remaining verification, then click "Done".',
-            async () => checkLoginStatus(),
-            2000
-          );
-          await page.goHeadless();
+        const manualResult = await page.requestManualAction(
+          'Complete any remaining verification, then click "Done".',
+          async () => checkLoginStatus(),
+          { url: 'https://www.youtube.com/', interval: 2000 }
+        );
+        if (manualResult.status === 'skipped') {
+          await page.setData('error', 'Login required but not available in automated mode.');
+          return;
         }
         state.isLoggedIn = await checkLoginStatus();
       }

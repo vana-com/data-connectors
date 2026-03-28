@@ -142,7 +142,7 @@ const fetchDailyDataChunked = async (startDate, endDate, chunkDays) => {
     `);
 
     if (hasLoginForm) {
-      const { email, password } = await page.requestInput({
+      const credResult = await page.requestData({
         message: "Log in to your Oura account",
         schema: {
           type: "object",
@@ -153,6 +153,11 @@ const fetchDailyDataChunked = async (startDate, endDate, chunkDays) => {
           required: ["email", "password"],
         },
       });
+      if (credResult.status === 'skipped') {
+        await page.setData('error', 'Login credentials required but not available in automated mode.');
+        return;
+      }
+      const { email, password } = credResult.data;
 
       await page.evaluate(`
         (() => {
@@ -188,17 +193,14 @@ const fetchDailyDataChunked = async (startDate, endDate, chunkDays) => {
 
     // Fallback to headed browser if programmatic login failed
     if (!isLoggedIn) {
-      const { headed } = await page.showBrowser('https://cloud.ouraring.com/user/sign-in');
-      if (headed) {
-        await page.setData('status', 'Please complete login in the browser...');
-        await page.promptUser(
-          'Complete any remaining verification, then click "Done".',
-          async () => await checkLoginStatus(),
-          2000,
-        );
-        await page.goHeadless();
-      } else {
-        await page.setData('error', 'Oura login failed.');
+      await page.setData('status', 'Please complete login in the browser...');
+      const manualResult = await page.requestManualAction(
+        'Complete any remaining verification, then click "Done".',
+        async () => await checkLoginStatus(),
+        { url: 'https://cloud.ouraring.com/user/sign-in', interval: 2000 },
+      );
+      if (manualResult.status === 'skipped') {
+        await page.setData('error', 'Login required but not available in automated mode.');
         return;
       }
       isLoggedIn = await checkLoginStatus();

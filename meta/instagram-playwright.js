@@ -98,7 +98,7 @@ const fetchWebInfo = async () => {
     `);
 
     if (hasLoginForm) {
-      const { username: loginUser, password } = await page.requestInput({
+      const credentialsResult = await page.requestData({
         message: "Log in to Instagram",
         schema: {
           type: "object",
@@ -109,6 +109,11 @@ const fetchWebInfo = async () => {
           required: ["username", "password"],
         },
       });
+      if (credentialsResult.status === 'skipped') {
+        await page.setData('error', 'Login credentials required but not available in automated mode.');
+        return;
+      }
+      const { username: loginUser, password } = credentialsResult.data;
 
       await page.evaluate(`document.querySelector('input[name="username"]').value = ${JSON.stringify(loginUser)}`);
       await page.evaluate(`document.querySelector('input[name="username"]').dispatchEvent(new Event('input', {bubbles:true}))`);
@@ -125,7 +130,7 @@ const fetchWebInfo = async () => {
         !!document.querySelector('input[name="approvals_code"]')
       `);
       if (needs2fa) {
-        const { code } = await page.requestInput({
+        const tfaResult = await page.requestData({
           message: "Enter your Instagram security/verification code",
           schema: {
             type: "object",
@@ -133,6 +138,11 @@ const fetchWebInfo = async () => {
             required: ["code"],
           },
         });
+        if (tfaResult.status === 'skipped') {
+          await page.setData('error', 'Login credentials required but not available in automated mode.');
+          return;
+        }
+        const { code } = tfaResult.data;
         await page.evaluate(`
           (() => {
             const input = document.querySelector('input[name="verificationCode"]') ||
@@ -195,23 +205,19 @@ const fetchWebInfo = async () => {
     let newWebInfo = await fetchWebInfo();
     let loginSucceeded = !!(newWebInfo && newWebInfo.username);
 
-    // Fallback to headed browser if programmatic login failed
+    // Fallback to manual browser login if programmatic login failed
     if (!loginSucceeded) {
-      const { headed } = await page.showBrowser('https://www.instagram.com/accounts/login/');
-      if (headed) {
-        await page.setData('status', 'Please complete login in the browser...');
-        await page.promptUser(
-          'Complete any remaining verification, then click "Done".',
-          async () => {
-            const info = await fetchWebInfo();
-            return !!(info && info.username);
-          },
-          2000
-        );
-        await page.goHeadless();
-      } else {
-        await page.setData('error', 'Instagram login failed.');
-        return { error: 'Instagram login failed' };
+      const manualResult = await page.requestManualAction(
+        'Complete any remaining verification, then click "Done".',
+        async () => {
+          const info = await fetchWebInfo();
+          return !!(info && info.username);
+        },
+        { url: 'https://www.instagram.com/accounts/login/', interval: 2000 }
+      );
+      if (manualResult.status === 'skipped') {
+        await page.setData('error', 'Login required but not available in automated mode.');
+        return;
       }
 
       // Dismiss any remaining interstitials after headed browser login

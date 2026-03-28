@@ -112,9 +112,9 @@ const fetchApi = async (endpoint) => {
   let isLoggedIn = await checkLoginStatus();
 
   if (!isLoggedIn) {
-    // Try .env credentials first, fall back to requestInput
+    // Try .env credentials first, fall back to requestData
     if (!PLATFORM_LOGIN || !PLATFORM_PASSWORD) {
-      const creds = await page.requestInput({
+      const result = await page.requestData({
         message: 'Enter your {{PLATFORM_NAME}} credentials',
         schema: {
           type: 'object',
@@ -125,8 +125,12 @@ const fetchApi = async (endpoint) => {
           required: ['username', 'password']
         }
       });
-      PLATFORM_LOGIN = creds.username;
-      PLATFORM_PASSWORD = creds.password;
+      if (result.status === 'skipped') {
+        await page.setData('error', 'Login credentials required but not available in automated mode.');
+        return;
+      }
+      PLATFORM_LOGIN = result.data.username;
+      PLATFORM_PASSWORD = result.data.password;
     }
     await page.setData('status', 'Logging in...');
     await performLogin();
@@ -138,8 +142,21 @@ const fetchApi = async (endpoint) => {
       isLoggedIn = await checkLoginStatus();
     }
     if (!isLoggedIn) {
-      await page.setData('error', 'Automated login failed. Check credentials or login flow.');
-      return;
+      // Fall back to manual browser login
+      const manualResult = await page.requestManualAction(
+        'Complete login in the browser, then click "Done".',
+        async () => await checkLoginStatus(),
+        { url: '{{PLATFORM_URL}}' }
+      );
+      if (manualResult.status === 'skipped') {
+        await page.setData('error', 'Login failed. Manual browser login required but not available in automated mode.');
+        return;
+      }
+      isLoggedIn = await checkLoginStatus();
+      if (!isLoggedIn) {
+        await page.setData('error', 'Login failed after manual attempt.');
+        return;
+      }
     }
     await page.setData('status', 'Login successful');
   } else {

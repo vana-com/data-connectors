@@ -326,7 +326,7 @@ const extractOrdersFromDOM = async () => {
     `);
 
     if (hasEmailField) {
-      const { email } = await page.requestInput({
+      const emailResult = await page.requestData({
         message: "Log in to Shop — enter your email address",
         schema: {
           type: "object",
@@ -336,6 +336,11 @@ const extractOrdersFromDOM = async () => {
           required: ["email"],
         },
       });
+      if (emailResult.status === 'skipped') {
+        await page.setData('error', 'Login credentials required but not available in automated mode.');
+        return;
+      }
+      const { email } = emailResult.data;
 
       await page.evaluate(`
         (() => {
@@ -365,7 +370,7 @@ const extractOrdersFromDOM = async () => {
       `);
 
       if (hasCodeField) {
-        const { code } = await page.requestInput({
+        const codeResult = await page.requestData({
           message: "Enter the verification code Shop sent to your email",
           schema: {
             type: "object",
@@ -373,6 +378,11 @@ const extractOrdersFromDOM = async () => {
             required: ["code"],
           },
         });
+        if (codeResult.status === 'skipped') {
+          await page.setData('error', 'Login credentials required but not available in automated mode.');
+          return;
+        }
+        const { code } = codeResult.data;
         await page.evaluate(`
           (() => {
             const input = document.querySelector('input[name="code"]') ||
@@ -400,7 +410,7 @@ const extractOrdersFromDOM = async () => {
         !!document.querySelector('input[type="password"]')
       `);
       if (hasPasswordField) {
-        const { password } = await page.requestInput({
+        const passwordResult = await page.requestData({
           message: "Enter your Shop/Shopify password",
           schema: {
             type: "object",
@@ -410,6 +420,11 @@ const extractOrdersFromDOM = async () => {
             required: ["password"],
           },
         });
+        if (passwordResult.status === 'skipped') {
+          await page.setData('error', 'Login credentials required but not available in automated mode.');
+          return;
+        }
+        const { password } = passwordResult.data;
         await page.evaluate(`
           (() => {
             const passwordInput = document.querySelector('input[type="password"]');
@@ -435,15 +450,14 @@ const extractOrdersFromDOM = async () => {
 
     // Fallback to headed browser if programmatic login failed
     if (!isLoggedIn) {
-      const { headed } = await page.showBrowser('https://shop.app/account/order-history');
-      if (headed) {
-        await page.setData('status', 'Please complete login in the browser...');
-        await page.promptUser(
-          'Complete any remaining verification, then click "Done".',
-          async () => await checkLoginStatus(),
-          2000
-        );
-        await page.goHeadless();
+      const manualResult = await page.requestManualAction(
+        'Complete any remaining verification, then click "Done".',
+        async () => await checkLoginStatus(),
+        { url: 'https://shop.app/account/order-history', interval: 2000 }
+      );
+      if (manualResult.status === 'skipped') {
+        await page.setData('error', 'Login required but not available in automated mode.');
+        return;
       }
       isLoggedIn = await checkLoginStatus();
     }

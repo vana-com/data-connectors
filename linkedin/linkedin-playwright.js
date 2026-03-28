@@ -197,7 +197,7 @@ const extractYears = (obj) => {
     const hasLoginForm = await page.evaluate(`!!document.querySelector('input[name="session_key"]')`);
 
     if (hasLoginForm) {
-      const { email, password } = await page.requestInput({
+      const credentialsResult = await page.requestData({
         message: "Log in to LinkedIn",
         schema: {
           type: "object",
@@ -208,6 +208,11 @@ const extractYears = (obj) => {
           required: ["email", "password"],
         },
       });
+      if (credentialsResult.status === 'skipped') {
+        await page.setData('error', 'Login credentials required but not available in automated mode.');
+        return;
+      }
+      const { email, password } = credentialsResult.data;
 
       await page.evaluate(`
         (() => {
@@ -248,7 +253,7 @@ const extractYears = (obj) => {
         window.location.href.includes('/checkpoint/')
       `);
       if (needs2fa) {
-        const { code } = await page.requestInput({
+        const tfaResult = await page.requestData({
           message: "Enter your LinkedIn verification code",
           schema: {
             type: "object",
@@ -256,6 +261,11 @@ const extractYears = (obj) => {
             required: ["code"],
           },
         });
+        if (tfaResult.status === 'skipped') {
+          await page.setData('error', 'Login credentials required but not available in automated mode.');
+          return;
+        }
+        const { code } = tfaResult.data;
         await page.evaluate(`
           (() => {
             const input = document.querySelector('input[name="pin"]') ||
@@ -315,17 +325,16 @@ const extractYears = (obj) => {
       }
     }
 
-    // Fallback to headed browser if programmatic login failed
+    // Fallback to manual browser login if programmatic login failed
     if (!isAuthenticated) {
-      const { headed } = await page.showBrowser('https://www.linkedin.com/login');
-      if (headed) {
-        await page.setData('status', 'Please complete login in the browser...');
-        await page.promptUser(
-          'Complete any remaining verification, then click "Done".',
-          async () => await checkLoginStatus(),
-          2000
-        );
-        await page.goHeadless();
+      const manualResult = await page.requestManualAction(
+        'Complete any remaining verification, then click "Done".',
+        async () => await checkLoginStatus(),
+        { url: 'https://www.linkedin.com/login', interval: 2000 }
+      );
+      if (manualResult.status === 'skipped') {
+        await page.setData('error', 'Login required but not available in automated mode.');
+        return;
       }
 
       isAuthenticated = await checkApiAuth();

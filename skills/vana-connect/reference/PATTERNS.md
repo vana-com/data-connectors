@@ -434,6 +434,57 @@ const checkLoginStatus = async () => {
 };
 ```
 
+### Authentication (recommended pattern):
+
+Use `requestData` for credentials and `requestManualAction` for manual browser login.
+Both return `{ status: 'success' | 'skipped' }` — the connector decides what to do with a skip.
+
+```javascript
+// 1. Check session cookies
+await page.goto('https://platform.com/');
+await page.sleep(3000);
+let isLoggedIn = await checkLoginStatus();
+
+if (!isLoggedIn) {
+  // 2. Try programmatic login with requestData
+  const result = await page.requestData({
+    message: 'Enter your Platform credentials',
+    schema: {
+      type: 'object',
+      properties: {
+        email: { type: 'string', title: 'Email' },
+        password: { type: 'string', title: 'Password' },
+      },
+      required: ['email', 'password'],
+    },
+  });
+
+  if (result.status === 'success') {
+    await performLogin(result.data.email, result.data.password);
+    isLoggedIn = await checkLoginStatus();
+  }
+
+  // 3. Fall back to manual browser login
+  if (!isLoggedIn) {
+    const manual = await page.requestManualAction(
+      'Complete login in the browser, then click "Done".',
+      async () => await checkLoginStatus(),
+      { url: 'https://platform.com/login' },
+    );
+    if (manual.status === 'skipped') {
+      await page.setData('error', 'Login required but not available in automated mode.');
+      return;
+    }
+    isLoggedIn = await checkLoginStatus();
+  }
+
+  if (!isLoggedIn) {
+    await page.setData('error', 'Login failed.');
+    return;
+  }
+}
+```
+
 ### Dismissing popups/modals:
 
 ```javascript
