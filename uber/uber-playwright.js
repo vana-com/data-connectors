@@ -232,7 +232,7 @@ const scrapeTripDetailsFromPage = async () => {
     `);
 
     if (hasEmailField) {
-      const { email } = await page.requestInput({
+      const emailResult = await page.requestData({
         message: "Log in to Uber — enter your email or phone number",
         schema: {
           type: "object",
@@ -242,6 +242,11 @@ const scrapeTripDetailsFromPage = async () => {
           required: ["email"],
         },
       });
+      if (emailResult.status === 'skipped') {
+        await page.setData('error', 'Login credentials required but not available in automated mode.');
+        return;
+      }
+      const { email } = emailResult.data;
 
       await page.evaluate(`
         (() => {
@@ -277,7 +282,7 @@ const scrapeTripDetailsFromPage = async () => {
       `);
 
       if (hasPasswordField) {
-        const { password } = await page.requestInput({
+        const passwordResult = await page.requestData({
           message: "Enter your Uber password",
           schema: {
             type: "object",
@@ -287,6 +292,11 @@ const scrapeTripDetailsFromPage = async () => {
             required: ["password"],
           },
         });
+        if (passwordResult.status === 'skipped') {
+          await page.setData('error', 'Login credentials required but not available in automated mode.');
+          return;
+        }
+        const { password } = passwordResult.data;
 
         await page.evaluate(`
           (() => {
@@ -319,7 +329,7 @@ const scrapeTripDetailsFromPage = async () => {
           !!document.querySelector('input[type="tel"]')
         `);
         if (hasOtpField) {
-          const { code } = await page.requestInput({
+          const otpResult = await page.requestData({
             message: "Enter the verification code Uber sent to your phone",
             schema: {
               type: "object",
@@ -327,6 +337,11 @@ const scrapeTripDetailsFromPage = async () => {
               required: ["code"],
             },
           });
+          if (otpResult.status === 'skipped') {
+            await page.setData('error', 'Login credentials required but not available in automated mode.');
+            return;
+          }
+          const { code } = otpResult.data;
           await page.evaluate(`
             (() => {
               const input = document.querySelector('input[name="otp"]') ||
@@ -360,7 +375,7 @@ const scrapeTripDetailsFromPage = async () => {
         !!document.querySelector('input[type="tel"]')
       `);
       if (needs2fa) {
-        const { code } = await page.requestInput({
+        const tfaResult = await page.requestData({
           message: "Enter your Uber 2FA verification code",
           schema: {
             type: "object",
@@ -368,6 +383,11 @@ const scrapeTripDetailsFromPage = async () => {
             required: ["code"],
           },
         });
+        if (tfaResult.status === 'skipped') {
+          await page.setData('error', 'Login credentials required but not available in automated mode.');
+          return;
+        }
+        const { code } = tfaResult.data;
         await page.evaluate(`
           (() => {
             const input = document.querySelector('input[name="otp"]') ||
@@ -418,18 +438,13 @@ const scrapeTripDetailsFromPage = async () => {
       isLoggedIn = await checkLoginStatus();
     }
 
-    // Fallback to headed browser if programmatic login failed
+    // Fallback to manual browser login if programmatic login failed
     if (!isLoggedIn) {
-      const { headed } = await page.showBrowser('https://auth.uber.com/v2/');
-      if (headed) {
-        await page.setData('status', 'Please complete login in the browser...');
-        await page.promptUser(
-          'Complete any remaining verification, then click "Done".',
-          async () => await checkLoginStatus(),
-          3000
-        );
-        await page.goHeadless();
-      }
+      await page.requestManualAction(
+        'Complete any remaining verification, then click "Done".',
+        async () => await checkLoginStatus(),
+        { url: 'https://auth.uber.com/v2/', interval: 3000 }
+      );
       isLoggedIn = await checkLoginStatus();
     }
 

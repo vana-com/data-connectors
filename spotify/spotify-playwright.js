@@ -347,7 +347,7 @@ const spClientFetch = async (path) => {
     `);
 
     if (hasLoginForm) {
-      const { username, password } = await page.requestInput({
+      const credResult = await page.requestData({
         message: "Log in to Spotify",
         schema: {
           type: "object",
@@ -358,6 +358,11 @@ const spClientFetch = async (path) => {
           required: ["username", "password"],
         },
       });
+      if (credResult.status === 'skipped') {
+        await page.setData('error', 'Login credentials required but not available in automated mode.');
+        return;
+      }
+      const { username, password } = credResult.data;
 
       await page.evaluate(`
         (() => {
@@ -394,7 +399,7 @@ const spClientFetch = async (path) => {
         window.location.href.includes('challenge')
       `);
       if (needsEmailCode) {
-        const { code } = await page.requestInput({
+        const codeResult = await page.requestData({
           message: "Enter the verification code sent to your email by Spotify",
           schema: {
             type: "object",
@@ -402,6 +407,11 @@ const spClientFetch = async (path) => {
             required: ["code"],
           },
         });
+        if (codeResult.status === 'skipped') {
+          await page.setData('error', 'Verification code required but not available in automated mode.');
+          return;
+        }
+        const { code } = codeResult.data;
         await page.evaluate(`
           (() => {
             const input = document.querySelector('input[name="code"]') ||
@@ -451,16 +461,12 @@ const spClientFetch = async (path) => {
 
     // Fallback to headed browser if programmatic login failed
     if (!loginOk) {
-      const { headed } = await page.showBrowser('https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F');
-      if (headed) {
-        await page.setData('status', 'Please complete login in the browser...');
-        await page.promptUser(
-          'Complete any remaining verification, then click "Done".',
-          async () => await checkLoginComplete(),
-          3000
-        );
-        await page.goHeadless();
-      }
+      await page.setData('status', 'Please complete login in the browser...');
+      await page.requestManualAction(
+        'Complete any remaining verification, then click "Done".',
+        async () => await checkLoginComplete(),
+        { url: 'https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F', interval: 3000 },
+      );
     }
 
     await page.setData('status', 'Login completed. Capturing session...');

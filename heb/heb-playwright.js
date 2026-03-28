@@ -628,14 +628,10 @@ const scrapeNutrition = async (productUrl, productId) => {
   let isLoggedIn = await checkLoginStatus();
 
   if (!isLoggedIn) {
-    await page.showBrowser('https://www.heb.com/my-account/your-orders');
-    await page.setData('status', 'Please sign in to your H-E-B account...');
-    await page.sleep(2000);
-
-    await page.promptUser(
+    await page.requestManualAction(
       'Sign in to your H-E-B account. Click "Done" when you see your order history.',
       async () => await checkLoginStatus(),
-      2000
+      { url: 'https://www.heb.com/my-account/your-orders', interval: 2000 }
     );
 
     await page.setData('status', 'Login confirmed');
@@ -754,17 +750,15 @@ const scrapeNutrition = async (productUrl, productId) => {
         await page.sleep(30000);
       }
 
-      await page.showBrowser(productUrl);
       await page.setData('status', 'Bot check detected — please complete the verification and click Done.');
-      await page.promptUser(
+      await page.requestManualAction(
         'H-E-B is showing a bot check. Complete the verification in the browser, then click "Done" to continue.',
         async () => {
           const check = await detectBlock();
           return !check.blocked;
         },
-        2000
+        { url: productUrl, interval: 2000 }
       );
-      await page.goHeadless();
       // Wait longer after solve to avoid immediate re-trigger
       await page.sleep(5000 + Math.floor(Math.random() * 3000));
       // Retry this product

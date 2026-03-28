@@ -367,7 +367,7 @@ const extractStarred = async (username) => {
     `);
 
     if (hasLoginForm) {
-      const { username: loginUser, password } = await page.requestInput({
+      const credResult = await page.requestData({
         message: "Log in to GitHub",
         schema: {
           type: "object",
@@ -378,6 +378,11 @@ const extractStarred = async (username) => {
           required: ["username", "password"],
         },
       });
+      if (credResult.status === 'skipped') {
+        await page.setData('error', 'Login credentials required but not available in automated mode.');
+        return;
+      }
+      const { username: loginUser, password } = credResult.data;
 
       await page.evaluate(`document.querySelector('#login_field').value = ${JSON.stringify(loginUser)}`);
       await page.evaluate(`document.querySelector('#login_field').dispatchEvent(new Event('input', {bubbles:true}))`);
@@ -389,7 +394,7 @@ const extractStarred = async (username) => {
       // Handle 2FA if present
       const needs2fa = await page.evaluate(`!!document.querySelector('#app_totp, #sms_totp, [name="otp"]')`);
       if (needs2fa) {
-        const { code } = await page.requestInput({
+        const codeResult = await page.requestData({
           message: "Enter your GitHub 2FA code",
           schema: {
             type: "object",
@@ -397,6 +402,11 @@ const extractStarred = async (username) => {
             required: ["code"],
           },
         });
+        if (codeResult.status === 'skipped') {
+          await page.setData('error', '2FA code required but not available in automated mode.');
+          return;
+        }
+        const { code } = codeResult.data;
         await page.evaluate(`
           (() => {
             const input = document.querySelector('#app_totp, #sms_totp, [name="otp"]');
@@ -415,19 +425,12 @@ const extractStarred = async (username) => {
 
     // If programmatic login failed or form wasn't found, fall back to headed
     if (!loggedIn) {
-      const { headed } = await page.showBrowser("https://github.com/login");
-      if (headed) {
-        await page.setData("status", "Please complete login in the browser...");
-        await page.promptUser(
-          "Complete any remaining verification, then click 'Done'.",
-          async () => await isLoggedIn(),
-          2000,
-        );
-        await page.goHeadless();
-      } else {
-        await page.setData("error", "GitHub login failed. Login form not found or credentials incorrect.");
-        return;
-      }
+      await page.setData("status", "Please complete login in the browser...");
+      await page.requestManualAction(
+        "Complete any remaining verification, then click 'Done'.",
+        async () => await isLoggedIn(),
+        { url: "https://github.com/login", interval: 2000 },
+      );
     }
 
     loggedIn = await isLoggedIn();
