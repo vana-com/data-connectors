@@ -1,0 +1,37 @@
+{
+  "name": "Shop Order History",
+  "version": "1.0.0",
+  "scope": "shop.orders",
+  "dialect": "json",
+  "description": "Order history from the Shop app (Shopify) including merchant names, item counts, totals, and delivery status",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "orders": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "orderNumber": { "type": "string" },
+            "placedAt": { "type": "string", "format": "date-time" },
+            "merchantName": { "type": "string" },
+            "total": { "type": "number" },
+            "currency": { "type": "string" },
+            "status": { "type": "string" },
+            "itemCount": { "type": "number" },
+            "lineItemTitles": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "detailUrl": { "type": "string" }
+          },
+          "required": ["id"],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": ["orders"],
+    "additionalProperties": false
+  }
+}

@@ -9,6 +9,13 @@
   "connectSelector": "main h1, main h2, [data-test*=\"order\"], [data-testid*=\"order\"]",
   "exportFrequency": "weekly",
   "runtime": "playwright",
+  "scopes": [
+    {
+      "scope": "shop.orders",
+      "label": "Your Order History",
+      "description": "Complete order history from the Shop app including merchants, items, totals, and delivery status"
+    }
+  ],
   "vectorize_config": {
     "documents": "orders"
   }
