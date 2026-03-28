@@ -440,11 +440,15 @@ const scrapeTripDetailsFromPage = async () => {
 
     // Fallback to manual browser login if programmatic login failed
     if (!isLoggedIn) {
-      await page.requestManualAction(
+      const manualResult = await page.requestManualAction(
         'Complete any remaining verification, then click "Done".',
         async () => await checkLoginStatus(),
         { url: 'https://auth.uber.com/v2/', interval: 3000 }
       );
+      if (manualResult.status === 'skipped') {
+        await page.setData('error', 'Login required but not available in automated mode.');
+        return;
+      }
       isLoggedIn = await checkLoginStatus();
     }
 

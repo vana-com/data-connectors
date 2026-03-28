@@ -628,11 +628,15 @@ const scrapeNutrition = async (productUrl, productId) => {
   let isLoggedIn = await checkLoginStatus();
 
   if (!isLoggedIn) {
-    await page.requestManualAction(
+    const manualResult = await page.requestManualAction(
       'Sign in to your H-E-B account. Click "Done" when you see your order history.',
       async () => await checkLoginStatus(),
       { url: 'https://www.heb.com/my-account/your-orders', interval: 2000 }
     );
+    if (manualResult.status === 'skipped') {
+      await page.setData('error', 'Login required but not available in automated mode.');
+      return;
+    }
 
     await page.setData('status', 'Login confirmed');
     await page.sleep(1000);
@@ -751,7 +755,7 @@ const scrapeNutrition = async (productUrl, productId) => {
       }
 
       await page.setData('status', 'Bot check detected — please complete the verification and click Done.');
-      await page.requestManualAction(
+      const botCheckResult = await page.requestManualAction(
         'H-E-B is showing a bot check. Complete the verification in the browser, then click "Done" to continue.',
         async () => {
           const check = await detectBlock();
@@ -759,6 +763,10 @@ const scrapeNutrition = async (productUrl, productId) => {
         },
         { url: productUrl, interval: 2000 }
       );
+      if (botCheckResult.status === 'skipped') {
+        await page.setData('status', `Skipping product ${productId} — bot check not available in automated mode.`);
+        continue;
+      }
       // Wait longer after solve to avoid immediate re-trigger
       await page.sleep(5000 + Math.floor(Math.random() * 3000));
       // Retry this product

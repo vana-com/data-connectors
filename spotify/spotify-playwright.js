@@ -462,11 +462,15 @@ const spClientFetch = async (path) => {
     // Fallback to headed browser if programmatic login failed
     if (!loginOk) {
       await page.setData('status', 'Please complete login in the browser...');
-      await page.requestManualAction(
+      const manualResult = await page.requestManualAction(
         'Complete any remaining verification, then click "Done".',
         async () => await checkLoginComplete(),
         { url: 'https://accounts.spotify.com/en/login?continue=https%3A%2F%2Fopen.spotify.com%2F', interval: 3000 },
       );
+      if (manualResult.status === 'skipped') {
+        await page.setData('error', 'Login required but not available in automated mode.');
+        return;
+      }
     }
 
     await page.setData('status', 'Login completed. Capturing session...');

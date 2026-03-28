@@ -973,11 +973,15 @@ const scrapeHistory = async () => {
 
       // Fallback to headed browser if programmatic login failed
       if (!state.isLoggedIn) {
-        await page.requestManualAction(
+        const manualResult = await page.requestManualAction(
           'Complete any remaining verification, then click "Done".',
           async () => checkLoginStatus(),
           { url: 'https://www.youtube.com/', interval: 2000 }
         );
+        if (manualResult.status === 'skipped') {
+          await page.setData('error', 'Login required but not available in automated mode.');
+          return;
+        }
         state.isLoggedIn = await checkLoginStatus();
       }
 

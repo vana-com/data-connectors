@@ -450,11 +450,15 @@ const extractOrdersFromDOM = async () => {
 
     // Fallback to headed browser if programmatic login failed
     if (!isLoggedIn) {
-      await page.requestManualAction(
+      const manualResult = await page.requestManualAction(
         'Complete any remaining verification, then click "Done".',
         async () => await checkLoginStatus(),
         { url: 'https://shop.app/account/order-history', interval: 2000 }
       );
+      if (manualResult.status === 'skipped') {
+        await page.setData('error', 'Login required but not available in automated mode.');
+        return;
+      }
       isLoggedIn = await checkLoginStatus();
     }
 

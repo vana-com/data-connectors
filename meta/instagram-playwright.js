@@ -207,7 +207,7 @@ const fetchWebInfo = async () => {
 
     // Fallback to manual browser login if programmatic login failed
     if (!loginSucceeded) {
-      await page.requestManualAction(
+      const manualResult = await page.requestManualAction(
         'Complete any remaining verification, then click "Done".',
         async () => {
           const info = await fetchWebInfo();
@@ -215,6 +215,10 @@ const fetchWebInfo = async () => {
         },
         { url: 'https://www.instagram.com/accounts/login/', interval: 2000 }
       );
+      if (manualResult.status === 'skipped') {
+        await page.setData('error', 'Login required but not available in automated mode.');
+        return;
+      }
 
       // Dismiss any remaining interstitials after headed browser login
       for (let dismissAttempt = 0; dismissAttempt < 3; dismissAttempt++) {

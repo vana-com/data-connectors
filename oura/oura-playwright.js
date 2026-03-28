@@ -194,11 +194,15 @@ const fetchDailyDataChunked = async (startDate, endDate, chunkDays) => {
     // Fallback to headed browser if programmatic login failed
     if (!isLoggedIn) {
       await page.setData('status', 'Please complete login in the browser...');
-      await page.requestManualAction(
+      const manualResult = await page.requestManualAction(
         'Complete any remaining verification, then click "Done".',
         async () => await checkLoginStatus(),
         { url: 'https://cloud.ouraring.com/user/sign-in', interval: 2000 },
       );
+      if (manualResult.status === 'skipped') {
+        await page.setData('error', 'Login required but not available in automated mode.');
+        return;
+      }
       isLoggedIn = await checkLoginStatus();
     }
 

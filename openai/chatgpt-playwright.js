@@ -487,7 +487,7 @@ const fetchConversationBatch = async (accessToken, deviceId, convIds) => {
     // Fallback to headed browser if programmatic login failed
     // (needed for SSO flows: Google, Microsoft, Apple)
     if (!isLoggedIn) {
-      await page.requestManualAction(
+      const manualResult = await page.requestManualAction(
         'Complete login in the browser, then click "Done".',
         async () => {
           await dismissInterruptingDialogs();
@@ -495,6 +495,10 @@ const fetchConversationBatch = async (accessToken, deviceId, convIds) => {
         },
         { url: 'https://chatgpt.com/', interval: 2000 }
       );
+      if (manualResult.status === 'skipped') {
+        await page.setData('error', 'Login required but not available in automated mode.');
+        return;
+      }
     }
 
     await page.setData('status', 'Login completed');

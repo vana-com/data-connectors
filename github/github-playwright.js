@@ -426,11 +426,15 @@ const extractStarred = async (username) => {
     // If programmatic login failed or form wasn't found, fall back to headed
     if (!loggedIn) {
       await page.setData("status", "Please complete login in the browser...");
-      await page.requestManualAction(
+      const manualResult = await page.requestManualAction(
         "Complete any remaining verification, then click 'Done'.",
         async () => await isLoggedIn(),
         { url: "https://github.com/login", interval: 2000 },
       );
+      if (manualResult.status === 'skipped') {
+        await page.setData('error', 'Login required but not available in automated mode.');
+        return;
+      }
     }
 
     loggedIn = await isLoggedIn();
