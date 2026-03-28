@@ -262,7 +262,7 @@ const extractYears = (obj) => {
           },
         });
         if (tfaResult.status === 'skipped') {
-          await page.setData('error', 'Login credentials required but not available in automated mode.');
+          await page.setData('error', 'Verification code required but not available in automated mode.');
           return;
         }
         const { code } = tfaResult.data;
@@ -327,6 +327,7 @@ const extractYears = (obj) => {
 
     // Fallback to manual browser login if programmatic login failed
     if (!isAuthenticated) {
+      await page.setData('status', 'Please complete login in the browser...');
       const manualResult = await page.requestManualAction(
         'Complete any remaining verification, then click "Done".',
         async () => await checkLoginStatus(),

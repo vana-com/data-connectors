@@ -440,6 +440,7 @@ const scrapeTripDetailsFromPage = async () => {
 
     // Fallback to manual browser login if programmatic login failed
     if (!isLoggedIn) {
+      await page.setData('status', 'Please complete login in the browser...');
       const manualResult = await page.requestManualAction(
         'Complete any remaining verification, then click "Done".',
         async () => await checkLoginStatus(),

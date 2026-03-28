@@ -487,6 +487,7 @@ const fetchConversationBatch = async (accessToken, deviceId, convIds) => {
     // Fallback to headed browser if programmatic login failed
     // (needed for SSO flows: Google, Microsoft, Apple)
     if (!isLoggedIn) {
+      await page.setData('status', 'Please complete login in the browser...');
       const manualResult = await page.requestManualAction(
         'Complete login in the browser, then click "Done".',
         async () => {

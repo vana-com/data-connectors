@@ -973,6 +973,7 @@ const scrapeHistory = async () => {
 
       // Fallback to headed browser if programmatic login failed
       if (!state.isLoggedIn) {
+        await page.setData('status', 'Please complete login in the browser...');
         const manualResult = await page.requestManualAction(
           'Complete any remaining verification, then click "Done".',
           async () => checkLoginStatus(),
