@@ -141,7 +141,9 @@ const fetchDailyDataChunked = async (startDate, endDate, chunkDays) => {
       !!document.querySelector('input[type="password"], input[name="password"]')
     `);
 
-    if (hasLoginForm) {
+    const supportsRequestInput = typeof page.requestInput === 'function';
+
+    if (supportsRequestInput && hasLoginForm) {
       const { email, password } = await page.requestInput({
         message: "Log in to your Oura account",
         schema: {

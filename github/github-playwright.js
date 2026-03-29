@@ -366,7 +366,9 @@ const extractStarred = async (username) => {
       !!document.querySelector('#login_field') && !!document.querySelector('#password')
     `);
 
-    if (hasLoginForm) {
+    const supportsRequestInput = typeof page.requestInput === 'function';
+
+    if (supportsRequestInput && hasLoginForm) {
       const { username: loginUser, password } = await page.requestInput({
         message: "Log in to GitHub",
         schema: {

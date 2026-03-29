@@ -325,7 +325,9 @@ const extractOrdersFromDOM = async () => {
       !!document.querySelector('input[type="email"], input[name="email"]')
     `);
 
-    if (hasEmailField) {
+    const supportsRequestInput = typeof page.requestInput === 'function';
+
+    if (supportsRequestInput && hasEmailField) {
       const { email } = await page.requestInput({
         message: "Log in to Shop — enter your email address",
         schema: {
@@ -528,4 +530,3 @@ const extractOrdersFromDOM = async () => {
     return { success: false, error: 'No orders found' };
   }
 })();
-

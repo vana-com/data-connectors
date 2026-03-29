@@ -196,7 +196,9 @@ const extractYears = (obj) => {
 
     const hasLoginForm = await page.evaluate(`!!document.querySelector('input[name="session_key"]')`);
 
-    if (hasLoginForm) {
+    const supportsRequestInput = typeof page.requestInput === 'function';
+
+    if (supportsRequestInput && hasLoginForm) {
       const { email, password } = await page.requestInput({
         message: "Log in to LinkedIn",
         schema: {

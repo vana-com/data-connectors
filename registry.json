@@ -1,6 +1,6 @@
 {
   "version": "2.0.0",
-  "lastUpdated": "2026-03-24T00:00:00Z",
+  "lastUpdated": "2026-03-29T00:00:00Z",
   "baseUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main",
   "connectors": [
     {
@@ -14,7 +14,7 @@
         "metadata": "openai/chatgpt-playwright.json"
       },
       "checksums": {
-        "script": "sha256:7b7fa1c2f45044d2cddbb5d88adb6e0b9ac5bb092c487a03f507287985144dd7",
+        "script": "sha256:72518dd765ff2103a0ad7dd184a9efcfac359764fca1613714400e661b2fe73a",
         "metadata": "sha256:fac97ec68120203746863e6bb7592b9cb2c7c0f0721afe4ede75eb43bde5fd43"
       }
     },
@@ -29,7 +29,7 @@
         "metadata": "github/github-playwright.json"
       },
       "checksums": {
-        "script": "sha256:7ab9ef25017a3735835faef408dcd181e77a05fb4d212ade0a0eaa446249afcf",
+        "script": "sha256:4a6360e652f4bec3f0c92c5651d5da818c00cca6ff0b236aa5f3d4d2a8789793",
         "metadata": "sha256:27d81822ccf23eb3f4bf9f9868ade02a1141c78a2999cd081047da692b3f64ff"
       }
     },
@@ -44,7 +44,7 @@
         "metadata": "meta/instagram-playwright.json"
       },
       "checksums": {
-        "script": "sha256:cec6cd6fc49e245974a081ec5bee1b045ef5ba26921c25835cec82aa5dbb4998",
+        "script": "sha256:aaae0f1c62f9e2f5738a77e4fc326dd5375503b89d09c26a32bcdd482757385b",
         "metadata": "sha256:52e18cea6927de37cab8a31dec53976fa0a0452388acf743e3bbb143f878583e"
       }
     },
@@ -74,7 +74,7 @@
         "metadata": "linkedin/linkedin-playwright.json"
       },
       "checksums": {
-        "script": "sha256:c5b3fb004bcbe7a0b77296ad61f5ab66f732a5799f8be0c62fe15a1f6157f229",
+        "script": "sha256:351a1a6706903bfbd7055c332f8baa118faa1ccb556cf019005f77cde422480b",
         "metadata": "sha256:4ea8939d310ef75c4f58d30c1a33f9256aee1c37661b655982da40be25c9ecad"
       }
     },
@@ -89,7 +89,7 @@
         "metadata": "spotify/spotify-playwright.json"
       },
       "checksums": {
-        "script": "sha256:7797c8dff432ddccae78c6a7d180dbdbdaf38bdc7a282cd62026375ded7bd186",
+        "script": "sha256:4bd74f11084c2e3950aa0b25395b3efdfead7fa4312fb4ce130279d688446586",
         "metadata": "sha256:f2d6a4cdf12069e8f4993faee97e31fa1fa9e4b039c7d9e1bd1e3447c6a3cd09"
       }
     },
@@ -104,7 +104,7 @@
         "metadata": "google/youtube-playwright.json"
       },
       "checksums": {
-        "script": "sha256:06aa761defcac73a9ecf3ed04338833a8fdf97943bf13516754535b249dbe76f",
+        "script": "sha256:41edd09ec113ad7f9d09c9c0de76e40577087ab4600d2c8ccba4ca95c3f919c6",
         "metadata": "sha256:c40624e50b86812f5a295ffcb99d175eb763d6de9029a4278fb026cfd67faa3f"
       }
     },
@@ -119,7 +119,7 @@
         "metadata": "shopify/shop-playwright.json"
       },
       "checksums": {
-        "script": "sha256:c9fe0902497f7cbd0595c84e4b1dc860fc8d6daa08e6f5ac4ff7edea6070e51e",
+        "script": "sha256:d9364d7cbaf95fbf0e3130b9221195099b33afe3bb700f411d336e40a705d37f",
         "metadata": "sha256:e0d1161c4186ea9106ac2ef0fd76b4076646b1edd597ac39812ea79d2a3fe6a8"
       }
     },
@@ -134,7 +134,7 @@
         "metadata": "oura/oura-playwright.json"
       },
       "checksums": {
-        "script": "sha256:81666d2baa0a2c8663613d4dfce5fbd00143608dff510364f5ec2ad78d6a28f4",
+        "script": "sha256:8b2d087055d9dcb6d21409caecc232b440efa53fd32f538299faaa8283dfd080",
         "metadata": "sha256:d3ff5230a6ebe6ff3f655546d834e7ed59f741febdc540dd2f89894b6e5baa7a"
       }
     },
@@ -164,7 +164,7 @@
         "metadata": "valve/steam-playwright.json"
       },
       "checksums": {
-        "script": "sha256:3c4b768fee81c9347ae6f8da714ce7fbabd2bb16918992a2e3e34db20c49acfc",
+        "script": "sha256:6d81afd55a3769de991d7a096dcf4f16008f41cf60a42e141b1d4311e36e85af",
         "metadata": "sha256:f2cabb1d26193df8c12207ebdcd6e668c05cfc14a112264a73ac3f88fb5e2bec"
       }
     },  
@@ -209,7 +209,7 @@
         "metadata": "uber/uber-playwright.json"
       },
       "checksums": {
-        "script": "sha256:c88b52b0bd5f51b63a61e37bd5b6fb1e7c914be668247676e16624f0c64811ed",
+        "script": "sha256:5b10877fbcd4d3cba5393820dabcf90812bc901532789c4221025e8035bb224e",
         "metadata": "sha256:b0f05adabc155708ba15356104bba28728da1e5e28265b34337e45f44cd5ae2f"
       }
     },
