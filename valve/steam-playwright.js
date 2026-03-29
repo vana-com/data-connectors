@@ -2,24 +2,119 @@
 (async () => {
   const STEAM_API = 'https://api.steampowered.com';
 
+  async function collectSteamCredentialsManually() {
+    const promptHtml = `
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Steam Credentials</title>
+    <style>
+      :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      body { margin: 0; background: #0b1220; color: #f8fafc; }
+      main { max-width: 560px; margin: 48px auto; padding: 32px; background: rgba(15, 23, 42, 0.9); border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 16px; }
+      h1 { margin: 0 0 12px; font-size: 28px; }
+      p { line-height: 1.5; color: #cbd5e1; }
+      label { display: block; margin-top: 20px; font-weight: 600; color: #e2e8f0; }
+      input { width: 100%; box-sizing: border-box; margin-top: 8px; padding: 12px 14px; border: 1px solid #475569; border-radius: 10px; background: #020617; color: #f8fafc; }
+      button { margin-top: 24px; width: 100%; padding: 12px 14px; border: 0; border-radius: 10px; background: #38bdf8; color: #082f49; font-size: 16px; font-weight: 700; cursor: pointer; }
+      small { display: block; margin-top: 8px; color: #94a3b8; }
+      #error { min-height: 20px; margin-top: 16px; color: #fca5a5; }
+      #done { min-height: 20px; margin-top: 12px; color: #86efac; }
+      code { color: #fde68a; }
+      a { color: #7dd3fc; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Steam API credentials</h1>
+      <p>Enter your Steam Web API key and Steam ID to continue.</p>
+      <p>
+        API key: <a href="https://steamcommunity.com/dev/apikey" target="_blank" rel="noreferrer">steamcommunity.com/dev/apikey</a><br />
+        Steam ID: <a href="https://steamid.io" target="_blank" rel="noreferrer">steamid.io</a>
+      </p>
+      <form id="steam-form">
+        <label for="apiKey">Steam Web API Key</label>
+        <input id="apiKey" name="apiKey" type="text" autocomplete="off" />
+        <label for="steamId">Steam ID</label>
+        <input id="steamId" name="steamId" type="text" autocomplete="off" placeholder="76561..." />
+        <button type="submit">Continue</button>
+      </form>
+      <div id="error"></div>
+      <div id="done"></div>
+      <small>After clicking Continue, return to DataConnect and click "Done".</small>
+    </main>
+    <script>
+      window.__steamCreds = null;
+      document.getElementById('steam-form').addEventListener('submit', function (event) {
+        event.preventDefault();
+        var apiKey = document.getElementById('apiKey').value.trim();
+        var steamId = document.getElementById('steamId').value.trim();
+        if (!apiKey || !steamId) {
+          document.getElementById('error').textContent = 'Enter both values.';
+          return;
+        }
+        document.getElementById('error').textContent = '';
+        window.__steamCreds = { apiKey: apiKey, steamId: steamId };
+        document.body.setAttribute('data-submitted', 'true');
+        document.getElementById('done').textContent = 'Saved. Return to DataConnect and click "Done".';
+      });
+    </script>
+  </body>
+</html>`;
+
+    await page.showBrowser(
+      'data:text/html;charset=utf-8,' + encodeURIComponent(promptHtml),
+    );
+    await page.setData(
+      'status',
+      'Enter your Steam Web API key and Steam ID in the browser...',
+    );
+    await page.promptUser(
+      'Enter your Steam Web API key and Steam ID in the browser, click "Continue", then return here and click "Done".',
+      async () =>
+        await page.evaluate(`
+          (() => document.body?.getAttribute('data-submitted') === 'true')
+        `),
+      1000,
+    );
+
+    const creds = await page.evaluate(`
+      (() => window.__steamCreds || null)
+    `);
+    if (!creds || !creds.apiKey || !creds.steamId) {
+      await page.setData('error', 'Steam credentials were not submitted.');
+      return null;
+    }
+    return creds;
+  }
+
   // ─── Auth: API key + Steam ID ─────────────────────────────
   let apiKey = process.env.STEAM_API_KEY;
   let steamId = process.env.STEAM_ID;
+  const supportsRequestInput = typeof page.requestInput === 'function';
 
   if (!apiKey || !steamId) {
-    const creds = await page.requestInput({
-      message: 'Enter your Steam Web API key and Steam ID.\n\nGet your API key at: https://steamcommunity.com/dev/apikey\nFind your Steam ID at: https://steamid.io',
-      schema: {
-        type: 'object',
-        properties: {
-          apiKey: { type: 'string', title: 'Steam Web API Key' },
-          steamId: { type: 'string', title: 'Steam ID (76561...)' },
+    if (supportsRequestInput) {
+      const creds = await page.requestInput({
+        message: 'Enter your Steam Web API key and Steam ID.\n\nGet your API key at: https://steamcommunity.com/dev/apikey\nFind your Steam ID at: https://steamid.io',
+        schema: {
+          type: 'object',
+          properties: {
+            apiKey: { type: 'string', title: 'Steam Web API Key' },
+            steamId: { type: 'string', title: 'Steam ID (76561...)' },
+          },
+          required: ['apiKey', 'steamId'],
         },
-        required: ['apiKey', 'steamId'],
-      },
-    });
-    apiKey = creds.apiKey;
-    steamId = creds.steamId;
+      });
+      apiKey = creds.apiKey;
+      steamId = creds.steamId;
+    } else {
+      const creds = await collectSteamCredentialsManually();
+      if (!creds) return;
+      apiKey = creds.apiKey;
+      steamId = creds.steamId;
+    }
   }
 
   await page.closeBrowser();

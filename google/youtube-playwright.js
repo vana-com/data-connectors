@@ -791,7 +791,9 @@ const scrapeHistory = async () => {
         !!document.querySelector('#identifierId')
       `);
 
-      if (hasEmailField) {
+      const supportsRequestInput = typeof page.requestInput === 'function';
+
+      if (supportsRequestInput && hasEmailField) {
         const { email } = await page.requestInput({
           message: "Log in to YouTube with your Google account — enter your email",
           schema: {

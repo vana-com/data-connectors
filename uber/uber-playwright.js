@@ -231,7 +231,9 @@ const scrapeTripDetailsFromPage = async () => {
       !!document.querySelector('input[type="text"]')
     `);
 
-    if (hasEmailField) {
+    const supportsRequestInput = typeof page.requestInput === 'function';
+
+    if (supportsRequestInput && hasEmailField) {
       const { email } = await page.requestInput({
         message: "Log in to Uber — enter your email or phone number",
         schema: {

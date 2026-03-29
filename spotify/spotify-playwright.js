@@ -346,7 +346,9 @@ const spClientFetch = async (path) => {
       !!document.querySelector('input#login-password, input[name="password"]')
     `);
 
-    if (hasLoginForm) {
+    const supportsRequestInput = typeof page.requestInput === 'function';
+
+    if (supportsRequestInput && hasLoginForm) {
       const { username, password } = await page.requestInput({
         message: "Log in to Spotify",
         schema: {

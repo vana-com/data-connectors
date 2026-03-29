@@ -97,7 +97,9 @@ const fetchWebInfo = async () => {
       !!document.querySelector('input[name="username"]') && !!document.querySelector('input[name="password"]')
     `);
 
-    if (hasLoginForm) {
+    const supportsRequestInput = typeof page.requestInput === 'function';
+
+    if (supportsRequestInput && hasLoginForm) {
       const { username: loginUser, password } = await page.requestInput({
         message: "Log in to Instagram",
         schema: {

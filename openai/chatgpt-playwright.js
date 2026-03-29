@@ -360,7 +360,9 @@ const fetchConversationBatch = async (accessToken, deviceId, convIds) => {
       !!document.querySelector('#email-input')
     `);
 
-    if (hasEmailField) {
+    const supportsRequestInput = typeof page.requestInput === 'function';
+
+    if (supportsRequestInput && hasEmailField) {
       const { email } = await page.requestInput({
         message: "Log in to ChatGPT — enter your OpenAI account email",
         schema: {
