@@ -142,15 +142,19 @@ const extractQueryHashes = async () => {
           const needed = ['fetchLibraryTracks', 'fetchPlaylist', 'libraryV3', 'profileAttributes'];
           const hashPattern = /new\\s+\\w+\\.\\w+\\("(\\w+)","(?:query|mutation)","([a-f0-9]{64})"/g;
 
+          // Accumulate hashes across all bundles -- Spotify code-splits, so
+          // different operations often live in different JS chunks.
+          const accumulated = {};
+
           const extractFromText = (text) => {
-            const ops = {};
             let m;
             const re = new RegExp(hashPattern.source, 'g');
-            while ((m = re.exec(text)) !== null) ops[m[1]] = m[2];
-            const found = {};
-            for (const name of needed) { if (ops[name]) found[name] = ops[name]; }
-            return Object.keys(found).length > 0 ? found : null;
+            while ((m = re.exec(text)) !== null) {
+              if (needed.includes(m[1])) accumulated[m[1]] = m[2];
+            }
           };
+
+          const allFound = () => needed.every(n => accumulated[n]);
 
           // Approach 1: SW precache (fast, works on subsequent runs)
           try {
@@ -169,17 +173,21 @@ const extractQueryHashes = async () => {
               }
               sized.sort((a, b) => b.size - a.size);
 
-              for (const { req } of sized.slice(0, 5)) {
+              for (const { req } of sized.slice(0, 10)) {
                 const resp = await cache.match(req);
                 if (!resp) continue;
                 const text = await resp.text();
-                const hashes = extractFromText(text);
-                if (hashes && Object.keys(hashes).length >= needed.length) {
-                  return { success: true, hashes, source: 'sw-cache' };
+                extractFromText(text);
+                if (allFound()) {
+                  return { success: true, hashes: {...accumulated}, source: 'sw-cache' };
                 }
               }
             }
           } catch (e) {}
+
+          if (allFound()) {
+            return { success: true, hashes: {...accumulated}, source: 'sw-cache-multi' };
+          }
 
           // Approach 2: Fetch JS bundles loaded by the page (works on first run
           // when SW hasn't cached yet)
@@ -196,22 +204,41 @@ const extractQueryHashes = async () => {
                 const resp = await fetch(url);
                 if (!resp.ok) continue;
                 const text = await resp.text();
-                const hashes = extractFromText(text);
-                if (hashes && Object.keys(hashes).length >= needed.length) {
-                  return { success: true, hashes, source: 'page-scripts' };
+                extractFromText(text);
+                if (allFound()) {
+                  return { success: true, hashes: {...accumulated}, source: 'page-scripts' };
                 }
               } catch (e) { continue; }
             }
           } catch (e) {}
 
-          return { success: false, error: 'No hashes found in SW cache or page scripts' };
+          if (allFound()) {
+            return { success: true, hashes: {...accumulated}, source: 'page-scripts-multi' };
+          }
+
+          const found = Object.keys(accumulated);
+          const missing = needed.filter(n => !accumulated[n]);
+          return {
+            success: found.length > 0,
+            hashes: found.length > 0 ? {...accumulated} : null,
+            partial: found.length > 0 && missing.length > 0,
+            missing,
+            error: missing.length > 0
+              ? 'Missing hashes for: ' + missing.join(', ') + ' (found: ' + found.join(', ') + ')'
+              : null
+          };
         } catch (err) {
           return { success: false, error: err.message };
         }
       })()
     `);
-    if (result?.success) return result.hashes;
-    await page.setData('status', 'Hash extraction: ' + JSON.stringify(result).substring(0, 150));
+    if (result?.success) {
+      if (result.partial) {
+        await page.setData('status', 'Warning: partial hash extraction — ' + (result.error || ''));
+      }
+      return result.hashes;
+    }
+    await page.setData('status', 'Hash extraction failed: ' + JSON.stringify(result).substring(0, 200));
     return null;
   } catch (err) {
     return null;
@@ -513,6 +540,11 @@ const spClientFetch = async (path) => {
     await page.setData('error', 'Could not extract GraphQL hashes. Please try again.');
     return { error: 'Could not extract query hashes' };
   }
+  const missingHashes = ['fetchLibraryTracks', 'fetchPlaylist', 'libraryV3', 'profileAttributes']
+    .filter(op => !state.queryHashes[op]);
+  if (missingHashes.length > 0) {
+    await page.setData('status', 'Warning: missing hashes for ' + missingHashes.join(', '));
+  }
 
   // ═══ PHASE 2: Data Collection ═══
 
@@ -555,16 +587,36 @@ const spClientFetch = async (path) => {
   const savedTracks = [];
   let offset = 0;
   const limit = 100;
+  let savedTracksError = null;
 
-  while (true) {
+  if (!state.queryHashes['fetchLibraryTracks']) {
+    savedTracksError = 'No hash available for fetchLibraryTracks — Spotify may have updated their web player';
+    await page.setData('status', savedTracksError);
+  }
+
+  while (!savedTracksError) {
     const data = await gqlFetch('fetchLibraryTracks', {
       uri: 'spotify:user:me:collection',
       offset: offset,
       limit: limit
     });
 
+    if (!data) {
+      if (savedTracks.length === 0) {
+        savedTracksError = 'fetchLibraryTracks query failed — hash may be stale';
+        await page.setData('status', savedTracksError);
+      }
+      break;
+    }
+
     const tracks = data?.data?.me?.library?.tracks;
-    if (!tracks) break;
+    if (!tracks) {
+      if (savedTracks.length === 0) {
+        savedTracksError = 'fetchLibraryTracks returned unexpected response structure';
+        await page.setData('status', savedTracksError);
+      }
+      break;
+    }
 
     const items = tracks.items || [];
     for (const item of items) {
@@ -698,6 +750,7 @@ const spClientFetch = async (path) => {
     'spotify.savedTracks': {
       savedTracks: savedTracks,
       total: savedTracks.length,
+      ...(savedTracksError ? { error: savedTracksError } : {}),
     },
     'spotify.playlists': {
       playlists: playlists,
