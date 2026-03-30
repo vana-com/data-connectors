@@ -656,20 +656,32 @@ const spClientFetch = async (path) => {
   });
 
   // Get library overview to list playlists
-  const libData = await gqlFetch('libraryV3', {
-    filters: [], order: null, textFilter: '',
-    features: ['LIKED_SONGS', 'YOUR_EPISODES'],
-    limit: 200, offset: 0, flatten: false,
-    expandedFolders: [], folderUri: null,
-    includeFoldersWhenFlattening: true, withCuration: false
-  });
-
-  const libItems = libData?.data?.me?.libraryV3?.items || [];
-  const playlistUris = libItems
-    .filter(item => item.item?.data?.__typename === 'Playlist')
-    .map(item => item.item?.data?._uri || item.item?.data?.uri || '');
-
   const playlists = [];
+  let playlistsError = null;
+
+  if (!state.queryHashes['libraryV3']) {
+    playlistsError = 'No hash available for libraryV3 — Spotify may have updated their web player';
+    await page.setData('status', playlistsError);
+  } else if (!state.queryHashes['fetchPlaylist']) {
+    playlistsError = 'No hash available for fetchPlaylist — Spotify may have updated their web player';
+    await page.setData('status', playlistsError);
+  }
+
+  let playlistUris = [];
+  if (!playlistsError) {
+    const libData = await gqlFetch('libraryV3', {
+      filters: [], order: null, textFilter: '',
+      features: ['LIKED_SONGS', 'YOUR_EPISODES'],
+      limit: 200, offset: 0, flatten: false,
+      expandedFolders: [], folderUri: null,
+      includeFoldersWhenFlattening: true, withCuration: false
+    });
+
+    const libItems = libData?.data?.me?.libraryV3?.items || [];
+    playlistUris = libItems
+      .filter(item => item.item?.data?.__typename === 'Playlist')
+      .map(item => item.item?.data?._uri || item.item?.data?.uri || '');
+  }
 
   for (let i = 0; i < playlistUris.length; i++) {
     const uri = playlistUris[i];
@@ -755,14 +767,21 @@ const spClientFetch = async (path) => {
     'spotify.playlists': {
       playlists: playlists,
       total: playlists.length,
+      ...(playlistsError ? { error: playlistsError } : {}),
     },
     exportSummary: {
       count: savedTracks.length,
       label: savedTracks.length === 1 ? 'liked song' : 'liked songs',
       details: [
-        savedTracks.length + ' liked songs',
-        playlists.length + ' playlists (' + totalPlaylistTracks + ' tracks)',
+        savedTracksError ? 'liked songs skipped (hash unavailable)' : savedTracks.length + ' liked songs',
+        playlistsError ? 'playlists skipped (hash unavailable)' : playlists.length + ' playlists (' + totalPlaylistTracks + ' tracks)',
       ].join(', '),
+      ...(savedTracksError || playlistsError ? {
+        warnings: [
+          ...(savedTracksError ? ['savedTracks: ' + savedTracksError] : []),
+          ...(playlistsError ? ['playlists: ' + playlistsError] : []),
+        ]
+      } : {}),
     },
     timestamp: new Date().toISOString(),
     version: "1.0.0-playwright",
