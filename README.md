@@ -43,42 +43,64 @@ See [`skills/vana-connect/`](skills/vana-connect/) for the agent skill: setup, r
 ## Repository structure
 
 ```
-├── run-connector.cjs              # Connector runner (symlink)
-├── registry.json                  # Central registry (checksums, versions)
-├── skills/vana-connect/           # Agent skill (setup, create, run, recipes)
+├── <company>/                     # Connector directories (one per company)
+│   ├── <name>-playwright.js       #   Connector script (plain JS)
+│   └── <name>-playwright.json     #   Metadata (login URL, selectors, scopes)
+│
+├── schemas/                       # JSON Schema definitions (one per scope)
+│   └── <platform>.<scope>.json
 ├── types/
 │   └── connector.d.ts             # TypeScript type definitions
-├── schemas/                       # JSON schemas for exported data
-│   ├── chatgpt.conversations.json
-│   └── ...
-├── heb/
-│   ├── heb-playwright.js          # Connector script
-│   ├── heb-playwright.json        # Metadata
-│   └── README.md                  # Setup (USDA API key)
-├── openai/
-│   ├── chatgpt-playwright.js      # Connector script
-│   └── chatgpt-playwright.json    # Metadata
-├── github/
-│   ├── github-playwright.js
-│   └── github-playwright.json
-├── linkedin/
-│   ├── linkedin-playwright.js
-│   └── linkedin-playwright.json
-├── meta/
-│   ├── instagram-playwright.js
-│   └── instagram-playwright.json
-├── spotify/
-│   ├── spotify-playwright.js
-│   └── spotify-playwright.json
-└── google/
-    ├── youtube-playwright.js      # Connector script
-    └── youtube-playwright.json    # Metadata
+├── icons/                         # SVG/PNG icons for the DataConnect UI
+├── registry.json                  # Central registry (checksums, versions, OTA)
+│
+├── harness/                       # Local dev environment (human-driven)
+│   ├── create-connector.sh        #   End-to-end connector scaffold + test
+│   ├── capture-session.cjs        #   Browser session capture (manual login)
+│   ├── test-connector.cjs         #   Run connector against a real browser
+│   └── scripts/validate-connector.cjs
+│
+├── skills/vana-connect/           # Agent skill (AI-agent-driven)
+│   ├── SKILL.md                   #   Skill entry point (setup, connect, recipes)
+│   ├── CREATE.md                  #   Full walkthrough for building connectors
+│   └── scripts/run-connector.cjs  #   Agent-facing connector runner
+│
+├── .claude/skills/                # Claude Code skills (autonomous workflows)
+│   ├── data-connector/            #   Manual connector creation guide
+│   └── auto-create-connector/     #   Fully autonomous connector builder
+│
+├── run-connector.cjs              # Symlink → skills/vana-connect/scripts/run-connector.cjs
+├── test-connector.cjs             # Standalone test runner
+├── scripts/
+│   └── validate-connector.cjs     # Structure + output validator
+├── create-connector.sh            # Quick scaffold script
+│
+├── connectors/                    # (Deprecated) Legacy connector location
+└── reports/                       # Connector review templates
 ```
 
-Each connector consists of two files inside a `<company>/` directory:
+### Connectors
+
+Each connector lives in a `<company>/` directory at the repo root. A connector consists of two files:
 
 - **`<name>-playwright.js`** -- the connector script (plain JS, runs inside the Playwright runner sidecar)
 - **`<name>-playwright.json`** -- metadata (display name, login URL, selectors, scopes)
+
+Some connectors also include a README with platform-specific setup instructions (e.g., API keys).
+
+### Harness vs. skills
+
+The repo has two interfaces for building and running connectors. They serve different audiences but share the same connector format and output:
+
+| | `harness/` | `skills/vana-connect/` |
+|---|---|---|
+| **Audience** | Human developers at a terminal | AI agents (Claude, etc.) |
+| **Entry point** | `harness/create-connector.sh` | `skills/vana-connect/SKILL.md` |
+| **Login** | Manual browser login via `capture-session.cjs` | CLI-driven (`vana connect`) |
+| **Testing** | `harness/test-connector.cjs` | `run-connector.cjs` |
+| **When to use** | Local development, debugging, manual QA | Automated connector creation and data export |
+
+Both produce the same connector files (`<company>/<name>-playwright.js` + `.json`) and use the same schemas, registry, and validation scripts.
 
 ---
 
@@ -284,9 +306,9 @@ The runner reads the connector's sibling `.json` metadata to resolve the `connec
 
 1. Fork this repo
 2. Create a branch: `git checkout -b feat/<platform>-connector`
-3. Add your files in `connectors/<company>/`:
-   - `<name>-playwright.js` -- connector script
-   - `<name>-playwright.json` -- metadata
+3. Add your files in `<company>/` at the repo root:
+   - `<company>/<name>-playwright.js` -- connector script
+   - `<company>/<name>-playwright.json` -- metadata
    - `schemas/<platform>.<scope>.json` -- data schema (optional but encouraged)
 4. Test locally using the instructions above
 5. Update `registry.json` with your connector entry and checksums
