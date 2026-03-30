@@ -8,6 +8,7 @@
       "company": "openai",
       "version": "2.0.0",
       "name": "ChatGPT",
+      "status": "stable",
       "description": "Exports your email, memories, and all conversations from ChatGPT using Playwright browser automation.",
       "files": {
         "script": "openai/chatgpt-playwright.js",
@@ -23,6 +24,7 @@
       "company": "github",
       "version": "1.1.3",
       "name": "GitHub",
+      "status": "stable",
       "description": "Exports your GitHub profile, repositories, and starred repositories using Playwright browser automation.",
       "files": {
         "script": "github/github-playwright.js",
@@ -38,6 +40,7 @@
       "company": "meta",
       "version": "1.1.0",
       "name": "Instagram",
+      "status": "stable",
       "description": "Exports your Instagram profile, posts, and ad interests using Playwright browser automation.",
       "files": {
         "script": "meta/instagram-playwright.js",
@@ -53,6 +56,7 @@
       "company": "meta",
       "version": "1.0.0",
       "name": "Instagram Ads",
+      "status": "beta",
       "description": "Exports your Instagram ad interests — advertisers and ad topics.",
       "files": {
         "script": "meta/instagram-ads-playwright.js",
@@ -68,6 +72,7 @@
       "company": "linkedin",
       "version": "5.0.0",
       "name": "LinkedIn",
+      "status": "stable",
       "description": "Exports your LinkedIn profile, experience, education, skills, languages, and connections using Playwright browser automation.",
       "files": {
         "script": "linkedin/linkedin-playwright.js",
@@ -83,6 +88,7 @@
       "company": "spotify",
       "version": "1.0.0",
       "name": "Spotify",
+      "status": "stable",
       "description": "Exports your Spotify library, playlists, listening history, and preferences using Playwright browser automation.",
       "files": {
         "script": "spotify/spotify-playwright.js",
@@ -98,6 +104,7 @@
       "company": "google",
       "version": "1.0.0",
       "name": "YouTube",
+      "status": "beta",
       "description": "Exports your YouTube profile, subscriptions, playlists, playlist items, liked videos, watch later list, and recent watch history using Playwright browser automation.",
       "files": {
         "script": "google/youtube-playwright.js",
@@ -113,6 +120,7 @@
       "company": "shopify",
       "version": "1.0.0",
       "name": "Shop",
+      "status": "beta",
       "description": "Exports your Shop app order history using Playwright browser automation.",
       "files": {
         "script": "shopify/shop-playwright.js",
@@ -128,6 +136,7 @@
       "company": "oura",
       "version": "1.0.1",
       "name": "Oura Ring",
+      "status": "stable",
       "description": "Exports your Oura Ring readiness scores, sleep data, and daily activity using Playwright browser automation.",
       "files": {
         "script": "oura/oura-playwright.js",
@@ -143,6 +152,7 @@
       "company": "wholefoods",
       "version": "1.0.0",
       "name": "Whole Foods Market",
+      "status": "experimental",
       "description": "Exports your Whole Foods Market order history (via Amazon) and product nutrition data using Playwright browser automation.",
       "files": {
         "script": "wholefoods/wholefoods-playwright.js",
@@ -158,6 +168,7 @@
       "company": "valve",
       "version": "1.0.0",
       "name": "Steam",
+      "status": "experimental",
       "description": "Exports your Steam profile, game library with playtime stats, and friend list using the Steam Web API.",
       "files": {
         "script": "valve/steam-playwright.js",
@@ -173,6 +184,7 @@
       "company": "HEB",
       "version": "1.1.0",
       "name": "H-E-B",
+      "status": "experimental",
       "description": "Exports your H-E-B account profile, order history, and product nutrition data using Playwright browser automation.",
       "files": {
         "script": "heb/heb-playwright.js",
@@ -188,6 +200,7 @@
       "company": "amazon",
       "version": "1.0.0",
       "name": "Amazon",
+      "status": "beta",
       "description": "Exports your Amazon order history and profile information using Playwright browser automation.",
       "files": {
         "script": "amazon/amazon-playwright.js",
@@ -198,11 +211,12 @@
         "metadata": "sha256:8427eb8dd0a8bd588b3f579923c6294e6897aef9d45f83bc6fd9bdce96499f77"
       }
     },
-    { 
+    {
       "id": "uber-playwright",
       "company": "uber",
       "version": "1.0.0",
       "name": "Uber",
+      "status": "beta",
       "description": "Exports your Uber trip history and receipts using Playwright browser automation.",
       "files": {
         "script": "uber/uber-playwright.js",
@@ -218,6 +232,7 @@
       "company": "Anthropic",
       "version": "1.1.0",
       "name": "Claude",
+      "status": "experimental",
       "description": "Exports your Claude conversations and projects from claude.ai using Playwright browser automation.",
       "files": {
         "script": "anthropic/claude-playwright.js",

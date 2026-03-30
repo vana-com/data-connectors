@@ -8,6 +8,7 @@
   "connectURL": "https://{{platform}}.com/login",
   "connectSelector": "{{CSS selector only visible when logged in}}",
   "exportFrequency": "weekly",
+  "status": "experimental",
   "runtime": "playwright",
   "scopes": [
     {

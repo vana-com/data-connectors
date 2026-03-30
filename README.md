@@ -2,20 +2,33 @@
 
 Playwright-based data connectors for [DataConnect](https://github.com/vana-com/data-connect). Each connector exports a user's data from a web platform using browser automation. Credentials never leave the device.
 
+## Connector status
+
+Each connector has a status indicating its maturity level:
+
+- **Stable** -- Production-ready. Well-tested across multiple releases, reliable login and data extraction, complete schemas.
+- **Beta** -- Functional but less tested. Works in most cases but may have edge cases or require more login handling.
+- **Experimental** -- New or untested. May not work reliably; contributed recently with limited real-world usage.
+
 ## Connectors
 
-| Platform | Company | Runtime | Scopes |
-|----------|---------|---------|--------|
-| ChatGPT | OpenAI | playwright | chatgpt.conversations, chatgpt.memories |
-| GitHub | GitHub | playwright | github.profile, github.repositories, github.starred |
-| [H-E-B](heb/) | HEB | playwright | heb.profile, heb.orders, heb.nutrition |
-| Instagram | Meta | playwright | instagram.profile, instagram.posts, instagram.ads |
-| LinkedIn | LinkedIn | playwright | linkedin.profile, .experience, .education, .skills, .languages |
-| Oura Ring | Oura | playwright | oura.readiness, oura.sleep, oura.activity |
-| Shop | Shopify | playwright | shop.orders |
-| Spotify | Spotify | playwright | spotify.profile, spotify.savedTracks, spotify.playlists |
-| Whole Foods Market | Whole Foods | playwright | wholefoods.profile, wholefoods.orders, wholefoods.nutrition |
-| YouTube | Google | playwright | youtube.profile, youtube.subscriptions, youtube.playlists, youtube.playlistItems, youtube.likes, youtube.watchLater, youtube.history (top 50 recent items) |
+| Platform | Company | Status | Scopes |
+|----------|---------|--------|--------|
+| ChatGPT | OpenAI | Stable | chatgpt.conversations, chatgpt.memories |
+| GitHub | GitHub | Stable | github.profile, github.repositories, github.starred |
+| Instagram | Meta | Stable | instagram.profile, instagram.posts, instagram.ads |
+| LinkedIn | LinkedIn | Stable | linkedin.profile, .experience, .education, .skills, .languages, .connections |
+| Oura Ring | Oura | Stable | oura.readiness, oura.sleep, oura.activity |
+| Spotify | Spotify | Stable | spotify.profile, spotify.savedTracks, spotify.playlists |
+| Amazon | Amazon | Beta | amazon.profile, amazon.orders |
+| Instagram Ads | Meta | Beta | instagram.ads |
+| Shop | Shopify | Beta | shop.orders |
+| Uber | Uber | Beta | uber.trips, uber.receipts |
+| YouTube | Google | Beta | youtube.profile, youtube.subscriptions, youtube.playlists, youtube.playlistItems, youtube.likes, youtube.watchLater, youtube.history |
+| Claude | Anthropic | Experimental | claude.conversations, claude.projects |
+| [H-E-B](heb/) | HEB | Experimental | heb.profile, heb.orders, heb.nutrition |
+| Steam | Valve | Experimental | steam.profile, steam.games, steam.friends |
+| Whole Foods Market | Whole Foods | Experimental | wholefoods.profile, wholefoods.orders, wholefoods.nutrition |
 
 ## Running a connector
 
