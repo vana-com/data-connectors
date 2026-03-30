@@ -49,6 +49,7 @@ const entry = {
   version: metadata.version || '1.0.0',
   name: metadata.name || '',
   description: metadata.description || '',
+  ...(metadata.status ? { status: metadata.status } : {}),
   files: {
     script: relScript,
     metadata: relMetadata,
@@ -70,7 +71,8 @@ if (fs.existsSync(registryPath)) {
 // Update or add entry
 const idx = registry.connectors.findIndex(c => c.id === entry.id);
 if (idx >= 0) {
-  registry.connectors[idx] = entry;
+  const existing = registry.connectors[idx];
+  registry.connectors[idx] = { ...entry, status: entry.status || existing.status };
   console.log(`Updated: ${entry.id}`);
 } else {
   registry.connectors.push(entry);
