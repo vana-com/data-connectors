@@ -6,6 +6,7 @@ const {
   resolveConnectors,
   classifyOutcome,
   validateResult,
+  validateSchema,
 } = require('./test-connectors.cjs');
 
 describe('parseArgs', () => {
@@ -178,5 +179,49 @@ describe('validateResult', () => {
     const result = validateResult(data, githubMeta);
     assert.strictEqual(result.status, 'pass');
     assert.strictEqual(result.scopesFound.length, 2);
+  });
+});
+
+describe('validateSchema', () => {
+  it('returns pass for data matching schema', () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        username: { type: 'string' },
+        followers: { type: 'number' },
+      },
+      required: ['username'],
+    };
+    const data = { username: 'alice', followers: 42 };
+    const errors = validateSchema(data, schema);
+    assert.deepStrictEqual(errors, []);
+  });
+
+  it('returns error for missing required field', () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        username: { type: 'string' },
+      },
+      required: ['username'],
+    };
+    const data = { followers: 42 };
+    const errors = validateSchema(data, schema);
+    assert.strictEqual(errors.length, 1);
+    assert.match(errors[0], /required.*username/i);
+  });
+
+  it('returns error for wrong type', () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        username: { type: 'string' },
+      },
+      required: ['username'],
+    };
+    const data = { username: 123 };
+    const errors = validateSchema(data, schema);
+    assert.strictEqual(errors.length, 1);
+    assert.match(errors[0], /username.*string/i);
   });
 });

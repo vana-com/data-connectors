@@ -64,6 +64,42 @@ function resolveConnectors(registry, opts) {
   return registry.connectors.filter(c => allowed.includes(c.status));
 }
 
+// ─── Lightweight JSON Schema Validator ──────────────────────
+// Validates required fields and basic types. Not a full JSON Schema
+// implementation — just enough for smoke testing connector output.
+
+function validateSchema(data, schema) {
+  const errors = [];
+  if (!schema || schema.type !== 'object' || !schema.properties) return errors;
+
+  // Check required fields
+  for (const field of (schema.required || [])) {
+    if (!(field in data) || data[field] === undefined || data[field] === null) {
+      errors.push(`Required field missing: ${field}`);
+    }
+  }
+
+  // Check types of present fields
+  for (const [field, spec] of Object.entries(schema.properties)) {
+    if (!(field in data) || data[field] === null || data[field] === undefined) continue;
+    const value = data[field];
+    const expectedType = spec.type;
+    if (!expectedType) continue;
+
+    let actual;
+    if (Array.isArray(value)) actual = 'array';
+    else actual = typeof value;
+
+    if (expectedType === 'array' && actual !== 'array') {
+      errors.push(`${field}: expected array, got ${actual}`);
+    } else if (expectedType !== 'array' && actual !== expectedType) {
+      errors.push(`${field}: expected ${expectedType}, got ${actual}`);
+    }
+  }
+
+  return errors;
+}
+
 // ─── Outcome Classification ─────────────────────────────────
 
 function classifyOutcome(exitCode, stdoutLines) {
@@ -166,6 +202,23 @@ function runConnector(connectorEntry, opts) {
         }
 
         const validation = validateResult(data, metadata);
+
+        // Optional schema validation
+        let schemaErrors = [];
+        if (opts.validateSchemas) {
+          const schemasDir = path.join(ROOT, 'schemas');
+          for (const scope of validation.scopesFound) {
+            const schemaPath = path.join(schemasDir, `${scope}.json`);
+            if (!fs.existsSync(schemaPath)) continue;
+            try {
+              const schemaFile = JSON.parse(fs.readFileSync(schemaPath, 'utf-8'));
+              const scopeKey = scope in data ? scope : scope.split('.').slice(1).join('.');
+              const errs = validateSchema(data[scopeKey], schemaFile.schema);
+              schemaErrors.push(...errs.map(e => `${scope}: ${e}`));
+            } catch {}
+          }
+        }
+
         resolve({
           connector: connectorEntry.id,
           status: validation.status,
@@ -175,6 +228,7 @@ function runConnector(connectorEntry, opts) {
           scopesFound: validation.scopesFound,
           scopesMissing: validation.scopesMissing,
           warnings: validation.warnings.length > 0 ? validation.warnings : undefined,
+          schemaErrors: schemaErrors.length > 0 ? schemaErrors : undefined,
         });
       } else {
         resolve({
@@ -308,7 +362,7 @@ async function main() {
 // ─── Exports for testing ────────────────────────────────────
 
 if (require.main !== module) {
-  module.exports = { parseArgs, resolveConnectors, classifyOutcome, validateResult };
+  module.exports = { parseArgs, resolveConnectors, classifyOutcome, validateResult, validateSchema };
 } else {
   main().catch((err) => {
     console.error(`${c.red}Fatal: ${err.message}${c.reset}`);
