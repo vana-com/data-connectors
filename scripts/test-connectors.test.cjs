@@ -4,6 +4,8 @@ const assert = require('node:assert');
 const {
   parseArgs,
   resolveConnectors,
+  classifyOutcome,
+  validateResult,
 } = require('./test-connectors.cjs');
 
 describe('parseArgs', () => {
@@ -59,5 +61,122 @@ describe('resolveConnectors', () => {
       () => resolveConnectors(registry, { connectors: ['nonexistent'], includeBeta: false }),
       /not found in registry: nonexistent/
     );
+  });
+});
+
+describe('classifyOutcome', () => {
+  it('returns AUTH for exit code 2', () => {
+    const result = classifyOutcome(2, []);
+    assert.strictEqual(result.status, 'auth');
+    assert.match(result.error, /need-input/);
+  });
+
+  it('returns AUTH for exit code 3', () => {
+    const result = classifyOutcome(3, []);
+    assert.strictEqual(result.status, 'auth');
+    assert.match(result.error, /legacy-auth/);
+  });
+
+  it('returns TIMEOUT for exit 1 with timeout message', () => {
+    const stdout = [
+      JSON.stringify({ type: 'error', message: 'Timeout after 5 minutes' }),
+    ];
+    const result = classifyOutcome(1, stdout);
+    assert.strictEqual(result.status, 'timeout');
+  });
+
+  it('returns FAIL for exit 1 without timeout', () => {
+    const stdout = [
+      JSON.stringify({ type: 'error', message: 'Some other error' }),
+    ];
+    const result = classifyOutcome(1, stdout);
+    assert.strictEqual(result.status, 'fail');
+  });
+
+  it('returns needs-validation for exit 0', () => {
+    const result = classifyOutcome(0, []);
+    assert.strictEqual(result.status, 'needs-validation');
+  });
+});
+
+describe('validateResult', () => {
+  const metadata = {
+    scopes: [
+      { scope: 'test.profile' },
+      { scope: 'test.posts' },
+      { scope: 'test.likes' },
+    ],
+  };
+
+  it('returns PASS when all scopes present and non-empty', () => {
+    const data = {
+      'test.profile': { name: 'Alice' },
+      'test.posts': [{ id: 1 }],
+      'test.likes': [{ id: 2 }],
+      exportSummary: { count: 2 },
+    };
+    const result = validateResult(data, metadata);
+    assert.strictEqual(result.status, 'pass');
+    assert.strictEqual(result.scopesFound.length, 3);
+    assert.strictEqual(result.scopesMissing.length, 0);
+  });
+
+  it('returns WARN when scope has empty array', () => {
+    const data = {
+      'test.profile': { name: 'Alice' },
+      'test.posts': [],
+      'test.likes': [{ id: 2 }],
+    };
+    const result = validateResult(data, metadata);
+    assert.strictEqual(result.status, 'warn');
+    assert.deepStrictEqual(result.warnings, ['test.posts: empty array']);
+  });
+
+  it('returns WARN when scope has empty object', () => {
+    const data = {
+      'test.profile': {},
+      'test.posts': [{ id: 1 }],
+      'test.likes': [{ id: 2 }],
+    };
+    const result = validateResult(data, metadata);
+    assert.strictEqual(result.status, 'warn');
+    assert.deepStrictEqual(result.warnings, ['test.profile: empty object']);
+  });
+
+  it('returns FAIL when scope is missing', () => {
+    const data = {
+      'test.profile': { name: 'Alice' },
+      'test.posts': [{ id: 1 }],
+    };
+    const result = validateResult(data, metadata);
+    assert.strictEqual(result.status, 'fail');
+    assert.deepStrictEqual(result.scopesMissing, ['test.likes']);
+  });
+
+  it('returns FAIL when scope value is null', () => {
+    const data = {
+      'test.profile': { name: 'Alice' },
+      'test.posts': [{ id: 1 }],
+      'test.likes': null,
+    };
+    const result = validateResult(data, metadata);
+    assert.strictEqual(result.status, 'fail');
+    assert.deepStrictEqual(result.scopesMissing, ['test.likes']);
+  });
+
+  it('normalizes bare keys for github-style connectors', () => {
+    const githubMeta = {
+      scopes: [
+        { scope: 'github.profile' },
+        { scope: 'github.repositories' },
+      ],
+    };
+    const data = {
+      profile: { name: 'Alice' },
+      repositories: [{ name: 'repo1' }],
+    };
+    const result = validateResult(data, githubMeta);
+    assert.strictEqual(result.status, 'pass');
+    assert.strictEqual(result.scopesFound.length, 2);
   });
 });

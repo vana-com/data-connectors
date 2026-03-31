@@ -64,8 +64,63 @@ function resolveConnectors(registry, opts) {
   return registry.connectors.filter(c => allowed.includes(c.status));
 }
 
+// ─── Outcome Classification ─────────────────────────────────
+
+function classifyOutcome(exitCode, stdoutLines) {
+  if (exitCode === 2) return { status: 'auth', error: 'need-input: connector requires credentials' };
+  if (exitCode === 3) return { status: 'auth', error: 'legacy-auth: connector uses headed login not supported in batch mode' };
+  if (exitCode === 1) {
+    const isTimeout = stdoutLines.some(line => {
+      try {
+        const msg = JSON.parse(line);
+        return msg.type === 'error' && msg.message && msg.message.includes('Timeout after 5 minutes');
+      } catch { return false; }
+    });
+    return isTimeout
+      ? { status: 'timeout', error: 'Timed out after 5 minutes' }
+      : { status: 'fail', error: 'Connector exited with error' };
+  }
+  if (exitCode === 0) return { status: 'needs-validation' };
+  return { status: 'fail', error: `Unknown exit code: ${exitCode}` };
+}
+
+// ─── Result Validation ──────────────────────────────────────
+
+function validateResult(data, metadata) {
+  const expectedScopes = (metadata.scopes || []).map(s => s.scope);
+  const scopesFound = [];
+  const scopesMissing = [];
+  const warnings = [];
+
+  for (const scope of expectedScopes) {
+    const bareSuffix = scope.includes('.') ? scope.split('.').slice(1).join('.') : null;
+    const value = scope in data ? data[scope] : (bareSuffix && bareSuffix in data ? data[bareSuffix] : undefined);
+
+    if (value === undefined || value === null) {
+      scopesMissing.push(scope);
+      continue;
+    }
+
+    scopesFound.push(scope);
+
+    if (Array.isArray(value) && value.length === 0) {
+      warnings.push(`${scope}: empty array`);
+    } else if (typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0) {
+      warnings.push(`${scope}: empty object`);
+    }
+  }
+
+  if (scopesMissing.length > 0) {
+    return { status: 'fail', scopesFound, scopesMissing, warnings };
+  }
+  if (warnings.length > 0) {
+    return { status: 'warn', scopesFound, scopesMissing, warnings };
+  }
+  return { status: 'pass', scopesFound, scopesMissing, warnings };
+}
+
 // ─── Exports for testing ────────────────────────────────────
 
 if (require.main !== module) {
-  module.exports = { parseArgs, resolveConnectors };
+  module.exports = { parseArgs, resolveConnectors, classifyOutcome, validateResult };
 }
