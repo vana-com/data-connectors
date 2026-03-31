@@ -119,8 +119,199 @@ function validateResult(data, metadata) {
   return { status: 'pass', scopesFound, scopesMissing, warnings };
 }
 
+// ─── Run a single connector via run-connector.cjs ───────────
+
+function runConnector(connectorEntry, opts) {
+  return new Promise((resolve) => {
+    const scriptPath = path.join(ROOT, connectorEntry.files.script);
+    const metadataPath = scriptPath.replace(/\.js$/, '.json');
+    const outputPath = path.join(RESULTS_DIR, `${connectorEntry.id}.json`);
+
+    // Load metadata for connectURL and scope info
+    let metadata = {};
+    try { metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf-8')); } catch {}
+    const startUrl = metadata.connectURL || 'about:blank';
+
+    // Delete stale result file
+    try { fs.unlinkSync(outputPath); } catch {}
+
+    const startTime = Date.now();
+    const stdoutLines = [];
+
+    const child = spawn(process.execPath, [
+      RUN_CONNECTOR, scriptPath, startUrl, '--output', outputPath,
+    ], { stdio: ['pipe', 'pipe', 'pipe'] });
+
+    child.stdout.on('data', (chunk) => {
+      for (const line of chunk.toString().split('\n')) {
+        if (line.trim()) stdoutLines.push(line.trim());
+      }
+    });
+
+    // Suppress stderr (runner debug output)
+    child.stderr.on('data', () => {});
+
+    child.on('close', (exitCode) => {
+      const duration = Date.now() - startTime;
+      const outcome = classifyOutcome(exitCode || 0, stdoutLines);
+
+      if (outcome.status === 'needs-validation') {
+        // Read and validate result file
+        let data = null;
+        try { data = JSON.parse(fs.readFileSync(outputPath, 'utf-8')); } catch {}
+
+        if (!data) {
+          resolve({ connector: connectorEntry.id, status: 'fail', exitCode: 0, duration, error: 'No result file produced' });
+          return;
+        }
+
+        const validation = validateResult(data, metadata);
+        resolve({
+          connector: connectorEntry.id,
+          status: validation.status,
+          exitCode: 0,
+          duration,
+          scopesExpected: (metadata.scopes || []).map(s => s.scope),
+          scopesFound: validation.scopesFound,
+          scopesMissing: validation.scopesMissing,
+          warnings: validation.warnings.length > 0 ? validation.warnings : undefined,
+        });
+      } else {
+        resolve({
+          connector: connectorEntry.id,
+          status: outcome.status,
+          exitCode: exitCode || 0,
+          duration,
+          error: outcome.error,
+        });
+      }
+    });
+  });
+}
+
+// ─── Reporting ──────────────────────────────────────────────
+
+function printResults(results) {
+  const timestamp = new Date().toISOString();
+  console.log(`\n${c.bold}Connector Smoke Test${c.reset} ${c.dim}— ${timestamp}${c.reset}\n`);
+
+  for (const r of results) {
+    const dur = (r.duration / 1000).toFixed(1) + 's';
+    const scopeCount = r.scopesExpected
+      ? `${r.scopesFound.length}/${r.scopesExpected.length} scopes`
+      : '—';
+
+    let detail = '';
+    if (r.warnings && r.warnings.length > 0) detail = `  (${r.warnings.join(', ')})`;
+    if (r.scopesMissing && r.scopesMissing.length > 0) detail = `  (missing: ${r.scopesMissing.join(', ')})`;
+    if (r.error) detail = `  (${r.error})`;
+
+    let statusStr;
+    switch (r.status) {
+      case 'pass':    statusStr = `${c.green}PASS${c.reset}   `; break;
+      case 'warn':    statusStr = `${c.yellow}WARN${c.reset}   `; break;
+      case 'auth':    statusStr = `${c.magenta}AUTH${c.reset}   `; break;
+      case 'fail':    statusStr = `${c.red}FAIL${c.reset}   `; break;
+      case 'timeout': statusStr = `${c.red}TIMEOUT${c.reset}`; break;
+      default:        statusStr = `${c.gray}???${c.reset}    `;
+    }
+
+    const id = r.connector.padEnd(28);
+    const sc = scopeCount.padEnd(14);
+    console.log(`  ${statusStr} ${id} ${sc} ${dur}${c.dim}${detail}${c.reset}`);
+  }
+
+  const counts = { pass: 0, warn: 0, auth: 0, fail: 0, timeout: 0 };
+  let totalDuration = 0;
+  for (const r of results) {
+    counts[r.status] = (counts[r.status] || 0) + 1;
+    totalDuration += r.duration;
+  }
+
+  const parts = [];
+  if (counts.pass) parts.push(`${c.green}${counts.pass} pass${c.reset}`);
+  if (counts.warn) parts.push(`${c.yellow}${counts.warn} warn${c.reset}`);
+  if (counts.auth) parts.push(`${c.magenta}${counts.auth} auth${c.reset}`);
+  if (counts.fail) parts.push(`${c.red}${counts.fail} fail${c.reset}`);
+  if (counts.timeout) parts.push(`${c.red}${counts.timeout} timeout${c.reset}`);
+
+  console.log(`\n${parts.join(' · ')} — ${(totalDuration / 1000).toFixed(1)}s total\n`);
+
+  return counts;
+}
+
+function writeJsonReport(results) {
+  const timestamp = new Date().toISOString();
+  const counts = { pass: 0, warn: 0, auth: 0, fail: 0, timeout: 0 };
+  for (const r of results) counts[r.status] = (counts[r.status] || 0) + 1;
+
+  const report = {
+    timestamp,
+    summary: { ...counts, total: results.length },
+    results,
+  };
+
+  const reportPath = path.join(RESULTS_DIR, `connector-smoke-${timestamp.replace(/[:.]/g, '-')}.json`);
+  fs.writeFileSync(reportPath, JSON.stringify(report, null, 2));
+  console.log(`${c.dim}Report: ${reportPath}${c.reset}\n`);
+  return reportPath;
+}
+
+// ─── Main ───────────────────────────────────────────────────
+
+async function main() {
+  const opts = parseArgs(process.argv.slice(2));
+
+  // Load registry
+  if (!fs.existsSync(REGISTRY_PATH)) {
+    console.error(`${c.red}Registry not found: ${REGISTRY_PATH}${c.reset}`);
+    process.exit(1);
+  }
+  const registry = JSON.parse(fs.readFileSync(REGISTRY_PATH, 'utf-8'));
+
+  // Resolve connectors
+  const connectors = resolveConnectors(registry, opts);
+  if (connectors.length === 0) {
+    console.error(`${c.red}No connectors matched.${c.reset}`);
+    process.exit(1);
+  }
+
+  // Ensure results directory
+  fs.mkdirSync(RESULTS_DIR, { recursive: true });
+
+  // Verify run-connector.cjs exists
+  if (!fs.existsSync(RUN_CONNECTOR)) {
+    console.error(`${c.red}run-connector.cjs not found: ${RUN_CONNECTOR}${c.reset}`);
+    process.exit(1);
+  }
+
+  // Run connectors sequentially (each needs its own browser)
+  const results = [];
+  for (const entry of connectors) {
+    const label = `${c.cyan}${entry.name}${c.reset} ${c.dim}(${entry.id})${c.reset}`;
+    process.stdout.write(`  Running ${label}...`);
+    const result = await runConnector(entry, opts);
+    // Clear the "Running..." line
+    process.stdout.write('\r\x1b[K');
+    results.push(result);
+  }
+
+  // Report
+  const counts = printResults(results);
+  writeJsonReport(results);
+
+  // Exit 1 if any fail/auth/timeout
+  const hasFailure = counts.fail > 0 || counts.auth > 0 || counts.timeout > 0;
+  process.exit(hasFailure ? 1 : 0);
+}
+
 // ─── Exports for testing ────────────────────────────────────
 
 if (require.main !== module) {
   module.exports = { parseArgs, resolveConnectors, classifyOutcome, validateResult };
+} else {
+  main().catch((err) => {
+    console.error(`${c.red}Fatal: ${err.message}${c.reset}`);
+    process.exit(1);
+  });
 }
