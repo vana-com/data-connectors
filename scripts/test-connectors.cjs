@@ -155,6 +155,33 @@ function validateResult(data, metadata) {
   return { status: 'pass', scopesFound, scopesMissing, warnings };
 }
 
+// ─── Diagnostics extraction from runner output ──────────────
+
+function extractDiagnostics(stdoutLines, stderrLines) {
+  const errors = [];
+  const logs = [];
+
+  for (const line of stdoutLines) {
+    try {
+      const msg = JSON.parse(line);
+      if (msg.type === 'error') errors.push(msg.message || JSON.stringify(msg));
+      else if (msg.type === 'legacy-auth') errors.push(msg.message || 'Legacy auth required');
+      else if (msg.type === 'need-input') errors.push(`Input required: ${msg.message || 'credentials needed'}`);
+      else if (msg.type === 'log' && msg.message) logs.push(msg.message);
+    } catch {}
+  }
+
+  // Extract key runner errors from stderr (e.g., "Error in run ...")
+  for (const line of stderrLines) {
+    const stripped = line.replace(/^\[PlaywrightRunner\]\s*/, '');
+    if (stripped.startsWith('Error in run') || stripped.startsWith('WARNING:')) {
+      errors.push(stripped);
+    }
+  }
+
+  return { errors, logs };
+}
+
 // ─── Run a single connector via run-connector.cjs ───────────
 
 function runConnector(connectorEntry, opts) {
@@ -186,8 +213,13 @@ function runConnector(connectorEntry, opts) {
       }
     });
 
-    // Suppress stderr (runner debug output)
-    child.stderr.on('data', () => {});
+    // Capture stderr for diagnostics
+    const stderrLines = [];
+    child.stderr.on('data', (chunk) => {
+      for (const line of chunk.toString().split('\n')) {
+        if (line.trim()) stderrLines.push(line.trim());
+      }
+    });
 
     child.on('close', (exitCode) => {
       const duration = Date.now() - startTime;
@@ -199,7 +231,15 @@ function runConnector(connectorEntry, opts) {
         try { data = JSON.parse(fs.readFileSync(outputPath, 'utf-8')); } catch {}
 
         if (!data) {
-          resolve({ connector: connectorEntry.id, status: 'fail', exitCode: 0, duration, error: 'No result file produced' });
+          const diag = extractDiagnostics(stdoutLines, stderrLines);
+          const errorDetail = diag.errors.length > 0
+            ? diag.errors[diag.errors.length - 1]
+            : 'No result file produced';
+          resolve({
+            connector: connectorEntry.id, status: 'fail', exitCode: 0, duration,
+            error: errorDetail,
+            diagnostics: diag.errors.length > 0 ? diag.errors : undefined,
+          });
           return;
         }
 
@@ -233,12 +273,14 @@ function runConnector(connectorEntry, opts) {
           schemaErrors: schemaErrors.length > 0 ? schemaErrors : undefined,
         });
       } else {
+        const diag = extractDiagnostics(stdoutLines, stderrLines);
         resolve({
           connector: connectorEntry.id,
           status: outcome.status,
           exitCode: exitCode || 0,
           duration,
-          error: outcome.error,
+          error: diag.errors.length > 0 ? diag.errors[diag.errors.length - 1] : outcome.error,
+          diagnostics: diag.errors.length > 0 ? diag.errors : undefined,
         });
       }
     });
@@ -275,6 +317,13 @@ function printResults(results) {
     const id = r.connector.padEnd(28);
     const sc = scopeCount.padEnd(14);
     console.log(`  ${statusStr} ${id} ${sc} ${dur}${c.dim}${detail}${c.reset}`);
+
+    // Print diagnostics for failures
+    if (r.diagnostics && r.diagnostics.length > 0 && r.status !== 'pass' && r.status !== 'warn') {
+      for (const diag of r.diagnostics) {
+        console.log(`           ${c.dim}${c.red}↳ ${diag}${c.reset}`);
+      }
+    }
   }
 
   const counts = { pass: 0, warn: 0, auth: 0, fail: 0, timeout: 0 };
