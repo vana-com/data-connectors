@@ -92,20 +92,20 @@ If web search doesn't reveal clear APIs, use Chrome browser automation tools to:
 
 | If your platform...          | Read this connector                        |
 |------------------------------|--------------------------------------------|
-| Has REST APIs                | `linkedin/linkedin-playwright.js` (299 lines, cleanest example) |
-| Uses GraphQL/XHR             | `meta/instagram-playwright.js` (network capture) |
-| Needs DOM scraping           | `github/github-playwright.js` (structural selectors) |
-| Needs auth token extraction  | `openai/chatgpt-playwright.js` (bearer tokens) |
-| Has complex auth (TOTP/2FA)  | `spotify/spotify-playwright.js` |
+| Has REST APIs                | `connectors/linkedin/linkedin-playwright.js` (299 lines, cleanest example) |
+| Uses GraphQL/XHR             | `connectors/meta/instagram-playwright.js` (network capture) |
+| Needs DOM scraping           | `connectors/github/github-playwright.js` (structural selectors) |
+| Needs auth token extraction  | `connectors/openai/chatgpt-playwright.js` (bearer tokens) |
+| Has complex auth (TOTP/2FA)  | `connectors/spotify/spotify-playwright.js` |
 
 **Create these files:**
 
-1. **`<company>/<name>-playwright.json`** — Metadata file
+1. **`connectors/<company>/<name>-playwright.json`** — Metadata file
    - Use template: `.claude/skills/data-connector/templates/connector-metadata.json`
    - `connectSelector` is CRITICAL — must only match when user is logged in
    - Include `scopes` array with all data categories
 
-2. **`<company>/<name>-playwright.js`** — Connector script (see Automated Login Pattern below)
+2. **`connectors/<company>/<name>-playwright.js`** — Connector script (see Automated Login Pattern below)
    - MUST use `page.evaluate('string')` — NOT `page.evaluate(() => ...)` (function refs don't work)
    - MUST interpolate variables with `JSON.stringify()` into evaluate strings
    - MUST include error handling for API failures
@@ -248,7 +248,7 @@ const performLogin = async () => {
 Run the structural validator:
 
 ```bash
-node scripts/validate-connector.cjs ./<company>/<name>-playwright.js
+node scripts/validate-connector.cjs ./connectors/<company>/<name>-playwright.js
 ```
 
 This checks:
@@ -276,7 +276,7 @@ grep -q "USER_LOGIN_<PLATFORM_UPPER>" .env && echo "Credentials found" || echo "
 Run the connector in headless mode:
 
 ```bash
-node test-connector.cjs ./<company>/<name>-playwright.js --headless
+node test-connector.cjs ./connectors/<company>/<name>-playwright.js --headless
 ```
 
 **What happens (fully automated, no human needed):**
@@ -303,7 +303,7 @@ If unavailable, inform the user and provide setup instructions. Do NOT skip test
 After the test produces `connector-result.json`, validate it:
 
 ```bash
-node scripts/validate-connector.cjs ./<company>/<name>-playwright.js --check-result ./connector-result.json
+node scripts/validate-connector.cjs ./connectors/<company>/<name>-playwright.js --check-result ./connector-result.json
 ```
 
 This checks:
@@ -331,7 +331,7 @@ If testing or output validation fails:
    - Schema violations? → Data shape doesn't match schema; fix schema or data transform
    - Script crash? → Check for missing awaits, null references, syntax errors in evaluate strings
 4. **Fix the connector script** (and/or schemas)
-5. **Re-run the test:** `node test-connector.cjs ./<company>/<name>-playwright.js --headless`
+5. **Re-run the test:** `node test-connector.cjs ./connectors/<company>/<name>-playwright.js --headless`
 6. **Re-validate output**
 7. **Repeat until all checks pass**
 
@@ -352,8 +352,8 @@ Once all validations pass:
 
 1. **Generate checksums:**
    ```bash
-   shasum -a 256 <company>/<name>-playwright.js | awk '{print "sha256:" $1}'
-   shasum -a 256 <company>/<name>-playwright.json | awk '{print "sha256:" $1}'
+   shasum -a 256 connectors/<company>/<name>-playwright.js | awk '{print "sha256:" $1}'
+   shasum -a 256 connectors/<company>/<name>-playwright.json | awk '{print "sha256:" $1}'
    ```
 
 2. **Add entry to `registry.json`:**
@@ -365,8 +365,8 @@ Once all validations pass:
      "name": "<Platform Name>",
      "description": "<what it exports>",
      "files": {
-       "script": "<company>/<name>-playwright.js",
-       "metadata": "<company>/<name>-playwright.json"
+       "script": "connectors/<company>/<name>-playwright.js",
+       "metadata": "connectors/<company>/<name>-playwright.json"
      },
      "checksums": {
        "script": "sha256:<hash>",

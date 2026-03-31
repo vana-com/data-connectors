@@ -159,7 +159,7 @@ vana logs <platform>
 If you built or modified a connector, immediately run validation — before presenting results to the user:
 
 ```bash
-node scripts/validate.cjs <company>/<name>-playwright.js --check-result ~/.dataconnect/last-result.json
+node scripts/validate.cjs connectors/<company>/<name>-playwright.js --check-result ~/.dataconnect/last-result.json
 ```
 
 Fix any issues the validator reports. The validator checks debug code, login method diversity, schema descriptions, data cleanliness, and more — it is the quality gate. Iterate until validation passes.
@@ -170,7 +170,7 @@ If you built a new connector (not one from the registry), ask the user:
 
 > "Want to share this connector so others can connect their [Platform] data too? Contributing means the community helps maintain it when [Platform] changes their site."
 
-If yes, run `node scripts/validate.cjs <company>/<name>-playwright.js --contribute`. If no, move on.
+If yes, run `node scripts/validate.cjs connectors/<company>/<name>-playwright.js --contribute`. If no, move on.
 
 ### 5. Suggest what to do with the data
 

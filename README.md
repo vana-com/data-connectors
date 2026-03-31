@@ -26,81 +26,80 @@ Each connector has a status indicating its maturity level:
 | Uber | Uber | Beta | uber.trips, uber.receipts |
 | YouTube | Google | Beta | youtube.profile, youtube.subscriptions, youtube.playlists, youtube.playlistItems, youtube.likes, youtube.watchLater, youtube.history |
 | Claude | Anthropic | Experimental | claude.conversations, claude.projects |
-| [H-E-B](heb/) | HEB | Experimental | heb.profile, heb.orders, heb.nutrition |
+| [H-E-B](connectors/heb/) | HEB | Experimental | heb.profile, heb.orders, heb.nutrition |
 | Steam | Valve | Experimental | steam.profile, steam.games, steam.friends |
 | Whole Foods Market | Whole Foods | Experimental | wholefoods.profile, wholefoods.orders, wholefoods.nutrition |
 
 ## Running a connector
 
 ```bash
-node run-connector.cjs ./github/github-playwright.js              # JSON output (for agents)
-node run-connector.cjs ./github/github-playwright.js --pretty      # colored output (for humans)
-node run-connector.cjs ./github/github-playwright.js --inputs '{"username":"x","password":"y"}'
+node run-connector.cjs ./connectors/github/github-playwright.js              # JSON output (for agents)
+node run-connector.cjs ./connectors/github/github-playwright.js --pretty      # colored output (for humans)
+node run-connector.cjs ./connectors/github/github-playwright.js --inputs '{"username":"x","password":"y"}'
 ```
 
 See [`skills/vana-connect/`](skills/vana-connect/) for the agent skill: setup, running, creating new connectors, and data recipes.
 
 ## Repository structure
 
+| Folder | What's inside | Audience |
+|--------|--------------|----------|
+| **`connectors/`** | All platform connectors (`<company>/<name>-playwright.js` + `.json`) | Everyone |
+| **`scripts/`** | Developer tooling: scaffold, test, validate, session capture | Human developers |
+| **`skills/`** | AI agent skill for creating/running connectors (`vana-connect/`) | AI agents (Claude, etc.) |
+| **`schemas/`** | JSON Schema definitions, one per scope (`<platform>.<scope>.json`) | Validation |
+| **`icons/`** | SVG/PNG icons for the DataConnect UI | Frontend |
+| **`types/`** | TypeScript type definitions (`connector.d.ts`) | TypeScript consumers |
+
 ```
-├── <company>/                     # Connector directories (one per company)
+connectors/                        # All platform connectors
+├── <company>/
 │   ├── <name>-playwright.js       #   Connector script (plain JS)
 │   └── <name>-playwright.json     #   Metadata (login URL, selectors, scopes)
 │
-├── schemas/                       # JSON Schema definitions (one per scope)
-│   └── <platform>.<scope>.json
-├── types/
-│   └── connector.d.ts             # TypeScript type definitions
-├── icons/                         # SVG/PNG icons for the DataConnect UI
-├── registry.json                  # Central registry (checksums, versions, OTA)
+scripts/                           # Developer tooling (human-driven)
+├── create-connector.sh            #   End-to-end connector scaffold + test
+├── capture-session.cjs            #   Browser session capture (manual login)
+├── test-connector.cjs             #   Run connector against a real browser
+├── validate-connector.cjs         #   Structure + output validator
+└── reference/                     #   Templates and API docs
 │
-├── harness/                       # Local dev environment (human-driven)
-│   ├── create-connector.sh        #   End-to-end connector scaffold + test
-│   ├── capture-session.cjs        #   Browser session capture (manual login)
-│   ├── test-connector.cjs         #   Run connector against a real browser
-│   └── scripts/validate-connector.cjs
+skills/vana-connect/               # Agent skill (AI-agent-driven)
+├── SKILL.md                       #   Skill entry point (setup, connect, recipes)
+├── CREATE.md                      #   Full walkthrough for building connectors
+└── scripts/                       #   Agent-facing scripts (runner, validator, etc.)
 │
-├── skills/vana-connect/           # Agent skill (AI-agent-driven)
-│   ├── SKILL.md                   #   Skill entry point (setup, connect, recipes)
-│   ├── CREATE.md                  #   Full walkthrough for building connectors
-│   └── scripts/run-connector.cjs  #   Agent-facing connector runner
+schemas/                           # JSON Schema definitions (one per scope)
+├── <platform>.<scope>.json
 │
-├── .claude/skills/                # Claude Code skills (autonomous workflows)
-│   ├── data-connector/            #   Manual connector creation guide
-│   └── auto-create-connector/     #   Fully autonomous connector builder
-│
-├── run-connector.cjs              # Symlink → skills/vana-connect/scripts/run-connector.cjs
-├── test-connector.cjs             # Standalone test runner
-├── scripts/
-│   └── validate-connector.cjs     # Structure + output validator
-├── create-connector.sh            # Quick scaffold script
-│
-├── connectors/                    # (Deprecated) Legacy connector location
-└── reports/                       # Connector review templates
+registry.json                      # Central registry (checksums, versions, OTA)
+run-connector.cjs                  # Symlink → skills/vana-connect/scripts/run-connector.cjs
+test-connector.cjs                 # Standalone test runner
+create-connector.sh                # Quick autonomous scaffold script
 ```
 
 ### Connectors
 
-Each connector lives in a `<company>/` directory at the repo root. A connector consists of two files:
+Each connector lives in `connectors/<company>/`. A connector consists of two files:
 
 - **`<name>-playwright.js`** -- the connector script (plain JS, runs inside the Playwright runner sidecar)
 - **`<name>-playwright.json`** -- metadata (display name, login URL, selectors, scopes)
 
 Some connectors also include a README with platform-specific setup instructions (e.g., API keys).
 
-### Harness vs. skills
+### Scripts vs. skills
 
 The repo has two interfaces for building and running connectors. They serve different audiences but share the same connector format and output:
 
-| | `harness/` | `skills/vana-connect/` |
+| | `scripts/` | `skills/vana-connect/` |
 |---|---|---|
 | **Audience** | Human developers at a terminal | AI agents (Claude, etc.) |
-| **Entry point** | `harness/create-connector.sh` | `skills/vana-connect/SKILL.md` |
+| **Entry point** | `scripts/create-connector.sh` | `skills/vana-connect/SKILL.md` |
 | **Login** | Manual browser login via `capture-session.cjs` | CLI-driven (`vana connect`) |
-| **Testing** | `harness/test-connector.cjs` | `run-connector.cjs` |
+| **Testing** | `scripts/test-connector.cjs` | `run-connector.cjs` |
 | **When to use** | Local development, debugging, manual QA | Automated connector creation and data export |
 
-Both produce the same connector files (`<company>/<name>-playwright.js` + `.json`) and use the same schemas, registry, and validation scripts.
+Both produce the same connector files (`connectors/<company>/<name>-playwright.js` + `.json`) and use the same schemas, registry, and validation scripts.
 
 ---
 
@@ -143,9 +142,9 @@ Metadata keys (`exportSummary`, `timestamp`, `version`, `platform`) are not trea
 
 | Pattern | When to use | Example connector |
 |---------|------------|-------------------|
-| **API fetch** via `page.evaluate()` | Platform has REST/JSON APIs | `openai/chatgpt-playwright.js` |
-| **Network capture** via `page.captureNetwork()` | Platform uses GraphQL/XHR that fires on navigation | `meta/instagram-playwright.js` |
-| **DOM scraping** via `page.evaluate()` | No API available, data only in rendered HTML | `linkedin/linkedin-playwright.js` |
+| **API fetch** via `page.evaluate()` | Platform has REST/JSON APIs | `connectors/openai/chatgpt-playwright.js` |
+| **Network capture** via `page.captureNetwork()` | Platform uses GraphQL/XHR that fires on navigation | `connectors/meta/instagram-playwright.js` |
+| **DOM scraping** via `page.evaluate()` | No API available, data only in rendered HTML | `connectors/linkedin/linkedin-playwright.js` |
 
 ---
 
@@ -153,12 +152,12 @@ Metadata keys (`exportSummary`, `timestamp`, `version`, `platform`) are not trea
 
 See [`skills/vana-connect/CREATE.md`](skills/vana-connect/CREATE.md) for the full walkthrough. Summary:
 
-1. **Scaffold:** `node scripts/scaffold.cjs <platform> [company]` -- generates script, metadata, and stub schema
+1. **Scaffold:** `node skills/vana-connect/scripts/scaffold.cjs <platform> [company]` -- generates script, metadata, and stub schema
 2. **Implement:** Write login + data collection logic (see CREATE.md for auth patterns, extraction strategies, and reference connectors)
-3. **Validate structure:** `node scripts/validate-connector.cjs <company>/<name>-playwright.js`
-4. **Test:** `node run-connector.cjs <company>/<name>-playwright.js --inputs '{"username":"x","password":"y"}'`
-5. **Validate output:** `node scripts/validate-connector.cjs <company>/<name>-playwright.js --check-result ~/.dataconnect/last-result.json`
-6. **Register:** `node scripts/register.cjs <company>/<name>-playwright.js` -- adds entry + checksums to `registry.json`
+3. **Validate structure:** `node scripts/validate-connector.cjs connectors/<company>/<name>-playwright.js`
+4. **Test:** `node run-connector.cjs connectors/<company>/<name>-playwright.js --inputs '{"username":"x","password":"y"}'`
+5. **Validate output:** `node scripts/validate-connector.cjs connectors/<company>/<name>-playwright.js --check-result ~/.dataconnect/last-result.json`
+6. **Register:** `node skills/vana-connect/scripts/register.cjs connectors/<company>/<name>-playwright.js` -- adds entry + checksums to `registry.json`
 
 ---
 
@@ -278,22 +277,22 @@ Test connectors without the full DataConnect app. The runner spawns playwright-r
 
 ```bash
 # Run a connector (headed by default, browser visible)
-node run-connector.cjs ./linkedin/linkedin-playwright.js
+node run-connector.cjs ./connectors/linkedin/linkedin-playwright.js
 
 # Colored, human-readable output
-node run-connector.cjs ./linkedin/linkedin-playwright.js --pretty
+node run-connector.cjs ./connectors/linkedin/linkedin-playwright.js --pretty
 
 # Pre-supply credentials
-node run-connector.cjs ./linkedin/linkedin-playwright.js --inputs '{"username":"x","password":"y"}'
+node run-connector.cjs ./connectors/linkedin/linkedin-playwright.js --inputs '{"username":"x","password":"y"}'
 
 # Run headless (no visible browser)
-node run-connector.cjs ./linkedin/linkedin-playwright.js --headless
+node run-connector.cjs ./connectors/linkedin/linkedin-playwright.js --headless
 
 # Override the initial URL
-node run-connector.cjs ./linkedin/linkedin-playwright.js --url https://linkedin.com/feed
+node run-connector.cjs ./connectors/linkedin/linkedin-playwright.js --url https://linkedin.com/feed
 
 # Save result to a custom path (default: ./connector-result.json)
-node run-connector.cjs ./linkedin/linkedin-playwright.js --output ./my-result.json
+node run-connector.cjs ./connectors/linkedin/linkedin-playwright.js --output ./my-result.json
 ```
 
 The runner reads the connector's sibling `.json` metadata to resolve the `connectURL`. In headed mode, `goHeadless()` becomes a no-op so the browser stays visible throughout.
@@ -306,9 +305,9 @@ The runner reads the connector's sibling `.json` metadata to resolve the `connec
 
 1. Fork this repo
 2. Create a branch: `git checkout -b feat/<platform>-connector`
-3. Add your files in `<company>/` at the repo root:
-   - `<company>/<name>-playwright.js` -- connector script
-   - `<company>/<name>-playwright.json` -- metadata
+3. Add your files in `connectors/<company>/`:
+   - `connectors/<company>/<name>-playwright.js` -- connector script
+   - `connectors/<company>/<name>-playwright.json` -- metadata
    - `schemas/<platform>.<scope>.json` -- data schema (optional but encouraged)
 4. Test locally using the instructions above
 5. Update `registry.json` with your connector entry and checksums
@@ -339,8 +338,8 @@ The runner reads the connector's sibling `.json` metadata to resolve the `connec
 The registry uses SHA-256 checksums to verify file integrity during OTA updates. Always regenerate checksums when modifying connector files:
 
 ```bash
-shasum -a 256 <company>/<name>-playwright.js | awk '{print "sha256:" $1}'
-shasum -a 256 <company>/<name>-playwright.json | awk '{print "sha256:" $1}'
+shasum -a 256 connectors/<company>/<name>-playwright.js | awk '{print "sha256:" $1}'
+shasum -a 256 connectors/<company>/<name>-playwright.json | awk '{print "sha256:" $1}'
 ```
 
 ---

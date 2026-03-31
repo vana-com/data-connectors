@@ -68,7 +68,7 @@ Pick the approach with the best user experience. See `reference/PATTERNS.md` for
 ## Step 2 -- Scaffold and Implement
 
 ```bash
-node scripts/scaffold.cjs <platform> [company]
+node scripts/scaffold.cjs connectors/<platform> [company]
 ```
 
 ### Auth pattern
@@ -166,9 +166,9 @@ Full API: `reference/PAGE-API.md`
 Run the connector and validate in one step:
 
 ```bash
-node scripts/validate.cjs <company>/<name>-playwright.js && \
-  node ~/.dataconnect/run-connector.cjs <company>/<name>-playwright.js [start-url] && \
-  node scripts/validate.cjs <company>/<name>-playwright.js --check-result ~/.dataconnect/last-result.json
+node scripts/validate.cjs connectors/<company>/<name>-playwright.js && \
+  node ~/.dataconnect/run-connector.cjs connectors/<company>/<name>-playwright.js [start-url] && \
+  node scripts/validate.cjs connectors/<company>/<name>-playwright.js --check-result ~/.dataconnect/last-result.json
 ```
 
 The validator checks structure, output quality, debug code, data cleanliness, schema descriptions, and login method diversity. Fix all reported issues and re-run.
@@ -208,8 +208,8 @@ After (enriched):
 ## Step 5 -- Register and Contribute
 
 ```bash
-node scripts/register.cjs <company>/<name>-playwright.js
-node scripts/validate.cjs <company>/<name>-playwright.js --contribute
+node scripts/register.cjs connectors/<company>/<name>-playwright.js
+node scripts/validate.cjs connectors/<company>/<name>-playwright.js --contribute
 ```
 
 The validator runs all checks including secret scanning before creating a PR. All checks must pass — the validator is the quality gate.

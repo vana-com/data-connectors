@@ -391,7 +391,7 @@ function validateScript(scriptPath, check) {
 // ─── Schema Validation ──────────────────────────────────────
 
 function validateSchemas(metadata, connectorDir, check) {
-  const schemasDir = path.resolve(connectorDir, '..', 'schemas');
+  const schemasDir = path.resolve(connectorDir, '..', '..', 'schemas');
 
   if (!metadata?.scopes || !Array.isArray(metadata.scopes)) {
     check('schemas_declared', false,
@@ -527,7 +527,7 @@ function validateOutput(resultPath, metadata, connectorDir, check) {
     result.platform ? `platform: ${result.platform}` : 'Missing platform');
 
   // Schema compliance for each scope
-  const schemasDir = path.resolve(connectorDir, '..', 'schemas');
+  const schemasDir = path.resolve(connectorDir, '..', '..', 'schemas');
   for (const key of scopedKeys) {
     const schemaPath = path.join(schemasDir, `${key}.json`);
     if (!fs.existsSync(schemaPath)) continue;
@@ -645,7 +645,7 @@ function contribute(connectorPath, connectorDir, metadataPath) {
 
   // Collect files
   const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf-8'));
-  const schemasDir = path.resolve(connectorDir, '..', 'schemas');
+  const schemasDir = path.resolve(connectorDir, '..', '..', 'schemas');
   const files = [connectorPath, metadataPath];
   if (metadata?.scopes && Array.isArray(metadata.scopes)) {
     for (const scope of metadata.scopes) {

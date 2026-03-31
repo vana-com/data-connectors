@@ -11,8 +11,8 @@
       "status": "stable",
       "description": "Exports your email, memories, and all conversations from ChatGPT using Playwright browser automation.",
       "files": {
-        "script": "openai/chatgpt-playwright.js",
-        "metadata": "openai/chatgpt-playwright.json"
+        "script": "connectors/openai/chatgpt-playwright.js",
+        "metadata": "connectors/openai/chatgpt-playwright.json"
       },
       "checksums": {
         "script": "sha256:72518dd765ff2103a0ad7dd184a9efcfac359764fca1613714400e661b2fe73a",
@@ -27,8 +27,8 @@
       "status": "stable",
       "description": "Exports your GitHub profile, repositories, and starred repositories using Playwright browser automation.",
       "files": {
-        "script": "github/github-playwright.js",
-        "metadata": "github/github-playwright.json"
+        "script": "connectors/github/github-playwright.js",
+        "metadata": "connectors/github/github-playwright.json"
       },
       "checksums": {
         "script": "sha256:4a6360e652f4bec3f0c92c5651d5da818c00cca6ff0b236aa5f3d4d2a8789793",
@@ -43,8 +43,8 @@
       "status": "stable",
       "description": "Exports your Instagram profile, posts, and ad interests using Playwright browser automation.",
       "files": {
-        "script": "meta/instagram-playwright.js",
-        "metadata": "meta/instagram-playwright.json"
+        "script": "connectors/meta/instagram-playwright.js",
+        "metadata": "connectors/meta/instagram-playwright.json"
       },
       "checksums": {
         "script": "sha256:aaae0f1c62f9e2f5738a77e4fc326dd5375503b89d09c26a32bcdd482757385b",
@@ -59,8 +59,8 @@
       "status": "beta",
       "description": "Exports your Instagram ad interests — advertisers and ad topics.",
       "files": {
-        "script": "meta/instagram-ads-playwright.js",
-        "metadata": "meta/instagram-ads-playwright.json"
+        "script": "connectors/meta/instagram-ads-playwright.js",
+        "metadata": "connectors/meta/instagram-ads-playwright.json"
       },
       "checksums": {
         "script": "sha256:ef759279f73e52a05b063cf8e6a6bceb63409039f35f529b342bc1af004c972d",
@@ -75,8 +75,8 @@
       "status": "stable",
       "description": "Exports your LinkedIn profile, experience, education, skills, languages, and connections using Playwright browser automation.",
       "files": {
-        "script": "linkedin/linkedin-playwright.js",
-        "metadata": "linkedin/linkedin-playwright.json"
+        "script": "connectors/linkedin/linkedin-playwright.js",
+        "metadata": "connectors/linkedin/linkedin-playwright.json"
       },
       "checksums": {
         "script": "sha256:351a1a6706903bfbd7055c332f8baa118faa1ccb556cf019005f77cde422480b",
@@ -91,8 +91,8 @@
       "status": "stable",
       "description": "Exports your Spotify library, playlists, listening history, and preferences using Playwright browser automation.",
       "files": {
-        "script": "spotify/spotify-playwright.js",
-        "metadata": "spotify/spotify-playwright.json"
+        "script": "connectors/spotify/spotify-playwright.js",
+        "metadata": "connectors/spotify/spotify-playwright.json"
       },
       "checksums": {
         "script": "sha256:4bd74f11084c2e3950aa0b25395b3efdfead7fa4312fb4ce130279d688446586",
@@ -107,8 +107,8 @@
       "status": "beta",
       "description": "Exports your YouTube profile, subscriptions, playlists, playlist items, liked videos, watch later list, and recent watch history using Playwright browser automation.",
       "files": {
-        "script": "google/youtube-playwright.js",
-        "metadata": "google/youtube-playwright.json"
+        "script": "connectors/google/youtube-playwright.js",
+        "metadata": "connectors/google/youtube-playwright.json"
       },
       "checksums": {
         "script": "sha256:41edd09ec113ad7f9d09c9c0de76e40577087ab4600d2c8ccba4ca95c3f919c6",
@@ -123,8 +123,8 @@
       "status": "beta",
       "description": "Exports your Shop app order history using Playwright browser automation.",
       "files": {
-        "script": "shopify/shop-playwright.js",
-        "metadata": "shopify/shop-playwright.json"
+        "script": "connectors/shopify/shop-playwright.js",
+        "metadata": "connectors/shopify/shop-playwright.json"
       },
       "checksums": {
         "script": "sha256:d9364d7cbaf95fbf0e3130b9221195099b33afe3bb700f411d336e40a705d37f",
@@ -139,8 +139,8 @@
       "status": "stable",
       "description": "Exports your Oura Ring readiness scores, sleep data, and daily activity using Playwright browser automation.",
       "files": {
-        "script": "oura/oura-playwright.js",
-        "metadata": "oura/oura-playwright.json"
+        "script": "connectors/oura/oura-playwright.js",
+        "metadata": "connectors/oura/oura-playwright.json"
       },
       "checksums": {
         "script": "sha256:8b2d087055d9dcb6d21409caecc232b440efa53fd32f538299faaa8283dfd080",
@@ -155,8 +155,8 @@
       "status": "experimental",
       "description": "Exports your Whole Foods Market order history (via Amazon) and product nutrition data using Playwright browser automation.",
       "files": {
-        "script": "wholefoods/wholefoods-playwright.js",
-        "metadata": "wholefoods/wholefoods-playwright.json"
+        "script": "connectors/wholefoods/wholefoods-playwright.js",
+        "metadata": "connectors/wholefoods/wholefoods-playwright.json"
       },
       "checksums": {
         "script": "sha256:e5793d78cdbf7a7ca035a2d71a9ebe1af764542a09fd40d06aa632bf1ef0fad5",
@@ -171,8 +171,8 @@
       "status": "experimental",
       "description": "Exports your Steam profile, game library with playtime stats, and friend list using the Steam Web API.",
       "files": {
-        "script": "valve/steam-playwright.js",
-        "metadata": "valve/steam-playwright.json"
+        "script": "connectors/valve/steam-playwright.js",
+        "metadata": "connectors/valve/steam-playwright.json"
       },
       "checksums": {
         "script": "sha256:6d81afd55a3769de991d7a096dcf4f16008f41cf60a42e141b1d4311e36e85af",
@@ -187,8 +187,8 @@
       "status": "experimental",
       "description": "Exports your H-E-B account profile, order history, and product nutrition data using Playwright browser automation.",
       "files": {
-        "script": "heb/heb-playwright.js",
-        "metadata": "heb/heb-playwright.json"
+        "script": "connectors/heb/heb-playwright.js",
+        "metadata": "connectors/heb/heb-playwright.json"
       },
       "checksums": {
         "script": "sha256:83919643aaebe8e59386acc2868fd89e1ac94dc3464e26f5afedb570e96a7b9f",
@@ -203,8 +203,8 @@
       "status": "beta",
       "description": "Exports your Amazon order history and profile information using Playwright browser automation.",
       "files": {
-        "script": "amazon/amazon-playwright.js",
-        "metadata": "amazon/amazon-playwright.json"
+        "script": "connectors/amazon/amazon-playwright.js",
+        "metadata": "connectors/amazon/amazon-playwright.json"
       },
       "checksums": {
         "script": "sha256:4a318b3c3884661929d8625ec04fac57b9fcd0d7508b699a8a3c9eba758c8f0a",
@@ -219,8 +219,8 @@
       "status": "beta",
       "description": "Exports your Uber trip history and receipts using Playwright browser automation.",
       "files": {
-        "script": "uber/uber-playwright.js",
-        "metadata": "uber/uber-playwright.json"
+        "script": "connectors/uber/uber-playwright.js",
+        "metadata": "connectors/uber/uber-playwright.json"
       },
       "checksums": {
         "script": "sha256:5b10877fbcd4d3cba5393820dabcf90812bc901532789c4221025e8035bb224e",
@@ -235,8 +235,8 @@
       "status": "experimental",
       "description": "Exports your Claude conversations and projects from claude.ai using Playwright browser automation.",
       "files": {
-        "script": "anthropic/claude-playwright.js",
-        "metadata": "anthropic/claude-playwright.json"
+        "script": "connectors/anthropic/claude-playwright.js",
+        "metadata": "connectors/anthropic/claude-playwright.json"
       },
       "checksums": {
         "script": "sha256:fc4edcc5238e92a0092f6ba8eec23f228f7eb898d2a9a23ea602397b656a6270",

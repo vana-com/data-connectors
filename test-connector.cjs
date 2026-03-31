@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-// TODO: Migrate .claude/skills/ and harness/ to use run-connector.cjs
+// TODO: Migrate .claude/skills/ and scripts/ to use run-connector.cjs
 // (skills/vana-connect/scripts/run-connector.cjs), then delete this file.
 
 /**

@@ -146,28 +146,29 @@ If web search doesn't reveal clear APIs, use Chrome browser automation tools to:
 - `reference/templates/connector-metadata.json` — metadata template
 - `reference/templates/schema.json` — schema template
 
-**IMPORTANT: File locations.** The harness is at `harness/`. Connector files go in the
-**parent directory** (the repo root) alongside existing connectors:
+**IMPORTANT: File locations.** The scripts directory is at `scripts/`. Connector files go in the
+**connectors/** directory at the repo root:
 
 ```
-data-connectors/          ← repo root (parent of harness/)
-├── <company>/            ← connector files go HERE
-│   ├── <name>-playwright.js
-│   └── <name>-playwright.json
-├── schemas/              ← schemas go HERE
+data-connectors/              ← repo root
+├── connectors/
+│   └── <company>/            ← connector files go HERE
+│       ├── <name>-playwright.js
+│       └── <name>-playwright.json
+├── schemas/                  ← schemas go HERE
 │   └── <platform>.<scope>.json
-├── registry.json         ← update this in Step 7
-└── harness/              ← you are here (working directory)
+├── registry.json             ← update this in Step 7
+└── scripts/                  ← you are here (working directory)
 ```
 
 **Create these files:**
 
-1. **`../<company>/<name>-playwright.json`** — Metadata file
+1. **`../connectors/<company>/<name>-playwright.json`** — Metadata file
    - Use template: `reference/templates/connector-metadata.json`
    - `connectSelector` is CRITICAL — must only match when user is logged in
    - Include `scopes` array with all data categories
 
-2. **`../<company>/<name>-playwright.js`** — Connector script
+2. **`../connectors/<company>/<name>-playwright.js`** — Connector script
    - Use template: `reference/templates/connector-script.js`
    - MUST implement three-tier login: (1) session from profile, (2) automated credentials, (3) manual via `page.promptUser`
    - SHOULD read credentials from `process.env.USER_LOGIN_<PLATFORM>` / `process.env.USER_PASSWORD_<PLATFORM>` for tier 2
@@ -179,7 +180,7 @@ data-connectors/          ← repo root (parent of harness/)
    - MUST include `exportSummary` with count, label, details
    - SHOULD rate-limit API calls with `page.sleep(300-1000)` between requests
 
-3. **`../schemas/<platform>.<scope>.json`** — One per scope
+3. **`../schemas/<platform>.<scope>.json`** (schemas remain at repo root level) — One per scope
    - Use template: `reference/templates/schema.json`
    - Define the exact shape of data each scope produces
    - Use `additionalProperties: false` for strict validation
@@ -243,7 +244,7 @@ await page.goHeadless();
 Run the structural validator:
 
 ```bash
-node scripts/validate-connector.cjs ../<company>/<name>-playwright.js
+node validate-connector.cjs ../connectors/<company>/<name>-playwright.js
 ```
 
 This checks:
@@ -275,10 +276,10 @@ grep -q "USER_LOGIN_<PLATFORM_UPPER>" .env 2>/dev/null && echo "Credentials foun
 
 ```bash
 # If session profile exists, headless mode works (session auto-restored):
-node test-connector.cjs ../<company>/<name>-playwright.js --headless
+node test-connector.cjs ../connectors/<company>/<name>-playwright.js --headless
 
 # If no session and no credentials, run headed (Tier 3 manual login will trigger):
-node test-connector.cjs ../<company>/<name>-playwright.js
+node test-connector.cjs ../connectors/<company>/<name>-playwright.js
 ```
 
 **What happens:**
@@ -307,7 +308,7 @@ Set `PLAYWRIGHT_RUNNER_DIR` env var pointing to the playwright-runner directory.
 After the test produces `connector-result.json`, validate it:
 
 ```bash
-node scripts/validate-connector.cjs ../<company>/<name>-playwright.js --check-result ./connector-result.json
+node validate-connector.cjs ../connectors/<company>/<name>-playwright.js --check-result ./connector-result.json
 ```
 
 This checks:
@@ -335,7 +336,7 @@ If testing or output validation fails:
    - Schema violations? → Data shape doesn't match schema; fix schema or data transform
    - Script crash? → Check for missing awaits, null references, syntax errors in evaluate strings
 4. **Fix the connector script** (and/or schemas)
-5. **Re-run the test:** `node test-connector.cjs ../<company>/<name>-playwright.js --headless`
+5. **Re-run the test:** `node test-connector.cjs ../connectors/<company>/<name>-playwright.js --headless`
 6. **Re-validate output**
 7. **Repeat until all checks pass**
 
@@ -356,11 +357,11 @@ Once all validations pass:
 
 1. **Generate checksums:**
    ```bash
-   shasum -a 256 ../<company>/<name>-playwright.js | awk '{print "sha256:" $1}'
-   shasum -a 256 ../<company>/<name>-playwright.json | awk '{print "sha256:" $1}'
+   shasum -a 256 ../connectors/<company>/<name>-playwright.js | awk '{print "sha256:" $1}'
+   shasum -a 256 ../connectors/<company>/<name>-playwright.json | awk '{print "sha256:" $1}'
    ```
 
-2. **Add entry to `../registry.json`:**
+2. **Add entry to `../registry.json`** (paths in the registry use `connectors/` prefix):
    Read the existing registry, then add a new entry to the `connectors` array:
    ```json
    {
@@ -370,8 +371,8 @@ Once all validations pass:
      "name": "<PlatformDisplayName>",
      "description": "Exports your <Platform> <data description> using Playwright browser automation.",
      "files": {
-       "script": "<company>/<name>-playwright.js",
-       "metadata": "<company>/<name>-playwright.json"
+       "script": "connectors/<company>/<name>-playwright.js",
+       "metadata": "connectors/<company>/<name>-playwright.json"
      },
      "checksums": {
        "script": "sha256:<script_checksum>",
@@ -391,7 +392,7 @@ Once all validations pass:
 4. **PR instructions** — tell the user:
    ```
    To create a pull request:
-     cd .. && git add <company>/ schemas/ registry.json
+     cd .. && git add connectors/<company>/ schemas/ registry.json
      git commit -m "feat: add <platform> connector"
      git push origin <branch>
      gh pr create --title "feat: add <platform> connector"
@@ -403,14 +404,14 @@ Once all validations pass:
 
 A connector is COMPLETE when ALL of these are true:
 
-- [ ] Connector files created at `../<company>/` (NOT inside `harness/`)
-- [ ] Schema files created at `../schemas/` (NOT inside `harness/`)
+- [ ] Connector files created at `../connectors/<company>/` (NOT inside `scripts/`)
+- [ ] Schema files created at `../schemas/` (NOT inside `scripts/`)
 - [ ] Metadata JSON has all required fields including scopes
 - [ ] Script implements three-tier login (session → automated → manual via promptUser)
 - [ ] Script handles all login tiers gracefully (never hard-fails on missing credentials)
-- [ ] `node scripts/validate-connector.cjs` exits with code 0 (structure valid)
+- [ ] `node validate-connector.cjs` exits with code 0 (structure valid)
 - [ ] `node test-connector.cjs --headless` completes without errors
-- [ ] `node scripts/validate-connector.cjs --check-result` exits with code 0 (output valid)
+- [ ] `node validate-connector.cjs --check-result` exits with code 0 (output valid)
 - [ ] All declared scopes produce non-empty, schema-compliant data
 - [ ] exportSummary has accurate count and details
 - [ ] Registry entry added to `../registry.json` with correct checksums

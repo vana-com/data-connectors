@@ -1,0 +1,32 @@
+{
+  "id": "tinder-playwright",
+  "version": "1.0.0",
+  "name": "Tinder",
+  "company": "Tinder",
+  "iconURL": "icons/tinder.svg",
+  "description": "Exports your Tinder profile, matches, and messages using Playwright browser automation.",
+  "connectURL": "https://tinder.com",
+  "connectSelector": "[data-testid='profileCard'], a[href*='/app/'], a[href*='/app/recs']",
+  "exportFrequency": "weekly",
+  "runtime": "playwright",
+  "scopes": [
+    {
+      "scope": "tinder.profile",
+      "label": "Your Profile",
+      "description": "Your Tinder profile including name, bio, photos, age, and preferences."
+    },
+    {
+      "scope": "tinder.matches",
+      "label": "Your Matches",
+      "description": "Your match history with names, match dates, and profile info."
+    },
+    {
+      "scope": "tinder.messages",
+      "label": "Your Messages",
+      "description": "Conversation history with your matches."
+    }
+  ],
+  "vectorize_config": {
+    "documents": "messages"
+  }
+}

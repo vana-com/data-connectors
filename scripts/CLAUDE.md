@@ -1,4 +1,4 @@
-# Data Connector Harness
+# Data Connector Scripts
 
 This is a self-contained environment for autonomously creating, testing, and validating
 data connectors. Connectors are Playwright scripts that export user data from web platforms.
@@ -7,27 +7,28 @@ data connectors. Connectors are Playwright scripts that export user data from we
 
 ```
 data-connectors/                    ← repo root
-├── <company>/                      # Connector files go HERE (repo root level)
-│   ├── <name>-playwright.js
-│   └── <name>-playwright.json
+├── connectors/
+│   └── <company>/                  # Connector files go HERE
+│       ├── <name>-playwright.js
+│       └── <name>-playwright.json
 ├── schemas/                        # Schemas go HERE (repo root level)
 │   └── <platform>.<scope>.json
 ├── registry.json                   # Connector registry (update in Step 7)
 │
-└── harness/                        ← working directory
+└── scripts/                        ← working directory
     ├── create-connector.sh         # Entry point — run this
     ├── capture-session.cjs         # Human-in-the-loop login
     ├── test-connector.cjs          # Runs connector against real browser
-    ├── scripts/
-    │   └── validate-connector.cjs  # Validates structure + output
+    ├── validate-connector.cjs      # Validates structure + output
+    ├── format-stream.cjs           # Formats streaming output
     ├── reference/                  # Templates and API docs
     ├── sessions/                   # Captured sessions (gitignored)
     └── .env                        # Credentials (USER_LOGIN_X, USER_PASSWORD_X)
 ```
 
-**IMPORTANT:** Connector files and schemas go in the **parent directory** (repo root),
-not inside `harness/`. Use `../` paths when creating them. The harness is only for
-tooling — the output lives alongside existing connectors.
+**IMPORTANT:** Connector files and schemas go in the **connectors/** directory (repo root level),
+not inside `scripts/`. Use `../connectors/` paths when creating them. The scripts directory is
+only for tooling — the output lives alongside existing connectors.
 
 ## How It Works
 
@@ -50,13 +51,13 @@ node capture-session.cjs <platform> <login-url>
 node capture-session.cjs google https://accounts.google.com
 
 # Validate connector structure (no browser needed)
-node scripts/validate-connector.cjs ../<company>/<name>-playwright.js
+node validate-connector.cjs ../connectors/<company>/<name>-playwright.js
 
 # Test connector (runs real browser)
-node test-connector.cjs ../<company>/<name>-playwright.js --headless
+node test-connector.cjs ../connectors/<company>/<name>-playwright.js --headless
 
 # Validate output data quality
-node scripts/validate-connector.cjs ../<company>/<name>-playwright.js --check-result ./connector-result.json
+node validate-connector.cjs ../connectors/<company>/<name>-playwright.js --check-result ./connector-result.json
 ```
 
 ## Session Capture (Human-in-the-Loop Login)
@@ -70,7 +71,7 @@ For platforms where automated login fails (CAPTCHAs, Cloudflare, 2FA, OAuth):
 5. Subsequent connector tests automatically reuse the session (shared profile)
 
 The browser profile is shared by filename: both `sessions/<platform>-playwright.js` (capture)
-and `<company>/<platform>-playwright.js` (real connector) use profile `<platform>-playwright`.
+and `connectors/<company>/<platform>-playwright.js` (real connector) use profile `<platform>-playwright`.
 
 ## Three-Tier Login Strategy
 

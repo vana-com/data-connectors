@@ -186,14 +186,14 @@ function validateScript(scriptPath, check) {
       : 'Does not read credentials from process.env — automated login requires USER_LOGIN_<PLATFORM> and USER_PASSWORD_<PLATFORM>',
     'warning');
 
-  // Automated login: fills form programmatically
+  // Automated login: fills form programmatically (optional with three-tier login)
   const hasFormFill = /\.value\s*=|nativeInputValueSetter/i.test(script);
   check('script_automated_form_fill',
     hasFormFill,
     hasFormFill
       ? 'Has automated form fill logic (sets input values)'
-      : 'No automated form fill detected — connector may require manual login',
-    hasEnvCredentials ? 'error' : 'warning');
+      : 'No automated form fill detected — OK if using session capture or manual login fallback',
+    'warning');
 
   // Manual login (legacy pattern — optional for auto-login connectors)
   const hasShowBrowser = /page\.showBrowser/.test(script);
@@ -283,7 +283,7 @@ function validateScript(scriptPath, check) {
 // ─── Schema Validation ──────────────────────────────────────
 
 function validateSchemas(metadata, connectorDir, check) {
-  const schemasDir = path.resolve(connectorDir, '..', 'schemas');
+  const schemasDir = path.resolve(connectorDir, '..', '..', 'schemas');
 
   if (!metadata?.scopes || !Array.isArray(metadata.scopes)) {
     check('schemas_declared', false,
@@ -391,7 +391,7 @@ function validateOutput(resultPath, metadata, connectorDir, check) {
     result.platform ? `platform: ${result.platform}` : 'Missing platform');
 
   // Schema compliance for each scope
-  const schemasDir = path.resolve(connectorDir, '..', 'schemas');
+  const schemasDir = path.resolve(connectorDir, '..', '..', 'schemas');
   for (const key of scopedKeys) {
     const schemaPath = path.join(schemasDir, `${key}.json`);
     if (!fs.existsSync(schemaPath)) continue;

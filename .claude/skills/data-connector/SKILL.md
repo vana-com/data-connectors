@@ -16,16 +16,19 @@ automation. Credentials never leave the device.
 ## Repository Layout
 
 ```
-/Users/volod/vana/data-connectors/
+data-connectors/
 ├── registry.json                    # Central manifest with checksums
 ├── test-connector.cjs               # Standalone test runner
 ├── types/connector.d.ts             # TypeScript type definitions
 ├── schemas/                         # JSON Schema files (one per scope)
 │   └── <platform>.<scope>.json
 ├── icons/                           # SVG icons for UI
-└── <company>/                       # One folder per company
-    ├── <name>-playwright.js         # Connector script
-    └── <name>-playwright.json       # Metadata
+├── scripts/                         # Validation & helper scripts
+│   └── validate-connector.cjs
+└── connectors/                      # All connector folders live here
+    └── <company>/                   # One folder per company
+        ├── <name>-playwright.js     # Connector script
+        └── <name>-playwright.json   # Metadata
 ```
 
 ## Workflow
@@ -42,7 +45,7 @@ Before writing code, investigate the platform:
 
 ### Step 2 — Create the metadata file
 
-Create `<company>/<name>-playwright.json`. See [templates/connector-metadata.json](templates/connector-metadata.json).
+Create `connectors/<company>/<name>-playwright.json`. See [templates/connector-metadata.json](templates/connector-metadata.json).
 
 Required fields: `id`, `version`, `name`, `company`, `description`, `connectURL`, `connectSelector`, `runtime` (always `"playwright"`).
 
@@ -50,7 +53,7 @@ The `connectSelector` is critical — it's how DataConnect detects the user is l
 
 ### Step 3 — Write the connector script
 
-Create `<company>/<name>-playwright.js`. See [templates/connector-script.js](templates/connector-script.js).
+Create `connectors/<company>/<name>-playwright.js`. See [templates/connector-script.js](templates/connector-script.js).
 
 All connectors follow the **two-phase pattern**:
 
@@ -77,8 +80,8 @@ Create `schemas/<platform>.<scope>.json` for each scope. See [templates/schema.j
 Generate checksums and add entry to `registry.json`:
 
 ```bash
-shasum -a 256 <company>/<name>-playwright.js | awk '{print "sha256:" $1}'
-shasum -a 256 <company>/<name>-playwright.json | awk '{print "sha256:" $1}'
+shasum -a 256 connectors/<company>/<name>-playwright.js | awk '{print "sha256:" $1}'
+shasum -a 256 connectors/<company>/<name>-playwright.json | awk '{print "sha256:" $1}'
 ```
 
 Add to the `connectors` array in `registry.json` and update `lastUpdated`.
@@ -86,8 +89,8 @@ Add to the `connectors` array in `registry.json` and update `lastUpdated`.
 ### Step 6 — Test
 
 ```bash
-node test-connector.cjs ./<company>/<name>-playwright.js           # headed (visible)
-node test-connector.cjs ./<company>/<name>-playwright.js --headless # headless
+node test-connector.cjs ./connectors/<company>/<name>-playwright.js           # headed (visible)
+node test-connector.cjs ./connectors/<company>/<name>-playwright.js --headless # headless
 ```
 
 ## Scoped Result Format
@@ -123,8 +126,8 @@ await page.setData('result', result);
 
 | Connector | Pattern | Best example of |
 |-----------|---------|-----------------|
-| `linkedin/linkedin-playwright.js` | REST API | API fetch with CSRF, parallel calls, clean error handling |
-| `openai/chatgpt-playwright.js` | REST API + Network capture | Auth token extraction, parallel pagination, hybrid approach |
-| `github/github-playwright.js` | DOM scraping | Structural selectors, pagination, text parsing |
-| `meta/instagram-playwright.js` | Network capture | `captureNetwork()` usage, GraphQL interception |
-| `spotify/spotify-playwright.js` | GraphQL + custom auth | Complex auth (TOTP), dynamic query hashes |
+| `connectors/linkedin/linkedin-playwright.js` | REST API | API fetch with CSRF, parallel calls, clean error handling |
+| `connectors/openai/chatgpt-playwright.js` | REST API + Network capture | Auth token extraction, parallel pagination, hybrid approach |
+| `connectors/github/github-playwright.js` | DOM scraping | Structural selectors, pagination, text parsing |
+| `connectors/meta/instagram-playwright.js` | Network capture | `captureNetwork()` usage, GraphQL interception |
+| `connectors/spotify/spotify-playwright.js` | GraphQL + custom auth | Complex auth (TOTP), dynamic query hashes |

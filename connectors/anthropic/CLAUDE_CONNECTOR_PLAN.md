@@ -10,7 +10,7 @@ Initial target:
 
 - platform: `claude.ai`
 - connector id: `claude-playwright`
-- company directory: `anthropic/`
+- company directory: `connectors/anthropic/`
 - login mode: manual browser login first
 - first export priority: conversations
 - second export priority: projects
@@ -129,8 +129,8 @@ Implication:
 
 Build the connector skeleton:
 
-- `anthropic/claude-playwright.js`
-- `anthropic/claude-playwright.json`
+- `connectors/anthropic/claude-playwright.js`
+- `connectors/anthropic/claude-playwright.json`
 
 Metadata should initially point at:
 
@@ -266,23 +266,23 @@ Not required before PR:
 
 ## Files Added Or Updated
 
-- `anthropic/claude-playwright.js`
-- `anthropic/claude-playwright.json`
+- `connectors/anthropic/claude-playwright.js`
+- `connectors/anthropic/claude-playwright.json`
 - `schemas/claude.conversations.json`
 - `schemas/claude.projects.json`
 - `icons/claude.svg`
 - `registry.json`
-- `anthropic/CLAUDE_CONNECTOR_PLAN.md`
+- `connectors/anthropic/CLAUDE_CONNECTOR_PLAN.md`
 
 ## How To Validate
 
 Structural validation:
 
-- `node scripts/validate-connector.cjs anthropic/claude-playwright.js`
+- `node scripts/validate-connector.cjs connectors/anthropic/claude-playwright.js`
 
 Register updated connector locally:
 
-- `node skills/vana-connect/scripts/register.cjs anthropic/claude-playwright.js`
+- `node skills/vana-connect/scripts/register.cjs connectors/anthropic/claude-playwright.js`
 
 Run the real connector:
 
@@ -290,7 +290,7 @@ Run the real connector:
 
 Validate the exported result:
 
-- `node scripts/validate-connector.cjs anthropic/claude-playwright.js --check-result ~/.vana/results/claude.json`
+- `node scripts/validate-connector.cjs connectors/anthropic/claude-playwright.js --check-result ~/.vana/results/claude.json`
 
 ## Next Steps
 

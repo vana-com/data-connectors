@@ -70,7 +70,7 @@ async function main() {
   // Download connector files
   const scriptPath = match.scriptPath || match.script_path;
   const metadataPath = scriptPath.replace(/\.js$/, '.json');
-  const company = path.dirname(scriptPath);
+  const company = path.dirname(scriptPath).replace(/^connectors\//, '');
 
   const localDir = path.join(CONNECTORS_DIR, company);
   fs.mkdirSync(localDir, { recursive: true });
