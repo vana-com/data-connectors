@@ -160,7 +160,9 @@ function validateResult(data, metadata) {
 function runConnector(connectorEntry, opts) {
   return new Promise((resolve) => {
     const scriptPath = path.join(ROOT, connectorEntry.files.script);
-    const metadataPath = scriptPath.replace(/\.js$/, '.json');
+    const metadataPath = connectorEntry.files.metadata
+      ? path.join(ROOT, connectorEntry.files.metadata)
+      : scriptPath.replace(/\.js$/, '.json');
     const outputPath = path.join(RESULTS_DIR, `${connectorEntry.id}.json`);
 
     // Load metadata for connectURL and scope info
