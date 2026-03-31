@@ -480,9 +480,9 @@ const extractStarred = async (username) => {
 
   const totalItems = state.repositories.length + state.starred.length;
   const result = {
-    profile: state.profile,
-    repositories: state.repositories,
-    starred: state.starred,
+    'github.profile': state.profile,
+    'github.repositories': state.repositories,
+    'github.starred': state.starred,
     exportSummary: {
       count: totalItems,
       label: totalItems === 1 ? "item" : "items",
