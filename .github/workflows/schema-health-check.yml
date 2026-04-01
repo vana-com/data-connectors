@@ -70,18 +70,18 @@ jobs:
                 if [ "$MISSING_FILE" != "0" ]; then
                   echo "**Missing local schema files:**"
                   echo ""
-                  echo "| Scope | Connector | New? |"
-                  echo "|-------|-----------|------|"
-                  jq -r '.scopes[] | select(.schemaFileExists == false) | "| \(.scope) | \(.connector) | \(if .isNew then "NEW" else "" end) |"' report.json
+                  echo "| Scope | Connector | Added in PR? |"
+                  echo "|-------|-----------|--------------|"
+                  jq -r '.scopes[] | select(.schemaFileExists == false) | "| \(.scope) | \(.connector) | \(if .isNew then "added in this PR" else "" end) |"' report.json
                   echo ""
                 fi
 
                 if [ "$MISSING_GW" != "0" ]; then
                   echo "**Not registered in Gateway:**"
                   echo ""
-                  echo "| Scope | Connector | New? |"
-                  echo "|-------|-----------|------|"
-                  jq -r '.scopes[] | select(.gatewayStatus == "missing") | "| \(.scope) | \(.connector) | \(if .isNew then "NEW" else "" end) |"' report.json
+                  echo "| Scope | Connector | Added in PR? |"
+                  echo "|-------|-----------|--------------|"
+                  jq -r '.scopes[] | select(.gatewayStatus == "missing") | "| \(.scope) | \(.connector) | \(if .isNew then "added in this PR" else "" end) |"' report.json
                   echo ""
                 fi
 

@@ -174,8 +174,10 @@ for (const [scope, connectorId] of scopeToConnector) {
       const gwData = gw.data;
       if (gwData) {
         // Compare scope field
-        if (gwData.scope && gwData.scope !== scope) {
-          metadataMismatches.push(`scope: local="${scope}" gateway="${gwData.scope}"`);
+        const gwScope = gwData.scope || null;
+        if (gwScope !== scope) {
+          const g = gwScope ?? "(missing)";
+          metadataMismatches.push(`scope: local="${scope}" gateway="${g}"`);
         }
 
         // Compare against local schema file metadata if it exists
