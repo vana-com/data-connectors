@@ -22,7 +22,7 @@ jobs:
       - name: Run schema health check
         continue-on-error: true
         env:
-          GATEWAY_URL: ${{ secrets.GATEWAY_URL }}
+          GATEWAY_URL: ${{ vars.GATEWAY_URL }}
         run: node scripts/schema-health-check.mjs --json > report.json 2> summary.txt || true
 
       - name: Format PR comment
@@ -93,5 +93,5 @@ jobs:
 
       - name: Verify schema consistency
         env:
-          GATEWAY_URL: ${{ secrets.GATEWAY_URL }}
+          GATEWAY_URL: ${{ vars.GATEWAY_URL }}
         run: node scripts/schema-health-check.mjs
