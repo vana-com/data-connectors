@@ -116,6 +116,7 @@ for (const [scope, connectorId] of scopeToConnector) {
 
   let gatewayStatus = "skipped";
   let schemaId = null;
+  let gatewayError = null;
   let consistent = schemaFileExists; // baseline: schema file must exist
 
   if (!localOnly) {
@@ -138,6 +139,11 @@ for (const [scope, connectorId] of scopeToConnector) {
       gatewayStatus = "error";
       consistent = false;
     }
+
+    // Capture error message if present
+    if (gw.error) {
+      gatewayError = gw.error;
+    }
   }
 
   scopeResults.push({
@@ -146,6 +152,7 @@ for (const [scope, connectorId] of scopeToConnector) {
     schemaFileExists,
     gatewayStatus,
     ...(schemaId != null ? { schemaId } : {}),
+    ...(gatewayError != null ? { gatewayError } : {}),
     consistent,
   });
 }
@@ -220,7 +227,8 @@ if (issueCount === 0) {
   if (gatewayErrors.length > 0) {
     process.stderr.write("Gateway errors:\n");
     for (const r of gatewayErrors) {
-      process.stderr.write(`  - ${r.scope} (connector: ${r.connector})\n`);
+      const detail = r.gatewayError ? `: ${r.gatewayError}` : "";
+      process.stderr.write(`  - ${r.scope} (connector: ${r.connector})${detail}\n`);
     }
     process.stderr.write("\n");
   }
