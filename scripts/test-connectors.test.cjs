@@ -157,18 +157,27 @@ describe('schema files', () => {
 describe('validateResult against real cached data', () => {
   const stableConnectors = REGISTRY.connectors.filter(c => c.status === 'stable');
 
-  for (const entry of stableConnectors) {
-    const cached = loadCachedResult(entry.id);
-    if (!cached) continue; // skip if no cached result
-
-    it(`${entry.id}: all declared scopes present in cached result`, () => {
-      const metadata = loadMetadata(entry.id);
-      const result = validateResult(cached, metadata);
-      assert.ok(
-        result.status === 'pass' || result.status === 'warn',
-        `Expected pass/warn, got ${result.status}. Missing: ${result.scopesMissing.join(', ')}`
+  // Preflight: all cached results must exist
+  const missing = stableConnectors.filter(e => !loadCachedResult(e.id));
+  if (missing.length > 0) {
+    it('FAIL: missing cached results — run connectors first', () => {
+      assert.fail(
+        `Missing cached results for: ${missing.map(e => e.id).join(', ')}.\n` +
+        `Run: node scripts/test-connectors.cjs`
       );
     });
+  } else {
+    for (const entry of stableConnectors) {
+      it(`${entry.id}: all declared scopes present in cached result`, () => {
+        const cached = loadCachedResult(entry.id);
+        const metadata = loadMetadata(entry.id);
+        const result = validateResult(cached, metadata);
+        assert.ok(
+          result.status === 'pass' || result.status === 'warn',
+          `Expected pass/warn, got ${result.status}. Missing: ${result.scopesMissing.join(', ')}`
+        );
+      });
+    }
   }
 });
 
@@ -177,21 +186,31 @@ describe('validateResult against real cached data', () => {
 describe('validateSchema against real cached data', () => {
   const stableConnectors = REGISTRY.connectors.filter(c => c.status === 'stable');
 
-  for (const entry of stableConnectors) {
-    const cached = loadCachedResult(entry.id);
-    if (!cached) continue;
-    const metadata = loadMetadata(entry.id);
+  // Preflight: reuse same cache check (both suites need the same artifacts)
+  const missing = stableConnectors.filter(e => !loadCachedResult(e.id));
+  if (missing.length > 0) {
+    it('FAIL: missing cached results — run connectors first', () => {
+      assert.fail(
+        `Missing cached results for: ${missing.map(e => e.id).join(', ')}.\n` +
+        `Run: node scripts/test-connectors.cjs`
+      );
+    });
+  } else {
+    for (const entry of stableConnectors) {
+      const cached = loadCachedResult(entry.id);
+      const metadata = loadMetadata(entry.id);
 
-    for (const scopeDef of metadata.scopes) {
-      const schemaDoc = loadSchema(scopeDef.scope);
-      if (!schemaDoc) continue;
+      for (const scopeDef of metadata.scopes) {
+        const schemaDoc = loadSchema(scopeDef.scope);
+        if (!schemaDoc) continue; // schema file may not exist yet for all scopes
 
-      it(`${entry.id} → ${scopeDef.scope}: data matches schema`, () => {
-        const scopeData = cached[scopeDef.scope];
-        assert.ok(scopeData !== undefined && scopeData !== null, `Scope ${scopeDef.scope} missing from result`);
-        const errors = validateSchema(scopeData, schemaDoc.schema);
-        assert.deepStrictEqual(errors, [], `Schema errors:\n  ${errors.join('\n  ')}`);
-      });
+        it(`${entry.id} → ${scopeDef.scope}: data matches schema`, () => {
+          const scopeData = cached[scopeDef.scope];
+          assert.ok(scopeData !== undefined && scopeData !== null, `Scope ${scopeDef.scope} missing from result`);
+          const errors = validateSchema(scopeData, schemaDoc.schema);
+          assert.deepStrictEqual(errors, [], `Schema errors:\n  ${errors.join('\n  ')}`);
+        });
+      }
     }
   }
 });
