@@ -283,7 +283,7 @@ if (issueCount === 0) {
   if (missingSchemaFile.length > 0) {
     process.stderr.write("Missing local schema files:\n");
     for (const r of missingSchemaFile) {
-      const tag = r.isNew ? " [NEW]" : "";
+      const tag = r.isNew ? " [added in this PR]" : "";
       process.stderr.write(`  - ${r.scope} (connector: ${r.connector})${tag}\n`);
     }
     process.stderr.write("\n");
@@ -292,7 +292,7 @@ if (issueCount === 0) {
   if (missingGateway.length > 0) {
     process.stderr.write("Not registered in Gateway:\n");
     for (const r of missingGateway) {
-      const tag = r.isNew ? " [NEW]" : "";
+      const tag = r.isNew ? " [added in this PR]" : "";
       process.stderr.write(`  - ${r.scope} (connector: ${r.connector})${tag}\n`);
     }
     process.stderr.write("\n");
