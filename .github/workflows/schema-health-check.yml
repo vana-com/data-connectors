@@ -63,7 +63,7 @@ jobs:
                 if [ "$ORPHANS" != "0" ]; then
                   echo ""
                   echo "**Orphaned schema files** (no connector declares this scope):"
-                  jq -r '.orphanedSchemas[] | "- \`schemas/\(.).json\`"' report.json
+                  jq -r '.orphanedSchemas[] | "- `schemas/" + . + ".json`"' report.json
                 fi
 
                 echo ""
