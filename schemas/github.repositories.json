@@ -5,32 +5,25 @@
   "dialect": "json",
   "description": "GitHub repositories visible in the user's repositories tab",
   "schema": {
-    "type": "object",
-    "properties": {
-      "repositories": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "properties": {
-            "name": { "type": "string" },
-            "url": { "type": "string" },
-            "description": { "type": "string" },
-            "language": { "type": "string" },
-            "stars": { "type": "number" },
-            "forks": { "type": "number" },
-            "visibility": { "type": "string" },
-            "topics": {
-              "type": "array",
-              "items": { "type": "string" }
-            },
-            "updatedAt": { "type": ["string", "null"] }
-          },
-          "required": ["name", "url"],
-          "additionalProperties": false
-        }
-      }
-    },
-    "required": ["repositories"],
-    "additionalProperties": false
+    "type": "array",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "url": { "type": "string" },
+        "description": { "type": "string" },
+        "language": { "type": "string" },
+        "stars": { "type": "number" },
+        "forks": { "type": "number" },
+        "visibility": { "type": "string" },
+        "topics": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "updatedAt": { "type": ["string", "null"] }
+      },
+      "required": ["name", "url"],
+      "additionalProperties": false
+    }
   }
 }

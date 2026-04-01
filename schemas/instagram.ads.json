@@ -41,7 +41,7 @@
         }
       }
     },
-    "required": ["advertisers", "ad_topics", "categories"],
+    "required": ["advertisers", "ad_topics"],
     "additionalProperties": false
   }
 }
