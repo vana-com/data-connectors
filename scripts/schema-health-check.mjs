@@ -23,7 +23,7 @@ const jsonOutput = getFlag("--json");
 const localOnly = getFlag("--local-only");
 const gatewayUrl = getOption(
   "--gateway-url",
-  process.env.GATEWAY_URL || "https://api.vana.com/api/v0"
+  process.env.GATEWAY_URL || ""
 );
 
 // ---------------------------------------------------------------------------
@@ -56,6 +56,17 @@ async function queryGateway(scope) {
   } catch (err) {
     return { status: "error", data: null, error: err.message };
   }
+}
+
+// ---------------------------------------------------------------------------
+// Validate args
+// ---------------------------------------------------------------------------
+
+if (!localOnly && !gatewayUrl) {
+  process.stderr.write(
+    "Error: Gateway URL required. Set GATEWAY_URL env var or pass --gateway-url, or use --local-only.\n"
+  );
+  process.exit(1);
 }
 
 // ---------------------------------------------------------------------------
