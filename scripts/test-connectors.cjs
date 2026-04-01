@@ -518,14 +518,24 @@ async function main() {
   // Run or validate cached
   const results = [];
   if (opts.useCached) {
-    // Preflight: verify all cached result files exist before validating any
-    const missing = connectors.filter(entry =>
-      !fs.existsSync(path.join(RESULTS_DIR, `${entry.id}.json`))
-    );
-    if (missing.length > 0) {
-      console.error(`${c.red}Missing cached results for:${c.reset}`);
-      for (const entry of missing) {
-        console.error(`  ${c.red}•${c.reset} test-results/${entry.id}.json`);
+    // Preflight: verify all cached result files exist and are valid JSON
+    const problems = [];
+    for (const entry of connectors) {
+      const filePath = path.join(RESULTS_DIR, `${entry.id}.json`);
+      if (!fs.existsSync(filePath)) {
+        problems.push(`${entry.id}: file missing`);
+        continue;
+      }
+      try {
+        JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+      } catch (e) {
+        problems.push(`${entry.id}: invalid JSON — ${e.message}`);
+      }
+    }
+    if (problems.length > 0) {
+      console.error(`${c.red}Cached results not ready:${c.reset}`);
+      for (const p of problems) {
+        console.error(`  ${c.red}•${c.reset} ${p}`);
       }
       console.error(`\n${c.dim}Run without --use-cached first to generate them.${c.reset}`);
       process.exit(1);

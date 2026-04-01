@@ -152,12 +152,16 @@ describe('schema files', () => {
   }
 });
 
-// ─── Cached results: validateResult against real metadata ───
+// ─── Cached results (opt-in: VALIDATE_CACHED=1) ────────────
+// These suites require test-results/ from a prior connector run.
+// Skipped by default so `node --test` works on a clean checkout.
+// Run: VALIDATE_CACHED=1 node --test scripts/test-connectors.test.cjs
 
-describe('validateResult against real cached data', () => {
+const RUN_CACHED = process.env.VALIDATE_CACHED === '1';
+
+describe('validateResult against real cached data', { skip: !RUN_CACHED && 'set VALIDATE_CACHED=1 to enable' }, () => {
   const stableConnectors = REGISTRY.connectors.filter(c => c.status === 'stable');
 
-  // Preflight: all cached results must exist
   const missing = stableConnectors.filter(e => !loadCachedResult(e.id));
   if (missing.length > 0) {
     it('FAIL: missing cached results — run connectors first', () => {
@@ -181,12 +185,9 @@ describe('validateResult against real cached data', () => {
   }
 });
 
-// ─── Cached results: validateSchema against real schemas ────
-
-describe('validateSchema against real cached data', () => {
+describe('validateSchema against real cached data', { skip: !RUN_CACHED && 'set VALIDATE_CACHED=1 to enable' }, () => {
   const stableConnectors = REGISTRY.connectors.filter(c => c.status === 'stable');
 
-  // Preflight: reuse same cache check (both suites need the same artifacts)
   const missing = stableConnectors.filter(e => !loadCachedResult(e.id));
   if (missing.length > 0) {
     it('FAIL: missing cached results — run connectors first', () => {
@@ -202,7 +203,7 @@ describe('validateSchema against real cached data', () => {
 
       for (const scopeDef of metadata.scopes) {
         const schemaDoc = loadSchema(scopeDef.scope);
-        if (!schemaDoc) continue; // schema file may not exist yet for all scopes
+        if (!schemaDoc) continue;
 
         it(`${entry.id} → ${scopeDef.scope}: data matches schema`, () => {
           const scopeData = cached[scopeDef.scope];
