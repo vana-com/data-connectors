@@ -182,11 +182,19 @@ for (const [scope, connectorId] of scopeToConnector) {
         if (schemaFileExists) {
           try {
             const localSchema = await readJson(join(schemaDir, `${scope}.json`));
-            if (localSchema.name && gwData.name && localSchema.name !== gwData.name) {
-              metadataMismatches.push(`name: local="${localSchema.name}" gateway="${gwData.name}"`);
+            const localName = localSchema.name || null;
+            const gwName = gwData.name || null;
+            if (localName !== gwName) {
+              const l = localName ?? "(missing)";
+              const g = gwName ?? "(missing)";
+              metadataMismatches.push(`name: local="${l}" gateway="${g}"`);
             }
-            if (localSchema.dialect && gwData.dialect && localSchema.dialect !== gwData.dialect) {
-              metadataMismatches.push(`dialect: local="${localSchema.dialect}" gateway="${gwData.dialect}"`);
+            const localDialect = localSchema.dialect || null;
+            const gwDialect = gwData.dialect || null;
+            if (localDialect !== gwDialect) {
+              const l = localDialect ?? "(missing)";
+              const g = gwDialect ?? "(missing)";
+              metadataMismatches.push(`dialect: local="${l}" gateway="${g}"`);
             }
           } catch {
             // Schema file read failed — already flagged by schemaFileExists check
