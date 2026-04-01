@@ -9,8 +9,7 @@ permissions:
   pull-requests: write
 
 jobs:
-  # Advisory — posts a PR comment with the full report, always passes
-  advisory-comment:
+  schema-health-check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,10 +19,13 @@ jobs:
           node-version: "20"
 
       - name: Run schema health check
-        continue-on-error: true
+        id: check
         env:
           GATEWAY_URL: ${{ vars.GATEWAY_URL }}
-        run: node scripts/schema-health-check.mjs --json > report.json 2> summary.txt || true
+        run: |
+          node scripts/schema-health-check.mjs --json > report.json 2> summary.txt
+          echo "exit_code=0" >> "$GITHUB_OUTPUT"
+        continue-on-error: true
 
       - name: Format PR comment
         id: comment
@@ -112,17 +114,8 @@ jobs:
           header: schema-health-check
           message: ${{ steps.comment.outputs.body }}
 
-  # Soft-blocking status check — shows red X if issues, but merge remains available
-  schema-status:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      - name: Verify schema consistency
-        env:
-          GATEWAY_URL: ${{ vars.GATEWAY_URL }}
-        run: node scripts/schema-health-check.mjs
+      - name: Fail if issues found
+        if: steps.check.outcome == 'failure'
+        run: |
+          cat summary.txt
+          exit 1
