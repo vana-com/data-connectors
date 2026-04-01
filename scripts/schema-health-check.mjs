@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
 import { readFile, readdir } from "fs/promises";
-import { join, basename } from "path";
+import { join } from "path";
+import { execSync } from "child_process";
 
 // ---------------------------------------------------------------------------
 // CLI argument parsing
@@ -25,6 +26,7 @@ const gatewayUrl = getOption(
   "--gateway-url",
   process.env.GATEWAY_URL || ""
 );
+const baseRef = getOption("--base-ref", "origin/main");
 
 // ---------------------------------------------------------------------------
 // Resolve repo root (script lives in scripts/ under the repo root)
@@ -39,6 +41,19 @@ const REPO_ROOT = join(import.meta.dirname, "..");
 async function readJson(filePath) {
   const raw = await readFile(filePath, "utf-8");
   return JSON.parse(raw);
+}
+
+function readGitJson(ref, relativePath) {
+  try {
+    const raw = execSync(`git show ${ref}:${relativePath}`, {
+      cwd: REPO_ROOT,
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
 }
 
 async function queryGateway(scope) {
@@ -70,7 +85,24 @@ if (!localOnly && !gatewayUrl) {
 }
 
 // ---------------------------------------------------------------------------
-// Discovery
+// Discover base-branch scopes (for new-scope detection)
+// ---------------------------------------------------------------------------
+
+const baseScopeSet = new Set();
+const baseRegistry = readGitJson(baseRef, "registry.json");
+if (baseRegistry?.connectors) {
+  for (const connector of baseRegistry.connectors) {
+    const metadata = readGitJson(baseRef, connector.files.metadata);
+    if (metadata?.scopes) {
+      for (const entry of metadata.scopes) {
+        baseScopeSet.add(entry.scope);
+      }
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Discovery (current branch)
 // ---------------------------------------------------------------------------
 
 // 1. Read registry.json
@@ -124,10 +156,12 @@ const scopeResults = [];
 
 for (const [scope, connectorId] of scopeToConnector) {
   const schemaFileExists = schemaFiles.includes(scope);
+  const isNew = !baseScopeSet.has(scope);
 
   let gatewayStatus = "skipped";
   let schemaId = null;
   let gatewayError = null;
+  let metadataMismatches = [];
   let consistent = schemaFileExists; // baseline: schema file must exist
 
   if (!localOnly) {
@@ -135,13 +169,33 @@ for (const [scope, connectorId] of scopeToConnector) {
     if (gw.status === "registered") {
       gatewayStatus = "registered";
       schemaId = gw.data?.id?.toString() ?? null;
-      // Check 3: verify scope field matches
-      const gwScope = gw.data?.scope;
-      if (gwScope && gwScope !== scope) {
-        gatewayStatus = "scope-mismatch";
+
+      // Check 3: metadata comparison
+      const gwData = gw.data;
+      if (gwData) {
+        // Compare scope field
+        if (gwData.scope && gwData.scope !== scope) {
+          metadataMismatches.push(`scope: local="${scope}" gateway="${gwData.scope}"`);
+        }
+
+        // Compare against local schema file metadata if it exists
+        if (schemaFileExists) {
+          try {
+            const localSchema = await readJson(join(schemaDir, `${scope}.json`));
+            if (localSchema.name && gwData.name && localSchema.name !== gwData.name) {
+              metadataMismatches.push(`name: local="${localSchema.name}" gateway="${gwData.name}"`);
+            }
+            if (localSchema.dialect && gwData.dialect && localSchema.dialect !== gwData.dialect) {
+              metadataMismatches.push(`dialect: local="${localSchema.dialect}" gateway="${gwData.dialect}"`);
+            }
+          } catch {
+            // Schema file read failed — already flagged by schemaFileExists check
+          }
+        }
+      }
+
+      if (metadataMismatches.length > 0) {
         consistent = false;
-      } else {
-        consistent = consistent && true;
       }
     } else if (gw.status === "missing") {
       gatewayStatus = "missing";
@@ -151,7 +205,6 @@ for (const [scope, connectorId] of scopeToConnector) {
       consistent = false;
     }
 
-    // Capture error message if present
     if (gw.error) {
       gatewayError = gw.error;
     }
@@ -160,10 +213,12 @@ for (const [scope, connectorId] of scopeToConnector) {
   scopeResults.push({
     scope,
     connector: connectorId,
+    isNew,
     schemaFileExists,
     gatewayStatus,
     ...(schemaId != null ? { schemaId } : {}),
     ...(gatewayError != null ? { gatewayError } : {}),
+    ...(metadataMismatches.length > 0 ? { metadataMismatches } : {}),
     consistent,
   });
 }
@@ -177,6 +232,9 @@ const missingGateway = scopeResults.filter(
   (r) => r.gatewayStatus === "missing"
 );
 const gatewayErrors = scopeResults.filter((r) => r.gatewayStatus === "error");
+const metadataDrift = scopeResults.filter(
+  (r) => r.metadataMismatches && r.metadataMismatches.length > 0
+);
 const fullyConsistent = scopeResults.filter((r) => r.consistent);
 
 const summary = {
@@ -185,6 +243,7 @@ const summary = {
   missingSchemaFile: missingSchemaFile.length,
   missingGateway: missingGateway.length,
   gatewayErrors: gatewayErrors.length,
+  metadataDrift: metadataDrift.length,
   orphanedSchemas: orphanedSchemas.length,
 };
 
@@ -192,6 +251,7 @@ const issueCount =
   summary.missingSchemaFile +
   summary.missingGateway +
   summary.gatewayErrors +
+  summary.metadataDrift +
   summary.orphanedSchemas;
 
 // ---------------------------------------------------------------------------
@@ -200,7 +260,8 @@ const issueCount =
 
 if (jsonOutput) {
   const report = {
-    gateway: gatewayUrl,
+    gateway: localOnly ? null : gatewayUrl,
+    baseRef,
     timestamp: new Date().toISOString(),
     summary,
     scopes: scopeResults,
@@ -222,7 +283,8 @@ if (issueCount === 0) {
   if (missingSchemaFile.length > 0) {
     process.stderr.write("Missing local schema files:\n");
     for (const r of missingSchemaFile) {
-      process.stderr.write(`  - ${r.scope} (connector: ${r.connector})\n`);
+      const tag = r.isNew ? " [NEW]" : "";
+      process.stderr.write(`  - ${r.scope} (connector: ${r.connector})${tag}\n`);
     }
     process.stderr.write("\n");
   }
@@ -230,7 +292,19 @@ if (issueCount === 0) {
   if (missingGateway.length > 0) {
     process.stderr.write("Not registered in Gateway:\n");
     for (const r of missingGateway) {
-      process.stderr.write(`  - ${r.scope} (connector: ${r.connector})\n`);
+      const tag = r.isNew ? " [NEW]" : "";
+      process.stderr.write(`  - ${r.scope} (connector: ${r.connector})${tag}\n`);
+    }
+    process.stderr.write("\n");
+  }
+
+  if (metadataDrift.length > 0) {
+    process.stderr.write("Metadata mismatch between local schema and Gateway:\n");
+    for (const r of metadataDrift) {
+      process.stderr.write(`  - ${r.scope} (connector: ${r.connector}):\n`);
+      for (const m of r.metadataMismatches) {
+        process.stderr.write(`      ${m}\n`);
+      }
     }
     process.stderr.write("\n");
   }

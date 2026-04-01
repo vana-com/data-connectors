@@ -13,6 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -23,7 +25,7 @@ jobs:
         env:
           GATEWAY_URL: ${{ vars.GATEWAY_URL }}
         run: |
-          node scripts/schema-health-check.mjs --json > report.json 2> summary.txt
+          node scripts/schema-health-check.mjs --json --base-ref origin/${{ github.base_ref }} > report.json 2> summary.txt
           echo "exit_code=0" >> "$GITHUB_OUTPUT"
         continue-on-error: true
 
@@ -47,9 +49,10 @@ jobs:
               MISSING_FILE=$(jq -r '.summary.missingSchemaFile' report.json)
               MISSING_GW=$(jq -r '.summary.missingGateway' report.json)
               GW_ERRORS=$(jq -r '.summary.gatewayErrors' report.json)
+              META_DRIFT=$(jq -r '.summary.metadataDrift' report.json)
               ORPHANS=$(jq -r '.summary.orphanedSchemas' report.json)
 
-              ISSUES=$((MISSING_FILE + MISSING_GW + GW_ERRORS + ORPHANS))
+              ISSUES=$((MISSING_FILE + MISSING_GW + GW_ERRORS + META_DRIFT + ORPHANS))
 
               if [ "$ISSUES" = "0" ]; then
                 echo "## Schema Health Check — All Clear"
@@ -58,7 +61,7 @@ jobs:
               else
                 echo "## Schema Health Check — $ISSUES issue(s) found"
                 echo ""
-                echo "$CONSISTENT/$TOTAL scopes consistent | $MISSING_FILE missing schema files | $MISSING_GW not in Gateway | $ORPHANS orphaned"
+                echo "$CONSISTENT/$TOTAL scopes consistent | $MISSING_FILE missing schema files | $MISSING_GW not in Gateway | $META_DRIFT metadata drift | $ORPHANS orphaned"
                 echo ""
                 echo "<details>"
                 echo "<summary>View issues</summary>"
@@ -67,18 +70,27 @@ jobs:
                 if [ "$MISSING_FILE" != "0" ]; then
                   echo "**Missing local schema files:**"
                   echo ""
-                  echo "| Scope | Connector |"
-                  echo "|-------|-----------|"
-                  jq -r '.scopes[] | select(.schemaFileExists == false) | "| \(.scope) | \(.connector) |"' report.json
+                  echo "| Scope | Connector | New? |"
+                  echo "|-------|-----------|------|"
+                  jq -r '.scopes[] | select(.schemaFileExists == false) | "| \(.scope) | \(.connector) | \(if .isNew then "NEW" else "" end) |"' report.json
                   echo ""
                 fi
 
                 if [ "$MISSING_GW" != "0" ]; then
                   echo "**Not registered in Gateway:**"
                   echo ""
-                  echo "| Scope | Connector |"
-                  echo "|-------|-----------|"
-                  jq -r '.scopes[] | select(.gatewayStatus == "missing") | "| \(.scope) | \(.connector) |"' report.json
+                  echo "| Scope | Connector | New? |"
+                  echo "|-------|-----------|------|"
+                  jq -r '.scopes[] | select(.gatewayStatus == "missing") | "| \(.scope) | \(.connector) | \(if .isNew then "NEW" else "" end) |"' report.json
+                  echo ""
+                fi
+
+                if [ "$META_DRIFT" != "0" ]; then
+                  echo "**Metadata mismatch (local vs Gateway):**"
+                  echo ""
+                  echo "| Scope | Connector | Mismatches |"
+                  echo "|-------|-----------|------------|"
+                  jq -r '.scopes[] | select(.metadataMismatches != null and (.metadataMismatches | length) > 0) | "| \(.scope) | \(.connector) | \(.metadataMismatches | join("; ")) |"' report.json
                   echo ""
                 fi
 
