@@ -37,7 +37,7 @@ const c = {
 // ─── Arg Parsing ────────────────────────────────────────────
 
 function parseArgs(argv) {
-  const opts = { connectors: null, includeBeta: false, validateSchemas: false };
+  const opts = { connectors: null, includeBeta: false, validateSchemas: false, useCached: false };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--connectors' && argv[i + 1]) {
       opts.connectors = argv[++i].split(',').map(s => s.trim()).filter(Boolean);
@@ -45,6 +45,8 @@ function parseArgs(argv) {
       opts.includeBeta = true;
     } else if (argv[i] === '--validate-schemas') {
       opts.validateSchemas = true;
+    } else if (argv[i] === '--use-cached') {
+      opts.useCached = true;
     }
   }
   return opts;
@@ -182,6 +184,64 @@ function extractDiagnostics(stdoutLines, stderrLines) {
   return { errors, logs };
 }
 
+// ─── Validate cached result without re-running ──────────────
+
+function validateCached(connectorEntry, opts) {
+  const metadataPath = connectorEntry.files.metadata
+    ? path.join(ROOT, connectorEntry.files.metadata)
+    : path.join(ROOT, connectorEntry.files.script).replace(/\.js$/, '.json');
+  const outputPath = path.join(RESULTS_DIR, `${connectorEntry.id}.json`);
+
+  let metadata = {};
+  try { metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf-8')); } catch {}
+
+  if (!fs.existsSync(outputPath)) {
+    return {
+      connector: connectorEntry.id, status: 'fail', exitCode: -1, duration: 0,
+      error: 'No cached result file — run without --use-cached first',
+    };
+  }
+
+  let data = null;
+  try { data = JSON.parse(fs.readFileSync(outputPath, 'utf-8')); } catch {}
+
+  if (!data) {
+    return {
+      connector: connectorEntry.id, status: 'fail', exitCode: -1, duration: 0,
+      error: 'Cached result file is empty or invalid JSON',
+    };
+  }
+
+  const validation = validateResult(data, metadata);
+
+  let schemaErrors = [];
+  if (opts.validateSchemas) {
+    const schemasDir = path.join(ROOT, 'schemas');
+    for (const scope of validation.scopesFound) {
+      const schemaPath = path.join(schemasDir, `${scope}.json`);
+      if (!fs.existsSync(schemaPath)) continue;
+      try {
+        const schemaFile = JSON.parse(fs.readFileSync(schemaPath, 'utf-8'));
+        const scopeKey = scope in data ? scope : scope.split('.').slice(1).join('.');
+        const errs = validateSchema(data[scopeKey], schemaFile.schema);
+        schemaErrors.push(...errs.map(e => `${scope}: ${e}`));
+      } catch {}
+    }
+  }
+
+  return {
+    connector: connectorEntry.id,
+    status: schemaErrors.length > 0 ? 'fail' : validation.status,
+    exitCode: 0,
+    duration: 0,
+    scopesExpected: (metadata.scopes || []).map(s => s.scope),
+    scopesFound: validation.scopesFound,
+    scopesMissing: validation.scopesMissing,
+    warnings: validation.warnings.length > 0 ? validation.warnings : undefined,
+    schemaErrors: schemaErrors.length > 0 ? schemaErrors : undefined,
+  };
+}
+
 // ─── Run a single connector via run-connector.cjs ───────────
 
 function runConnector(connectorEntry, opts) {
@@ -289,9 +349,10 @@ function runConnector(connectorEntry, opts) {
 
 // ─── Reporting ──────────────────────────────────────────────
 
-function printResults(results) {
+function printResults(results, useCached) {
   const timestamp = new Date().toISOString();
-  console.log(`\n${c.bold}Connector Smoke Test${c.reset} ${c.dim}— ${timestamp}${c.reset}\n`);
+  const mode = useCached ? ` ${c.cyan}(cached)${c.reset}` : '';
+  console.log(`\n${c.bold}Connector Smoke Test${c.reset}${mode} ${c.dim}— ${timestamp}${c.reset}\n`);
 
   for (const r of results) {
     const dur = (r.duration / 1000).toFixed(1) + 's';
@@ -302,6 +363,7 @@ function printResults(results) {
     let detail = '';
     if (r.warnings && r.warnings.length > 0) detail = `  (${r.warnings.join(', ')})`;
     if (r.scopesMissing && r.scopesMissing.length > 0) detail = `  (missing: ${r.scopesMissing.join(', ')})`;
+    if (r.schemaErrors && r.schemaErrors.length > 0) detail = `  (${r.schemaErrors.length} schema error${r.schemaErrors.length > 1 ? 's' : ''})`;
     if (r.error) detail = `  (${r.error})`;
 
     let statusStr;
@@ -322,6 +384,11 @@ function printResults(results) {
     if (r.diagnostics && r.diagnostics.length > 0 && r.status !== 'pass' && r.status !== 'warn') {
       for (const diag of r.diagnostics) {
         console.log(`           ${c.dim}${c.red}↳ ${diag}${c.reset}`);
+      }
+    }
+    if (r.schemaErrors && r.schemaErrors.length > 0) {
+      for (const err of r.schemaErrors) {
+        console.log(`           ${c.dim}${c.yellow}↳ ${err}${c.reset}`);
       }
     }
   }
@@ -384,25 +451,31 @@ async function main() {
   // Ensure results directory
   fs.mkdirSync(RESULTS_DIR, { recursive: true });
 
-  // Verify run-connector.cjs exists
-  if (!fs.existsSync(RUN_CONNECTOR)) {
-    console.error(`${c.red}run-connector.cjs not found: ${RUN_CONNECTOR}${c.reset}`);
-    process.exit(1);
-  }
-
-  // Run connectors sequentially (each needs its own browser)
+  // Run or validate cached
   const results = [];
-  for (const entry of connectors) {
-    const label = `${c.cyan}${entry.name}${c.reset} ${c.dim}(${entry.id})${c.reset}`;
-    process.stdout.write(`  Running ${label}...`);
-    const result = await runConnector(entry, opts);
-    // Clear the "Running..." line
-    process.stdout.write('\r\x1b[K');
-    results.push(result);
+  if (opts.useCached) {
+    for (const entry of connectors) {
+      results.push(validateCached(entry, opts));
+    }
+  } else {
+    // Verify run-connector.cjs exists
+    if (!fs.existsSync(RUN_CONNECTOR)) {
+      console.error(`${c.red}run-connector.cjs not found: ${RUN_CONNECTOR}${c.reset}`);
+      process.exit(1);
+    }
+
+    // Run connectors sequentially (each needs its own browser)
+    for (const entry of connectors) {
+      const label = `${c.cyan}${entry.name}${c.reset} ${c.dim}(${entry.id})${c.reset}`;
+      process.stdout.write(`  Running ${label}...`);
+      const result = await runConnector(entry, opts);
+      process.stdout.write('\r\x1b[K');
+      results.push(result);
+    }
   }
 
   // Report
-  const counts = printResults(results);
+  const counts = printResults(results, opts.useCached);
   writeJsonReport(results);
 
   // Exit 1 if any fail/auth/timeout
