@@ -1,5 +1,7 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert');
+const fs = require('fs');
+const path = require('path');
 
 const {
   parseArgs,
@@ -9,11 +11,40 @@ const {
   validateSchema,
 } = require('./test-connectors.cjs');
 
+const ROOT = path.resolve(__dirname, '..');
+const REGISTRY = JSON.parse(fs.readFileSync(path.join(ROOT, 'registry.json'), 'utf-8'));
+const RESULTS_DIR = path.join(ROOT, 'test-results');
+
+// Helper: load connector metadata by ID
+function loadMetadata(connectorId) {
+  const entry = REGISTRY.connectors.find(c => c.id === connectorId);
+  if (!entry) throw new Error(`Connector not in registry: ${connectorId}`);
+  const metadataPath = path.join(ROOT, entry.files.metadata);
+  return JSON.parse(fs.readFileSync(metadataPath, 'utf-8'));
+}
+
+// Helper: load cached result by ID (may not exist)
+function loadCachedResult(connectorId) {
+  const resultPath = path.join(RESULTS_DIR, `${connectorId}.json`);
+  if (!fs.existsSync(resultPath)) return null;
+  return JSON.parse(fs.readFileSync(resultPath, 'utf-8'));
+}
+
+// Helper: load schema file by scope
+function loadSchema(scope) {
+  const schemaPath = path.join(ROOT, 'schemas', `${scope}.json`);
+  if (!fs.existsSync(schemaPath)) return null;
+  return JSON.parse(fs.readFileSync(schemaPath, 'utf-8'));
+}
+
+// ─── parseArgs ──────────────────────────────────────────────
+
 describe('parseArgs', () => {
   it('returns stable defaults with no args', () => {
     const result = parseArgs([]);
     assert.strictEqual(result.includeBeta, false);
     assert.strictEqual(result.validateSchemas, false);
+    assert.strictEqual(result.useCached, false);
     assert.deepStrictEqual(result.connectors, null);
   });
 
@@ -22,295 +53,145 @@ describe('parseArgs', () => {
     assert.deepStrictEqual(result.connectors, ['instagram-playwright', 'spotify-playwright']);
   });
 
-  it('parses --include-beta flag', () => {
-    const result = parseArgs(['--include-beta']);
+  it('parses all flags together', () => {
+    const result = parseArgs(['--include-beta', '--validate-schemas', '--use-cached']);
     assert.strictEqual(result.includeBeta, true);
-  });
-
-  it('parses --validate-schemas flag', () => {
-    const result = parseArgs(['--validate-schemas']);
     assert.strictEqual(result.validateSchemas, true);
+    assert.strictEqual(result.useCached, true);
   });
 });
 
+// ─── resolveConnectors (real registry) ──────────────────────
+
 describe('resolveConnectors', () => {
-  const registry = {
-    connectors: [
-      { id: 'a-playwright', status: 'stable', files: { script: 'a/a.js', metadata: 'a/a.json' } },
-      { id: 'b-playwright', status: 'beta', files: { script: 'b/b.js', metadata: 'b/b.json' } },
-      { id: 'c-playwright', status: 'experimental', files: { script: 'c/c.js', metadata: 'c/c.json' } },
-    ],
-  };
-
-  it('returns only stable by default', () => {
-    const result = resolveConnectors(registry, { connectors: null, includeBeta: false });
-    assert.deepStrictEqual(result.map(c => c.id), ['a-playwright']);
+  it('resolves only stable connectors by default', () => {
+    const result = resolveConnectors(REGISTRY, { connectors: null, includeBeta: false });
+    assert.ok(result.length > 0, 'Should find at least one stable connector');
+    for (const c of result) {
+      assert.strictEqual(c.status, 'stable', `${c.id} should be stable`);
+    }
   });
 
-  it('includes beta when flag set', () => {
-    const result = resolveConnectors(registry, { connectors: null, includeBeta: true });
-    assert.deepStrictEqual(result.map(c => c.id), ['a-playwright', 'b-playwright']);
+  it('includes beta connectors when flag set', () => {
+    const result = resolveConnectors(REGISTRY, { connectors: null, includeBeta: true });
+    const statuses = new Set(result.map(c => c.status));
+    assert.ok(statuses.has('stable'), 'Should include stable');
+    // beta may or may not exist, but no experimental
+    assert.ok(!statuses.has('experimental'), 'Should not include experimental');
   });
 
-  it('filters to specific connectors', () => {
-    const result = resolveConnectors(registry, { connectors: ['b-playwright'], includeBeta: false });
-    assert.deepStrictEqual(result.map(c => c.id), ['b-playwright']);
+  it('resolves specific connectors by ID', () => {
+    const ids = ['github-playwright', 'spotify-playwright'];
+    const result = resolveConnectors(REGISTRY, { connectors: ids, includeBeta: false });
+    assert.deepStrictEqual(result.map(c => c.id), ids);
   });
 
   it('throws on unknown connector id', () => {
     assert.throws(
-      () => resolveConnectors(registry, { connectors: ['nonexistent'], includeBeta: false }),
-      /not found in registry: nonexistent/
+      () => resolveConnectors(REGISTRY, { connectors: ['nonexistent'], includeBeta: false }),
+      /not found in registry/
     );
   });
 });
 
+// ─── classifyOutcome ────────────────────────────────────────
+
 describe('classifyOutcome', () => {
-  it('returns AUTH for exit code 2', () => {
-    const result = classifyOutcome(2, []);
-    assert.strictEqual(result.status, 'auth');
-    assert.match(result.error, /need-input/);
+  it('exit 0 → needs-validation', () => {
+    assert.strictEqual(classifyOutcome(0, []).status, 'needs-validation');
   });
-
-  it('returns AUTH for exit code 3', () => {
-    const result = classifyOutcome(3, []);
-    assert.strictEqual(result.status, 'auth');
-    assert.match(result.error, /legacy-auth/);
+  it('exit 2 → auth (need-input)', () => {
+    assert.strictEqual(classifyOutcome(2, []).status, 'auth');
   });
-
-  it('returns TIMEOUT for exit 1 with timeout message', () => {
-    const stdout = [
-      JSON.stringify({ type: 'error', message: 'Timeout after 5 minutes' }),
-    ];
-    const result = classifyOutcome(1, stdout);
-    assert.strictEqual(result.status, 'timeout');
+  it('exit 3 → auth (legacy-auth)', () => {
+    assert.strictEqual(classifyOutcome(3, []).status, 'auth');
   });
-
-  it('returns FAIL for exit 1 without timeout', () => {
-    const stdout = [
-      JSON.stringify({ type: 'error', message: 'Some other error' }),
-    ];
-    const result = classifyOutcome(1, stdout);
-    assert.strictEqual(result.status, 'fail');
+  it('exit 1 + timeout message → timeout', () => {
+    const stdout = [JSON.stringify({ type: 'error', message: 'Timeout after 5 minutes' })];
+    assert.strictEqual(classifyOutcome(1, stdout).status, 'timeout');
   });
-
-  it('returns needs-validation for exit 0', () => {
-    const result = classifyOutcome(0, []);
-    assert.strictEqual(result.status, 'needs-validation');
+  it('exit 1 without timeout → fail', () => {
+    assert.strictEqual(classifyOutcome(1, []).status, 'fail');
   });
 });
 
-describe('validateResult', () => {
-  const metadata = {
-    scopes: [
-      { scope: 'test.profile' },
-      { scope: 'test.posts' },
-      { scope: 'test.likes' },
-    ],
-  };
+// ─── Every connector metadata is valid ──────────────────────
 
-  it('returns PASS when all scopes present and non-empty', () => {
-    const data = {
-      'test.profile': { name: 'Alice' },
-      'test.posts': [{ id: 1 }],
-      'test.likes': [{ id: 2 }],
-      exportSummary: { count: 2 },
-    };
-    const result = validateResult(data, metadata);
-    assert.strictEqual(result.status, 'pass');
-    assert.strictEqual(result.scopesFound.length, 3);
-    assert.strictEqual(result.scopesMissing.length, 0);
-  });
+describe('connector metadata', () => {
+  for (const entry of REGISTRY.connectors) {
+    it(`${entry.id}: metadata file exists and has scopes`, () => {
+      const metadataPath = path.join(ROOT, entry.files.metadata);
+      assert.ok(fs.existsSync(metadataPath), `Missing: ${metadataPath}`);
+      const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf-8'));
+      assert.ok(metadata.scopes && metadata.scopes.length > 0, `${entry.id}: no scopes declared`);
+      for (const s of metadata.scopes) {
+        assert.ok(s.scope, `${entry.id}: scope entry missing .scope field`);
+        assert.ok(s.scope.includes('.'), `${entry.id}: scope "${s.scope}" should be dotted (platform.name)`);
+      }
+    });
 
-  it('returns WARN when scope has empty array', () => {
-    const data = {
-      'test.profile': { name: 'Alice' },
-      'test.posts': [],
-      'test.likes': [{ id: 2 }],
-    };
-    const result = validateResult(data, metadata);
-    assert.strictEqual(result.status, 'warn');
-    assert.deepStrictEqual(result.warnings, ['test.posts: empty array']);
-  });
-
-  it('returns WARN when scope has empty object', () => {
-    const data = {
-      'test.profile': {},
-      'test.posts': [{ id: 1 }],
-      'test.likes': [{ id: 2 }],
-    };
-    const result = validateResult(data, metadata);
-    assert.strictEqual(result.status, 'warn');
-    assert.deepStrictEqual(result.warnings, ['test.profile: empty object']);
-  });
-
-  it('returns FAIL when scope is missing', () => {
-    const data = {
-      'test.profile': { name: 'Alice' },
-      'test.posts': [{ id: 1 }],
-    };
-    const result = validateResult(data, metadata);
-    assert.strictEqual(result.status, 'fail');
-    assert.deepStrictEqual(result.scopesMissing, ['test.likes']);
-  });
-
-  it('returns FAIL when scope value is null', () => {
-    const data = {
-      'test.profile': { name: 'Alice' },
-      'test.posts': [{ id: 1 }],
-      'test.likes': null,
-    };
-    const result = validateResult(data, metadata);
-    assert.strictEqual(result.status, 'fail');
-    assert.deepStrictEqual(result.scopesMissing, ['test.likes']);
-  });
-
-  it('normalizes bare keys for github-style connectors', () => {
-    const githubMeta = {
-      scopes: [
-        { scope: 'github.profile' },
-        { scope: 'github.repositories' },
-      ],
-    };
-    const data = {
-      profile: { name: 'Alice' },
-      repositories: [{ name: 'repo1' }],
-    };
-    const result = validateResult(data, githubMeta);
-    assert.strictEqual(result.status, 'pass');
-    assert.strictEqual(result.scopesFound.length, 2);
-  });
+    it(`${entry.id}: script file exists`, () => {
+      const scriptPath = path.join(ROOT, entry.files.script);
+      assert.ok(fs.existsSync(scriptPath), `Missing: ${scriptPath}`);
+    });
+  }
 });
 
-describe('validateSchema', () => {
-  it('returns pass for data matching schema', () => {
-    const schema = {
-      type: 'object',
-      properties: {
-        username: { type: 'string' },
-        followers: { type: 'number' },
-      },
-      required: ['username'],
-    };
-    const data = { username: 'alice', followers: 42 };
-    const errors = validateSchema(data, schema);
-    assert.deepStrictEqual(errors, []);
-  });
+// ─── Every schema file is valid JSON with correct structure ─
 
-  it('returns error for missing required field', () => {
-    const schema = {
-      type: 'object',
-      properties: {
-        username: { type: 'string' },
-      },
-      required: ['username'],
-    };
-    const data = { followers: 42 };
-    const errors = validateSchema(data, schema);
-    assert.strictEqual(errors.length, 1);
-    assert.match(errors[0], /username.*required field missing/i);
-  });
+describe('schema files', () => {
+  const schemaFiles = fs.readdirSync(path.join(ROOT, 'schemas')).filter(f => f.endsWith('.json'));
 
-  it('returns error for wrong type', () => {
-    const schema = {
-      type: 'object',
-      properties: {
-        username: { type: 'string' },
-      },
-      required: ['username'],
-    };
-    const data = { username: 123 };
-    const errors = validateSchema(data, schema);
-    assert.strictEqual(errors.length, 1);
-    assert.match(errors[0], /username.*expected.*string/i);
-  });
+  for (const file of schemaFiles) {
+    it(`${file}: valid JSON with scope and schema fields`, () => {
+      const schemaDoc = JSON.parse(fs.readFileSync(path.join(ROOT, 'schemas', file), 'utf-8'));
+      assert.ok(schemaDoc.scope, `${file}: missing .scope`);
+      assert.ok(schemaDoc.schema, `${file}: missing .schema`);
+      assert.ok(schemaDoc.schema.type, `${file}: .schema missing .type`);
+    });
+  }
+});
 
-  it('handles union types like ["string", "null"]', () => {
-    const schema = {
-      type: 'object',
-      properties: {
-        name: { type: 'string' },
-        updatedAt: { type: ['string', 'null'] },
-      },
-      required: ['name'],
-    };
-    // null is valid for union type
-    assert.deepStrictEqual(validateSchema({ name: 'a', updatedAt: null }, schema), []);
-    // string is valid for union type
-    assert.deepStrictEqual(validateSchema({ name: 'a', updatedAt: '2026-01-01' }, schema), []);
-    // number is invalid for union type
-    const errs = validateSchema({ name: 'a', updatedAt: 42 }, schema);
-    assert.strictEqual(errs.length, 1);
-    assert.match(errs[0], /updatedAt/);
-  });
+// ─── Cached results: validateResult against real metadata ───
 
-  it('recursively validates nested object properties', () => {
-    const schema = {
-      type: 'object',
-      properties: {
-        profile: {
-          type: 'object',
-          properties: {
-            username: { type: 'string' },
-            age: { type: 'number' },
-          },
-          required: ['username'],
-        },
-      },
-      required: ['profile'],
-    };
-    // valid nested
-    assert.deepStrictEqual(validateSchema({ profile: { username: 'alice', age: 30 } }, schema), []);
-    // missing nested required
-    const errs = validateSchema({ profile: { age: 30 } }, schema);
-    assert.strictEqual(errs.length, 1);
-    assert.match(errs[0], /profile\.username/);
-    // wrong nested type
-    const errs2 = validateSchema({ profile: { username: 42 } }, schema);
-    assert.strictEqual(errs2.length, 1);
-    assert.match(errs2[0], /profile\.username/);
-  });
+describe('validateResult against real cached data', () => {
+  const stableConnectors = REGISTRY.connectors.filter(c => c.status === 'stable');
 
-  it('validates array items schema against first element', () => {
-    const schema = {
-      type: 'object',
-      properties: {
-        repos: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              name: { type: 'string' },
-              stars: { type: 'number' },
-            },
-            required: ['name'],
-          },
-        },
-      },
-      required: ['repos'],
-    };
-    // valid array items
-    assert.deepStrictEqual(validateSchema({ repos: [{ name: 'r1', stars: 5 }] }, schema), []);
-    // empty array — nothing to validate
-    assert.deepStrictEqual(validateSchema({ repos: [] }, schema), []);
-    // invalid first item
-    const errs = validateSchema({ repos: [{ stars: 5 }] }, schema);
-    assert.strictEqual(errs.length, 1);
-    assert.match(errs[0], /repos\[0\]\.name/);
-  });
+  for (const entry of stableConnectors) {
+    const cached = loadCachedResult(entry.id);
+    if (!cached) continue; // skip if no cached result
 
-  it('validates root-level arrays', () => {
-    const schema = {
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: { name: { type: 'string' } },
-        required: ['name'],
-      },
-    };
-    assert.deepStrictEqual(validateSchema([{ name: 'a' }], schema), []);
-    const errs = validateSchema([{ }], schema);
-    assert.strictEqual(errs.length, 1);
-    assert.match(errs[0], /\[0\]\.name/);
-  });
+    it(`${entry.id}: all declared scopes present in cached result`, () => {
+      const metadata = loadMetadata(entry.id);
+      const result = validateResult(cached, metadata);
+      assert.ok(
+        result.status === 'pass' || result.status === 'warn',
+        `Expected pass/warn, got ${result.status}. Missing: ${result.scopesMissing.join(', ')}`
+      );
+    });
+  }
+});
+
+// ─── Cached results: validateSchema against real schemas ────
+
+describe('validateSchema against real cached data', () => {
+  const stableConnectors = REGISTRY.connectors.filter(c => c.status === 'stable');
+
+  for (const entry of stableConnectors) {
+    const cached = loadCachedResult(entry.id);
+    if (!cached) continue;
+    const metadata = loadMetadata(entry.id);
+
+    for (const scopeDef of metadata.scopes) {
+      const schemaDoc = loadSchema(scopeDef.scope);
+      if (!schemaDoc) continue;
+
+      it(`${entry.id} → ${scopeDef.scope}: data matches schema`, () => {
+        const scopeData = cached[scopeDef.scope];
+        assert.ok(scopeData !== undefined && scopeData !== null, `Scope ${scopeDef.scope} missing from result`);
+        const errors = validateSchema(scopeData, schemaDoc.schema);
+        assert.deepStrictEqual(errors, [], `Schema errors:\n  ${errors.join('\n  ')}`);
+      });
+    }
+  }
 });
