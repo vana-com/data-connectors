@@ -31,7 +31,7 @@
         "metadata": "connectors/github/github-playwright.json"
       },
       "checksums": {
-        "script": "sha256:4a6360e652f4bec3f0c92c5651d5da818c00cca6ff0b236aa5f3d4d2a8789793",
+        "script": "sha256:3e2db5798b75089694034915257c4d900a7a1892a8da4848fb2be6cbb957ac9f",
         "metadata": "sha256:27d81822ccf23eb3f4bf9f9868ade02a1141c78a2999cd081047da692b3f64ff"
       }
     },
@@ -95,7 +95,7 @@
         "metadata": "connectors/spotify/spotify-playwright.json"
       },
       "checksums": {
-        "script": "sha256:4bd74f11084c2e3950aa0b25395b3efdfead7fa4312fb4ce130279d688446586",
+        "script": "sha256:35d879b28c1e3b2bb7c84e97985b8edb4e80dbd61d2dae17c969ad02ff5e3e37",
         "metadata": "sha256:f2d6a4cdf12069e8f4993faee97e31fa1fa9e4b039c7d9e1bd1e3447c6a3cd09"
       }
     },
@@ -128,7 +128,7 @@
       },
       "checksums": {
         "script": "sha256:d9364d7cbaf95fbf0e3130b9221195099b33afe3bb700f411d336e40a705d37f",
-        "metadata": "sha256:e0d1161c4186ea9106ac2ef0fd76b4076646b1edd597ac39812ea79d2a3fe6a8"
+        "metadata": "sha256:b70afa6645b6d72a4dd883e8595bab3a789e2fd4cd3eca5d7d90f9672f2dcb0c"
       }
     },
     {
@@ -159,7 +159,7 @@
         "metadata": "connectors/wholefoods/wholefoods-playwright.json"
       },
       "checksums": {
-        "script": "sha256:e5793d78cdbf7a7ca035a2d71a9ebe1af764542a09fd40d06aa632bf1ef0fad5",
+        "script": "sha256:2ebb4426258b87a8e3699b9609c36ff69b03f050e747ed530c54ee1e7f84c59b",
         "metadata": "sha256:dde3a72e809762799120b08b70a6f17ed9fba320aa2bf1ee790b013626fee2c1"
       }
     },  
@@ -239,7 +239,7 @@
         "metadata": "connectors/anthropic/claude-playwright.json"
       },
       "checksums": {
-        "script": "sha256:fc4edcc5238e92a0092f6ba8eec23f228f7eb898d2a9a23ea602397b656a6270",
+        "script": "sha256:4e070bc31afd210563db5c0ece547c9535f197b79b5b28951d87993c8538dafe",
         "metadata": "sha256:0edfdc3e73e503cfca05e61cd2906854c1268075b1a74edd405b3a32c6aad84e"
       }
     }
