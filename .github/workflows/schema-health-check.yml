@@ -56,16 +56,47 @@ jobs:
               else
                 echo "## Schema Health Check — $ISSUES issue(s) found"
                 echo ""
-                echo "| Scope | Connector | Schema File | Gateway | Consistent |"
-                echo "|-------|-----------|-------------|---------|------------|"
-                jq -r '.scopes[] | "| \(.scope) | \(.connector) | \(if .schemaFileExists then "yes" else "**MISSING**" end) | \(.gatewayStatus) | \(if .consistent then "yes" else "**NO**" end) |"' report.json
+                echo "$CONSISTENT/$TOTAL scopes consistent | $MISSING_FILE missing schema files | $MISSING_GW not in Gateway | $ORPHANS orphaned"
+                echo ""
+                echo "<details>"
+                echo "<summary>View issues</summary>"
+                echo ""
 
-                if [ "$ORPHANS" != "0" ]; then
+                if [ "$MISSING_FILE" != "0" ]; then
+                  echo "**Missing local schema files:**"
                   echo ""
-                  echo "**Orphaned schema files** (no connector declares this scope):"
-                  jq -r '.orphanedSchemas[] | "- `schemas/" + . + ".json`"' report.json
+                  echo "| Scope | Connector |"
+                  echo "|-------|-----------|"
+                  jq -r '.scopes[] | select(.schemaFileExists == false) | "| \(.scope) | \(.connector) |"' report.json
+                  echo ""
                 fi
 
+                if [ "$MISSING_GW" != "0" ]; then
+                  echo "**Not registered in Gateway:**"
+                  echo ""
+                  echo "| Scope | Connector |"
+                  echo "|-------|-----------|"
+                  jq -r '.scopes[] | select(.gatewayStatus == "missing") | "| \(.scope) | \(.connector) |"' report.json
+                  echo ""
+                fi
+
+                if [ "$GW_ERRORS" != "0" ]; then
+                  echo "**Gateway errors:**"
+                  echo ""
+                  echo "| Scope | Connector | Error |"
+                  echo "|-------|-----------|-------|"
+                  jq -r '.scopes[] | select(.gatewayStatus == "error") | "| \(.scope) | \(.connector) | \(.gatewayError // "-") |"' report.json
+                  echo ""
+                fi
+
+                if [ "$ORPHANS" != "0" ]; then
+                  echo "**Orphaned schema files** (no connector declares this scope):"
+                  echo ""
+                  jq -r '.orphanedSchemas[] | "- `schemas/" + . + ".json`"' report.json
+                  echo ""
+                fi
+
+                echo "</details>"
                 echo ""
                 echo "> These issues should be resolved before connectors can be used by Personal Servers."
               fi
