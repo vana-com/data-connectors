@@ -119,9 +119,11 @@ function validateSchema(data, schema, path) {
     }
   }
 
-  // Array: validate items schema against first element (spot check)
-  if (actual === 'array' && schema.items && data.length > 0) {
-    errors.push(...validateSchema(data[0], schema.items, `${path}[0]`));
+  // Array: validate items schema against every element
+  if (actual === 'array' && schema.items) {
+    for (let i = 0; i < data.length; i++) {
+      errors.push(...validateSchema(data[i], schema.items, `${path}[${i}]`));
+    }
   }
 
   return errors;
@@ -385,7 +387,7 @@ function runConnector(connectorEntry, opts) {
 
         resolve({
           connector: connectorEntry.id,
-          status: validation.status,
+          status: schemaErrors.length > 0 ? 'fail' : validation.status,
           exitCode: 0,
           duration,
           scopesExpected: (metadata.scopes || []).map(s => s.scope),
