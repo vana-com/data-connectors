@@ -1,0 +1,97 @@
+name: Schema Health Check
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  # Advisory — posts a PR comment with the full report, always passes
+  advisory-comment:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Run schema health check
+        continue-on-error: true
+        env:
+          GATEWAY_URL: ${{ vars.GATEWAY_URL || 'https://api.vana.com/api/v0' }}
+        run: node scripts/schema-health-check.mjs --json > report.json 2> summary.txt || true
+
+      - name: Format PR comment
+        id: comment
+        if: always()
+        run: |
+          {
+            echo 'body<<COMMENT_EOF'
+
+            if [ ! -f report.json ] || [ ! -s report.json ]; then
+              echo "## Schema Health Check"
+              echo ""
+              echo "Failed to generate report. Check workflow logs."
+              echo ""
+              cat summary.txt 2>/dev/null || true
+              echo 'COMMENT_EOF'
+            else
+              TOTAL=$(jq -r '.summary.total' report.json)
+              CONSISTENT=$(jq -r '.summary.fullyConsistent' report.json)
+              MISSING_FILE=$(jq -r '.summary.missingSchemaFile' report.json)
+              MISSING_GW=$(jq -r '.summary.missingGateway' report.json)
+              GW_ERRORS=$(jq -r '.summary.gatewayErrors' report.json)
+              ORPHANS=$(jq -r '.summary.orphanedSchemas' report.json)
+
+              ISSUES=$((MISSING_FILE + MISSING_GW + GW_ERRORS + ORPHANS))
+
+              if [ "$ISSUES" = "0" ]; then
+                echo "## Schema Health Check — All Clear"
+                echo ""
+                echo "All $TOTAL scopes are fully consistent (local schema files + Gateway registration)."
+              else
+                echo "## Schema Health Check — $ISSUES issue(s) found"
+                echo ""
+                echo "| Scope | Connector | Schema File | Gateway | Consistent |"
+                echo "|-------|-----------|-------------|---------|------------|"
+                jq -r '.scopes[] | "| \(.scope) | \(.connector) | \(if .schemaFileExists then "yes" else "**MISSING**" end) | \(.gatewayStatus) | \(if .consistent then "yes" else "**NO**" end) |"' report.json
+
+                if [ "$ORPHANS" != "0" ]; then
+                  echo ""
+                  echo "**Orphaned schema files** (no connector declares this scope):"
+                  jq -r '.orphanedSchemas[] | "- \`schemas/\(.).json\`"' report.json
+                fi
+
+                echo ""
+                echo "> These issues should be resolved before connectors can be used by Personal Servers."
+              fi
+
+              echo 'COMMENT_EOF'
+            fi
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Post or update PR comment
+        if: always()
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: schema-health-check
+          message: ${{ steps.comment.outputs.body }}
+
+  # Soft-blocking status check — shows red X if issues, but merge remains available
+  schema-status:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Verify schema consistency
+        env:
+          GATEWAY_URL: ${{ vars.GATEWAY_URL || 'https://api.vana.com/api/v0' }}
+        run: node scripts/schema-health-check.mjs
