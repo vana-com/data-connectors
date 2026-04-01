@@ -208,7 +208,7 @@ describe('validateSchema', () => {
     const data = { followers: 42 };
     const errors = validateSchema(data, schema);
     assert.strictEqual(errors.length, 1);
-    assert.match(errors[0], /required.*username/i);
+    assert.match(errors[0], /username.*required field missing/i);
   });
 
   it('returns error for wrong type', () => {
@@ -222,6 +222,95 @@ describe('validateSchema', () => {
     const data = { username: 123 };
     const errors = validateSchema(data, schema);
     assert.strictEqual(errors.length, 1);
-    assert.match(errors[0], /username.*string/i);
+    assert.match(errors[0], /username.*expected.*string/i);
+  });
+
+  it('handles union types like ["string", "null"]', () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        updatedAt: { type: ['string', 'null'] },
+      },
+      required: ['name'],
+    };
+    // null is valid for union type
+    assert.deepStrictEqual(validateSchema({ name: 'a', updatedAt: null }, schema), []);
+    // string is valid for union type
+    assert.deepStrictEqual(validateSchema({ name: 'a', updatedAt: '2026-01-01' }, schema), []);
+    // number is invalid for union type
+    const errs = validateSchema({ name: 'a', updatedAt: 42 }, schema);
+    assert.strictEqual(errs.length, 1);
+    assert.match(errs[0], /updatedAt/);
+  });
+
+  it('recursively validates nested object properties', () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        profile: {
+          type: 'object',
+          properties: {
+            username: { type: 'string' },
+            age: { type: 'number' },
+          },
+          required: ['username'],
+        },
+      },
+      required: ['profile'],
+    };
+    // valid nested
+    assert.deepStrictEqual(validateSchema({ profile: { username: 'alice', age: 30 } }, schema), []);
+    // missing nested required
+    const errs = validateSchema({ profile: { age: 30 } }, schema);
+    assert.strictEqual(errs.length, 1);
+    assert.match(errs[0], /profile\.username/);
+    // wrong nested type
+    const errs2 = validateSchema({ profile: { username: 42 } }, schema);
+    assert.strictEqual(errs2.length, 1);
+    assert.match(errs2[0], /profile\.username/);
+  });
+
+  it('validates array items schema against first element', () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        repos: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string' },
+              stars: { type: 'number' },
+            },
+            required: ['name'],
+          },
+        },
+      },
+      required: ['repos'],
+    };
+    // valid array items
+    assert.deepStrictEqual(validateSchema({ repos: [{ name: 'r1', stars: 5 }] }, schema), []);
+    // empty array — nothing to validate
+    assert.deepStrictEqual(validateSchema({ repos: [] }, schema), []);
+    // invalid first item
+    const errs = validateSchema({ repos: [{ stars: 5 }] }, schema);
+    assert.strictEqual(errs.length, 1);
+    assert.match(errs[0], /repos\[0\]\.name/);
+  });
+
+  it('validates root-level arrays', () => {
+    const schema = {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: { name: { type: 'string' } },
+        required: ['name'],
+      },
+    };
+    assert.deepStrictEqual(validateSchema([{ name: 'a' }], schema), []);
+    const errs = validateSchema([{ }], schema);
+    assert.strictEqual(errs.length, 1);
+    assert.match(errs[0], /\[0\]\.name/);
   });
 });

@@ -66,37 +66,62 @@ function resolveConnectors(registry, opts) {
   return registry.connectors.filter(c => allowed.includes(c.status));
 }
 
-// ─── Lightweight JSON Schema Validator ──────────────────────
-// Validates required fields and basic types. Not a full JSON Schema
-// implementation — just enough for smoke testing connector output.
+// ─── Recursive JSON Schema Validator ────────────────────────
+// Handles objects, arrays, union types (["string", "null"]), nested
+// properties, and items. Not a full JSON Schema implementation but
+// covers the patterns used in this repo's schemas.
 
-function validateSchema(data, schema) {
+function validateSchema(data, schema, path) {
+  path = path || '';
   const errors = [];
-  if (!schema || schema.type !== 'object' || !schema.properties) return errors;
+  if (!schema) return errors;
 
-  // Check required fields
-  for (const field of (schema.required || [])) {
-    if (!(field in data) || data[field] === undefined || data[field] === null) {
-      errors.push(`Required field missing: ${field}`);
+  // Resolve the expected type(s)
+  const types = Array.isArray(schema.type) ? schema.type : schema.type ? [schema.type] : [];
+
+  // Check if value is null — allowed if "null" is in the union
+  if (data === null || data === undefined) {
+    if (types.includes('null')) return errors;
+    if (types.length > 0) errors.push(`${path || 'root'}: expected ${types.join('|')}, got ${data === null ? 'null' : 'undefined'}`);
+    return errors;
+  }
+
+  // Determine actual type
+  let actual;
+  if (Array.isArray(data)) actual = 'array';
+  else actual = typeof data;
+
+  // Type check (skip if no type specified)
+  // JSON Schema "integer" maps to JS "number" — treat them as equivalent
+  if (types.length > 0) {
+    const nonNullTypes = types.filter(t => t !== 'null');
+    const matches = nonNullTypes.some(t =>
+      t === actual || (t === 'integer' && actual === 'number') || (t === 'number' && actual === 'number')
+    );
+    if (nonNullTypes.length > 0 && !matches) {
+      errors.push(`${path || 'root'}: expected ${types.join('|')}, got ${actual}`);
+      return errors;
     }
   }
 
-  // Check types of present fields
-  for (const [field, spec] of Object.entries(schema.properties)) {
-    if (!(field in data) || data[field] === null || data[field] === undefined) continue;
-    const value = data[field];
-    const expectedType = spec.type;
-    if (!expectedType) continue;
-
-    let actual;
-    if (Array.isArray(value)) actual = 'array';
-    else actual = typeof value;
-
-    if (expectedType === 'array' && actual !== 'array') {
-      errors.push(`${field}: expected array, got ${actual}`);
-    } else if (expectedType !== 'array' && actual !== expectedType) {
-      errors.push(`${field}: expected ${expectedType}, got ${actual}`);
+  // Object: check required fields and recurse into properties
+  if (actual === 'object' && schema.properties) {
+    for (const field of (schema.required || [])) {
+      if (!(field in data) || data[field] === undefined) {
+        const allowsNull = Array.isArray(schema.properties[field]?.type) && schema.properties[field].type.includes('null');
+        if (data[field] === null && allowsNull) continue;
+        errors.push(`${path ? path + '.' : ''}${field}: required field missing`);
+      }
     }
+    for (const [field, spec] of Object.entries(schema.properties)) {
+      if (!(field in data)) continue;
+      errors.push(...validateSchema(data[field], spec, `${path ? path + '.' : ''}${field}`));
+    }
+  }
+
+  // Array: validate items schema against first element (spot check)
+  if (actual === 'array' && schema.items && data.length > 0) {
+    errors.push(...validateSchema(data[0], schema.items, `${path}[0]`));
   }
 
   return errors;
@@ -186,14 +211,36 @@ function extractDiagnostics(stdoutLines, stderrLines) {
 
 // ─── Validate cached result without re-running ──────────────
 
-function validateCached(connectorEntry, opts) {
+function loadMetadata(connectorEntry) {
   const metadataPath = connectorEntry.files.metadata
     ? path.join(ROOT, connectorEntry.files.metadata)
     : path.join(ROOT, connectorEntry.files.script).replace(/\.js$/, '.json');
-  const outputPath = path.join(RESULTS_DIR, `${connectorEntry.id}.json`);
 
-  let metadata = {};
-  try { metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf-8')); } catch {}
+  if (!fs.existsSync(metadataPath)) {
+    return { error: `Metadata file not found: ${metadataPath}` };
+  }
+  try {
+    const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf-8'));
+    if (!metadata.scopes || metadata.scopes.length === 0) {
+      return { error: `Metadata declares no scopes: ${metadataPath}` };
+    }
+    return { metadata, metadataPath };
+  } catch (e) {
+    return { error: `Invalid metadata JSON: ${e.message}` };
+  }
+}
+
+function validateCached(connectorEntry, opts) {
+  const outputPath = path.join(RESULTS_DIR, `${connectorEntry.id}.json`);
+  const loaded = loadMetadata(connectorEntry);
+
+  if (loaded.error) {
+    return {
+      connector: connectorEntry.id, status: 'fail', exitCode: -1, duration: 0,
+      error: loaded.error,
+    };
+  }
+  const metadata = loaded.metadata;
 
   if (!fs.existsSync(outputPath)) {
     return {
@@ -245,16 +292,18 @@ function validateCached(connectorEntry, opts) {
 // ─── Run a single connector via run-connector.cjs ───────────
 
 function runConnector(connectorEntry, opts) {
+  const loaded = loadMetadata(connectorEntry);
+  if (loaded.error) {
+    return Promise.resolve({
+      connector: connectorEntry.id, status: 'fail', exitCode: -1, duration: 0,
+      error: loaded.error,
+    });
+  }
+  const metadata = loaded.metadata;
+
   return new Promise((resolve) => {
     const scriptPath = path.join(ROOT, connectorEntry.files.script);
-    const metadataPath = connectorEntry.files.metadata
-      ? path.join(ROOT, connectorEntry.files.metadata)
-      : scriptPath.replace(/\.js$/, '.json');
     const outputPath = path.join(RESULTS_DIR, `${connectorEntry.id}.json`);
-
-    // Load metadata for connectURL and scope info
-    let metadata = {};
-    try { metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf-8')); } catch {}
     const startUrl = metadata.connectURL || 'about:blank';
 
     // Delete stale result file
@@ -281,9 +330,22 @@ function runConnector(connectorEntry, opts) {
       }
     });
 
-    child.on('close', (exitCode) => {
+    child.on('close', (exitCode, signal) => {
       const duration = Date.now() - startTime;
-      const outcome = classifyOutcome(exitCode || 0, stdoutLines);
+
+      // Signal-terminated process (OOM, SIGKILL, etc.) — don't coerce to exit 0
+      if (exitCode === null) {
+        const diag = extractDiagnostics(stdoutLines, stderrLines);
+        resolve({
+          connector: connectorEntry.id, status: 'fail',
+          exitCode: -1, duration,
+          error: `Process killed by signal: ${signal || 'unknown'}`,
+          diagnostics: diag.errors.length > 0 ? diag.errors : undefined,
+        });
+        return;
+      }
+
+      const outcome = classifyOutcome(exitCode, stdoutLines);
 
       if (outcome.status === 'needs-validation') {
         // Read and validate result file
