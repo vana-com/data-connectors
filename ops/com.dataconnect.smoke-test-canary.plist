@@ -14,8 +14,14 @@
     <key>WorkingDirectory</key>
     <string>__REPO_DIR__</string>
 
-    <key>StartInterval</key>
-    <integer>28800</integer>
+    <!-- Run at 08:00, 16:00, and 00:00 daily. -->
+    <!-- StartCalendarInterval catches up after sleep/wake; StartInterval does not. -->
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict><key>Hour</key><integer>8</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Hour</key><integer>16</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Hour</key><integer>0</integer><key>Minute</key><integer>0</integer></dict>
+    </array>
 
     <key>RunAtLoad</key>
     <true/>
