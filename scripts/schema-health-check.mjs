@@ -92,7 +92,7 @@ const baseScopeSet = new Set();
 const baseRegistry = readGitJson(baseRef, "registry.json");
 if (baseRegistry?.connectors) {
   for (const connector of baseRegistry.connectors) {
-    const metadata = readGitJson(baseRef, connector.files.metadata);
+    const metadata = readGitJson(baseRef, `connectors/${connector.files.metadata}`);
     if (metadata?.scopes) {
       for (const entry of metadata.scopes) {
         baseScopeSet.add(entry.scope);
@@ -114,7 +114,7 @@ const connectors = registry.connectors;
 const scopeToConnector = new Map();
 
 for (const connector of connectors) {
-  const metadataPath = join(REPO_ROOT, connector.files.metadata);
+  const metadataPath = join(REPO_ROOT, "connectors", connector.files.metadata);
   let metadata;
   try {
     metadata = await readJson(metadataPath);
