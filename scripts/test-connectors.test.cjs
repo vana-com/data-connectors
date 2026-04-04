@@ -19,7 +19,7 @@ const RESULTS_DIR = path.join(ROOT, 'test-results');
 function loadMetadata(connectorId) {
   const entry = REGISTRY.connectors.find(c => c.id === connectorId);
   if (!entry) throw new Error(`Connector not in registry: ${connectorId}`);
-  const metadataPath = path.join(ROOT, entry.files.metadata);
+  const metadataPath = path.join(ROOT, 'connectors', entry.files.metadata);
   return JSON.parse(fs.readFileSync(metadataPath, 'utf-8'));
 }
 
@@ -120,7 +120,7 @@ describe('classifyOutcome', () => {
 describe('connector metadata', () => {
   for (const entry of REGISTRY.connectors) {
     it(`${entry.id}: metadata file exists and has scopes`, () => {
-      const metadataPath = path.join(ROOT, entry.files.metadata);
+      const metadataPath = path.join(ROOT, 'connectors', entry.files.metadata);
       assert.ok(fs.existsSync(metadataPath), `Missing: ${metadataPath}`);
       const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf-8'));
       assert.ok(metadata.scopes && metadata.scopes.length > 0, `${entry.id}: no scopes declared`);
@@ -131,7 +131,7 @@ describe('connector metadata', () => {
     });
 
     it(`${entry.id}: script file exists`, () => {
-      const scriptPath = path.join(ROOT, entry.files.script);
+      const scriptPath = path.join(ROOT, 'connectors', entry.files.script);
       assert.ok(fs.existsSync(scriptPath), `Missing: ${scriptPath}`);
     });
   }

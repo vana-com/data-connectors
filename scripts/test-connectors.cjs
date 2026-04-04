@@ -215,8 +215,8 @@ function extractDiagnostics(stdoutLines, stderrLines) {
 
 function loadMetadata(connectorEntry) {
   const metadataPath = connectorEntry.files.metadata
-    ? path.join(ROOT, connectorEntry.files.metadata)
-    : path.join(ROOT, connectorEntry.files.script).replace(/\.js$/, '.json');
+    ? path.join(CONNECTORS_DIR, connectorEntry.files.metadata)
+    : path.join(CONNECTORS_DIR, connectorEntry.files.script).replace(/\.js$/, '.json');
 
   if (!fs.existsSync(metadataPath)) {
     return { error: `Metadata file not found: ${metadataPath}` };
@@ -304,7 +304,7 @@ function runConnector(connectorEntry, opts) {
   const metadata = loaded.metadata;
 
   return new Promise((resolve) => {
-    const scriptPath = path.join(ROOT, connectorEntry.files.script);
+    const scriptPath = path.join(CONNECTORS_DIR, connectorEntry.files.script);
     const outputPath = path.join(RESULTS_DIR, `${connectorEntry.id}.json`);
     const startUrl = metadata.connectURL || 'about:blank';
 
