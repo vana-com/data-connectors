@@ -244,12 +244,19 @@ const fetchWebInfo = async () => {
         } catch {
           // If the selector disambiguation failed, fall back to a DOM-level
           // form fill that at least gets the character into the field.
+          //
+          // Use window.HTMLInputElement.prototype directly rather than
+          // Object.getPrototypeOf(el): it's the standard bypass for React's
+          // controlled inputs (React 16+) and is bulletproof against any
+          // polyfill that may have mutated the element's instance prototype
+          // chain.
           await page.evaluate(`
             (() => {
               const el = document.querySelector(${JSON.stringify(otpSelector)});
               if (el) {
-                const proto = Object.getPrototypeOf(el);
-                const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
+                const setter = Object.getOwnPropertyDescriptor(
+                  window.HTMLInputElement.prototype, 'value'
+                )?.set;
                 if (setter) setter.call(el, ${JSON.stringify(code)});
                 else el.value = ${JSON.stringify(code)};
                 el.dispatchEvent(new Event('input', { bubbles: true }));
