@@ -17,7 +17,7 @@
             "pk": { "type": "string" },
             "is_private": { "type": "boolean" },
             "is_verified": { "type": "boolean" },
-            "profile_pic_url": { "type": "string" }
+            "profile_pic_url": { "type": ["string", "null"] }
           },
           "required": ["username"],
           "additionalProperties": false

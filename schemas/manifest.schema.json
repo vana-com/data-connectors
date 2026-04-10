@@ -138,7 +138,8 @@
           "captcha-solve",
           "frames",
           "keyboard-input",
-          "mouse-input"
+          "mouse-input",
+          "cg-legacy-page-api"
         ]
       },
       "uniqueItems": true

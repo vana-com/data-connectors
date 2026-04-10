@@ -81,61 +81,94 @@ enforces this via `scripts/check-page-api-additive.mjs`.
 
 ## 3. Instagram contract decision
 
-Two extra fields were being collected by the CG Instagram script outside of
-the current canonical contract: `following_accounts` and ad `targeting_categories`.
+CG has historically exposed Instagram via a local script that scraped extra
+fields (`following_accounts`, ad `targeting_categories`) and did NOT emit
+posts. The canonical `data-connectors` Instagram connector emits profile,
+posts, and ads but did not previously emit following.
 
-### `following_accounts` → new public scope `instagram.following`
+### `instagram.following` — upstreamed into the canonical script
 
-- New scope: `instagram.following`
-- New schema: `schemas/instagram.following.json`
-- Manifest: `connectors/meta/instagram-playwright.json` now declares this scope.
-- Rationale: following data is a clearly separable public data unit that users
-  may want to grant independently of profile or posts. Classifying it as an
-  additive field on `instagram.profile` would over-expose it on consent.
+- `scrapeFollowingAccounts` from CG's `public/automations/instagram-headless.js`
+  has been ported into the canonical `connectors/meta/instagram-playwright.js`
+  (see `state.followingAccounts` + the `scrapeFollowingAccounts` helper near
+  the top of the file).
+- The canonical script now emits `instagram.following` alongside profile,
+  posts, and ads.
+- Schema: `schemas/instagram.following.json`.
+- Rationale: keeping CG-only fields in a CG-only fork would perpetuate the
+  drift that this whole plan exists to eliminate. The port was mechanical —
+  the function only uses `page.evaluate` — so there was no reason to defer.
 
-### Ad targeting categories → additive field on existing `instagram.ads`
+### Ad targeting categories — open contract gap
 
-- No schema change required. The existing `schemas/instagram.ads.json`
-  already includes a `categories` array field with `name` and `description`
-  entries.
-- The CG Instagram script refers to this field as `targeting_categories`; the
-  CG adapter (Phase 3) is responsible for renaming it to the canonical
-  `categories` key before emitting the public scope payload.
-- Rationale: categories are already part of the public ads contract. Renaming
-  them would be a breaking change; the data is additive and belongs with the
-  existing scope.
+- `schemas/instagram.ads.json` declares an optional `categories` field, but
+  neither the canonical Instagram script nor the current CG script actually
+  emits it under that name. CG collects a similar concept as
+  `targeting_categories`, but that is not the canonical field name and is
+  not currently exported by either script in this cycle.
+- Phase 3 deliberately does NOT attempt to rename or populate `categories`.
+  If product wants ad targeting categories on the public contract, that is
+  a follow-up task: implement canonical collection and then either populate
+  the existing optional `categories` field or declare a new scope.
+- The earlier version of this doc incorrectly claimed `categories` was
+  "already present" on `instagram.ads`. It is present in the schema as an
+  optional field, but no emitter populates it.
 
-### Script replacement is NOT part of this decision
+### Canonical Instagram script is now activated in CG
 
-Replacing the CG Instagram script with the canonical `data-connectors` script
-is explicitly out of scope for Phase 0 and Phase 3. The two scripts have
-materially different collection flows (web_info path, ad interest SSR fallback,
-captcha handling) and script-level convergence is deferred until Phase 4
-page API convergence has landed.
+Phase 3 replaces CG's `public/automations/instagram-headless.js` with the
+canonical `connectors/meta/instagram-playwright.js` (byte-for-byte via the
+generator's snapshot emission). CG users gain `instagram.posts` (which they
+never had before), retain `instagram.profile`, `instagram.following`, and
+`instagram.ads`. The runtime method gap is closed by new `setProgress`,
+`showBrowser`, `goHeadless` shims on CG's `PlaywrightPageProxy`.
 
-### GitHub + Oura + iCloud Notes script replacement
+### GitHub is also activated
 
-Phase 3 DOES replace the CG github and oura scripts with the canonical
-counterparts. Mechanism: CG commits a pinned copy of the canonical script
-under `config/data-connectors-snapshot/scripts/` and the generator emits it
-verbatim (with a DO NOT EDIT header) to `public/automations/<name>.js`.
+Phase 3 replaces `public/automations/github.js` with the canonical
+`connectors/github/github-playwright.js`. Same mechanism. The CG proxy shims
+also cover GitHub's method surface.
 
-Known divergence the CG runtime must absorb:
+### iCloud Notes is upstreamed but NOT yet runtime-canonical
 
-- The canonical scripts call `page.requestInput(...)`. CG's runtime exposes
-  `getInput(...)` as the credential prompt primitive, so its page proxy
-  includes a `requestInput → getInput` shim (`src/lib/playwright-proxy.ts`).
-  The shim was audited as part of Phase 3.
-- The canonical scripts call `page.setProgress(...)`. CG's runtime previously
-  used `page.setData('status', ...)` for progress display; the client-side
-  handler accepts both messages. Phase 4 tracks the convergence toward a
-  single progress primitive.
-- The canonical scripts wrap all logic in `(async () => { ... })()`. CG's
-  `new AsyncFunction('page', code)` runner handles both top-level-await and
-  IIFE-wrapped scripts.
+- The iCloud Notes manifest, schemas, and script are committed to
+  `data-connectors`, satisfying HC-PHASE3-ICLOUD-UPSTREAM-001.
+- HOWEVER: the script depends on CG-runtime-only page methods that are
+  intentionally NOT part of the canonical typed Page API:
+    - `page.getInput(inputSchema)` — CG-specific credential prompt primitive
+    - `page.frame_click`, `page.frame_fill`, `page.frame_evaluate`,
+      `page.frame_waitForSelector` — CG-specific iframe helpers (used for
+      Apple's auth widget iframe)
+    - `page.keyboard_press`, `page.keyboard_type` — CG-specific keyboard
+      primitives (used for 2FA OTP entry)
+- These methods are NOT in `types/connector.d.ts`, they are NOT implemented
+  in `data-connect/playwright-runner/index.cjs`, and the upstream script
+  will NOT run under the canonical DataConnect runtime without further
+  convergence.
+- The manifest advertises this explicitly via the
+  `capabilities: ["cg-legacy-page-api"]` flag. Any runner that checks
+  capabilities before activating a connector should reject iCloud Notes
+  if it does not implement the CG-legacy surface.
+- This is an honest "metadata converged, script runtime pending" state.
+  Full canonical convergence requires either (a) rewriting the iCloud Notes
+  login flow to use `requestInput` and eliminate the iframe helpers, or
+  (b) promoting `frame_*` and `keyboard_*` into the canonical Page API.
+  Neither is in scope for this PR set.
 
-Regression risk is acknowledged and tracked under the Phase 4 conformance
-fixtures (SS-CONFORMANCE-FIXTURES-001).
+### Oura is NOT activated
+
+- The canonical Oura script uses email + password login.
+- The existing CG Oura script uses email + OTP-only login.
+- Some Oura accounts are OTP-only (no password set); activating the canonical
+  script would block them from connecting.
+- Phase 3 keeps `public/automations/oura.js` as the existing CG script with
+  an exception comment. The canonical script is still pinned in the snapshot
+  at `config/data-connectors-snapshot/scripts/oura-playwright.js` so that
+  future convergence has a stable baseline to diff against.
+- The CG overlay flags this with `activate_canonical_script: false`.
+- Runtime convergence follow-up: either add OTP as an option in the canonical
+  script, or have CG detect OTP accounts and fall through to a CG-only
+  adapter. Not in this cycle.
 
 ## 4. Shell overlay scope
 

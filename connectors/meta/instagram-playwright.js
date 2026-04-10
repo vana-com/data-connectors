@@ -13,10 +13,82 @@ const state = {
   pageInfo: null,
   totalFetched: 0,
   adsData: { advertisers: [], ad_topics: [] },
+  followingAccounts: [],
   isProfileComplete: false,
   isTimelineComplete: false,
   isAdsComplete: false,
+  isFollowingComplete: false,
   isComplete: false
+};
+
+// Helper: Scrape the list of accounts the logged-in user follows via
+// Instagram's internal friendships endpoint. Runs entirely inside
+// page.evaluate so it's portable across any runtime that implements the
+// canonical Page API.
+//
+// Ported from Context Gateway's instagram-headless.js (which is being
+// decommissioned) so that the canonical connector is a superset and CG
+// users don't lose following_accounts when the canonical script is
+// activated.
+const scrapeFollowingAccounts = async (userId, expectedCount) => {
+  try {
+    if (!userId) return [];
+    const apiAccounts = await page.evaluate(`
+      (async ({ userId, expectedCount }) => {
+        const collected = [];
+        const seen = new Set();
+        let nextMaxId = null;
+        let iterations = 0;
+
+        while (iterations < 20) {
+          iterations += 1;
+          const params = new URLSearchParams({ count: '50' });
+          if (nextMaxId) params.set('max_id', nextMaxId);
+
+          const response = await fetch(\`/api/v1/friendships/\${userId}/following/?\${params.toString()}\`, {
+            headers: {
+              'x-ig-app-id': '936619743392459',
+              'x-requested-with': 'XMLHttpRequest'
+            },
+            credentials: 'include'
+          });
+
+          if (!response.ok) {
+            throw new Error(\`Following API failed with status \${response.status}\`);
+          }
+
+          const data = await response.json();
+          const users = Array.isArray(data.users) ? data.users : [];
+
+          for (const user of users) {
+            if (!user?.username || seen.has(user.username)) continue;
+            seen.add(user.username);
+            collected.push({
+              username: user.username,
+              full_name: user.full_name || '',
+              pk: user.pk || user.id || '',
+              is_private: !!user.is_private,
+              is_verified: !!user.is_verified,
+              profile_pic_url: user.profile_pic_url || null
+            });
+          }
+
+          if ((typeof expectedCount === 'number' && expectedCount > 0 && collected.length >= expectedCount) || !data.next_max_id) {
+            break;
+          }
+
+          nextMaxId = data.next_max_id;
+        }
+
+        return collected;
+      })(${JSON.stringify({ userId, expectedCount })})
+    `);
+    return Array.isArray(apiAccounts) ? apiAccounts : [];
+  } catch (error) {
+    // Non-fatal: following data is optional at the connector level.
+    await page.setData('status', `Failed to scrape following accounts: ${error?.message || String(error)}`);
+    return [];
+  }
 };
 
 // Helper: Fetch web_info to get logged-in user data
@@ -336,6 +408,20 @@ const fetchWebInfo = async () => {
           };
           state.isProfileComplete = true;
           await page.setData('profile', state.profileData);
+
+          // Scrape the following list once we have the authoritative user id
+          // and expected following count. This runs against Instagram's
+          // internal friendships endpoint via page.evaluate and is portable.
+          await page.setProgress({
+            phase: { step: 1, total: 3, label: 'Fetching following' },
+            message: `Fetching following list for @${state.profileData.username}...`,
+          });
+          state.followingAccounts = await scrapeFollowingAccounts(
+            state.profileData.id || state.profileData.pk,
+            state.profileData.following_count,
+          );
+          state.isFollowingComplete = true;
+          await page.setData('following_count_collected', state.followingAccounts.length);
         }
       }
     }
@@ -576,6 +662,10 @@ const fetchWebInfo = async () => {
       },
       'instagram.posts': {
         posts: posts,
+      },
+      'instagram.following': {
+        accounts: state.followingAccounts,
+        total: state.followingAccounts.length,
       },
       'instagram.ads': {
         advertisers: state.adsData.advertisers,
