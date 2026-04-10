@@ -164,12 +164,27 @@ const fetchWebInfo = async () => {
     await page.goto('https://www.instagram.com/accounts/login/');
     await page.sleep(2000);
 
-    // Check if standard login form is present
-    const hasLoginForm = await page.evaluate(`
-      !!document.querySelector('input[name="username"]') && !!document.querySelector('input[name="password"]')
-    `);
+    // Selectors are deliberately broad — Instagram ships different DOMs by
+    // region/version. These cover the shapes observed in production:
+    //   - input[name="username"] + input[name="password"]    (older)
+    //   - input[name="email"]    + input[name="pass"]        (current 2025+)
+    //   - input[aria-label*="Username"] + input[aria-label*="Password"]  (regional)
+    const userSelector = 'input[name="username"], input[name="email"], input[aria-label*="Username"]';
+    const passSelector = 'input[name="password"], input[name="pass"], input[aria-label*="Password"]';
 
     const supportsRequestInput = typeof page.requestInput === 'function';
+
+    // Wait for the login form to render before we try to interact with it.
+    // Instagram hydrates its forms asynchronously, so a one-shot DOM check
+    // can race hydration. waitForSelector polls until the element is visible
+    // or the timeout elapses.
+    let hasLoginForm = false;
+    try {
+      await page.waitForSelector(userSelector, { timeout: 10000, state: 'visible' });
+      hasLoginForm = true;
+    } catch {
+      hasLoginForm = false;
+    }
 
     if (supportsRequestInput && hasLoginForm) {
       const { username: loginUser, password } = await page.requestInput({
@@ -184,12 +199,26 @@ const fetchWebInfo = async () => {
         },
       });
 
-      await page.evaluate(`document.querySelector('input[name="username"]').value = ${JSON.stringify(loginUser)}`);
-      await page.evaluate(`document.querySelector('input[name="username"]').dispatchEvent(new Event('input', {bubbles:true}))`);
-      await page.evaluate(`document.querySelector('input[name="password"]').value = ${JSON.stringify(password)}`);
-      await page.evaluate(`document.querySelector('input[name="password"]').dispatchEvent(new Event('input', {bubbles:true}))`);
-      await page.evaluate(`document.querySelector('button[type="submit"]').click()`);
-      await page.sleep(5000);
+      // Use the canonical Page API's page.fill / page.press so the runtime
+      // (Playwright, under both DataConnect and Context Gateway) handles
+      // React-synthetic-event dispatch correctly. Setting input.value by
+      // hand and firing a bubbling 'input' event does NOT trigger React's
+      // onChange for controlled inputs, which is why previous versions of
+      // this script failed silently on Instagram's current DOM.
+      await page.fill(userSelector, loginUser);
+      await page.sleep(300);
+      await page.fill(passSelector, password);
+      await page.sleep(300);
+      // Press Enter on the password field rather than clicking a submit
+      // button — Instagram renders its submit as either
+      // `<button type="submit">`, `<input type="submit">`, or
+      // `<div role="button">`, and the Enter-key path bypasses all of
+      // those variations.
+      await page.press(passSelector, 'Enter');
+      // Instagram's SPA redirect can take 10+ seconds after a successful
+      // submit. Wait long enough that an immediate check for the login
+      // form or a 2FA prompt will see a settled DOM.
+      await page.sleep(12000);
 
       // Handle 2FA / suspicious login challenge
       const needs2fa = await page.evaluate(`
@@ -207,20 +236,31 @@ const fetchWebInfo = async () => {
             required: ["code"],
           },
         });
-        await page.evaluate(`
-          (() => {
-            const input = document.querySelector('input[name="verificationCode"]') ||
-                          document.querySelector('input[name="security_code"]') ||
-                          document.querySelector('input[aria-label="Security Code"]') ||
-                          document.querySelector('input[name="approvals_code"]');
-            if (input) {
-              input.value = ${JSON.stringify(code)};
-              input.dispatchEvent(new Event('input', {bubbles:true}));
-            }
-          })()
-        `);
-        await page.evaluate(`document.querySelector('button[type="button"], button[type="submit"]')?.click()`);
-        await page.sleep(3000);
+        const otpSelector = 'input[name="verificationCode"], input[name="security_code"], input[aria-label="Security Code"], input[name="approvals_code"]';
+        try {
+          await page.fill(otpSelector, code);
+          await page.sleep(500);
+          await page.press(otpSelector, 'Enter');
+        } catch {
+          // If the selector disambiguation failed, fall back to a DOM-level
+          // form fill that at least gets the character into the field.
+          await page.evaluate(`
+            (() => {
+              const el = document.querySelector(${JSON.stringify(otpSelector)});
+              if (el) {
+                const proto = Object.getPrototypeOf(el);
+                const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
+                if (setter) setter.call(el, ${JSON.stringify(code)});
+                else el.value = ${JSON.stringify(code)};
+                el.dispatchEvent(new Event('input', { bubbles: true }));
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+                const form = el.closest('form');
+                if (form) form.submit();
+              }
+            })()
+          `);
+        }
+        await page.sleep(5000);
       }
     }
 
@@ -265,8 +305,14 @@ const fetchWebInfo = async () => {
       await page.sleep(2000);
     }
 
-    // Check if login succeeded
-    let newWebInfo = await fetchWebInfo();
+    // Check if login succeeded. Give fetchWebInfo a few tries — the page
+    // may still be settling after the Instagram SPA navigation.
+    let newWebInfo = null;
+    for (let r = 0; r < 3; r++) {
+      newWebInfo = await fetchWebInfo();
+      if (newWebInfo?.username) break;
+      await page.sleep(2000);
+    }
     let loginSucceeded = !!(newWebInfo && newWebInfo.username);
 
     // Fallback to headed browser if programmatic login failed
