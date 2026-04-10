@@ -503,15 +503,43 @@ if (!loggedIn) {
     }
   }
 
-  // Fallback: manual login via browser takeover
+  // Fallback: manual login via browser takeover — only if the runtime
+  // can actually surface a headed browser to the user. In runtimes like
+  // Context Gateway where the remote browser is not surfaced to the end
+  // user at all, showBrowser returns { headed: false } and calling
+  // promptUser here would hang indefinitely waiting for a login the user
+  // can't perform. In that case, return a clean error instead.
   if (!loggedIn) {
-    await page.setData('status', 'Please sign in manually in the browser below.');
-    await page.promptUser(
-      'Automatic sign-in failed. Please sign in to GitHub manually, including any 2FA. The process will continue automatically once you are signed in.',
-      async () => await checkLoggedIn(),
-      5000
-    );
-    loggedIn = await checkLoggedIn();
+    let canShowHeaded = false;
+    if (typeof page.showBrowser === 'function') {
+      try {
+        const result = await page.showBrowser('https://github.com/login');
+        canShowHeaded = !!(result && result.headed);
+      } catch {
+        canShowHeaded = false;
+      }
+    }
+
+    if (canShowHeaded) {
+      await page.setData('status', 'Please sign in manually in the browser below.');
+      await page.promptUser(
+        'Automatic sign-in failed. Please sign in to GitHub manually, including any 2FA. The process will continue automatically once you are signed in.',
+        async () => await checkLoggedIn(),
+        5000
+      );
+      loggedIn = await checkLoggedIn();
+    } else {
+      await page.setData(
+        'status',
+        'Automatic sign-in failed and this runtime cannot surface a manual sign-in browser.'
+      );
+      return {
+        success: false,
+        error:
+          'Automatic GitHub sign-in failed. ' +
+          (lastError || 'Please check your credentials and try again.'),
+      };
+    }
   }
 }
 

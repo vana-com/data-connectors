@@ -31,7 +31,7 @@
         "metadata": "github/github-playwright.json"
       },
       "checksums": {
-        "script": "sha256:b98bd312be449c2c2ed285c8a0336be5f3dfce7de8ce96500a8d414e6be03aaa",
+        "script": "sha256:a5bf3cc02484b7eb7f8bafe1453045cf4e0a0b9af9cb979d97d6aaf13fde2036",
         "metadata": "sha256:d96e4fa20cdb568d92959e3008278d53f6b5a7c8ce5d3aa9cd41a58dcff19e33"
       }
     },
@@ -47,7 +47,7 @@
         "metadata": "meta/instagram-playwright.json"
       },
       "checksums": {
-        "script": "sha256:80d605e24c86201b72ff64241e04679d69cfbb9576f028a54f24bb41443bad47",
+        "script": "sha256:1341018fe5bf1cb622b61b9ef4a2c6ec2cfa0f8bcf2489e0c444b8065225c13a",
         "metadata": "sha256:ce47799e786a75ac5a579ac34bfffc0f257a05dda50ac67e6af8c5cdd39c7150"
       }
     },

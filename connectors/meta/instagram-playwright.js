@@ -150,6 +150,26 @@ const fetchWebInfo = async () => {
 
 // Main export flow
 (async () => {
+  // Honest scope gating: if the runtime exposes requestedScopes(), respect
+  // it so we can skip collection for scopes the caller didn't ask for.
+  // A null return (or a missing method) means "collect everything" — the
+  // legacy default — so older runtimes continue to work unchanged. This
+  // is not an enforcement layer against a malicious caller; the script
+  // runs in a client-controlled JS VM and the gate can be stripped. It
+  // exists so well-behaved flows don't waste worker cycles or overcollect.
+  const requestedScopesList =
+    typeof page.requestedScopes === 'function' ? page.requestedScopes() : null;
+  const wantsScope = (scope) =>
+    requestedScopesList === null || requestedScopesList.includes(scope);
+
+  // Profile data is load-bearing for login detection and for the username
+  // we pass to the Following endpoint, so we always collect it. We just
+  // omit it from the result if it wasn't requested.
+  const wantsProfile = wantsScope('instagram.profile');
+  const wantsFollowing = wantsScope('instagram.following');
+  const wantsPosts = wantsScope('instagram.posts');
+  const wantsAds = wantsScope('instagram.ads');
+
   // Navigate to Instagram
   // We start on login page - check if already logged in
   await page.setData('status', 'Checking login status...');
@@ -384,18 +404,24 @@ const fetchWebInfo = async () => {
     message: 'Setting up network capture...',
   });
 
-  // Set up network captures BEFORE navigating to profile
+  // Set up network captures BEFORE navigating to profile. The profile
+  // capture is load-bearing (we need profile.id for the following scrape
+  // and username/counts for the export summary), so always run it. The
+  // posts capture is gated on the instagram.posts scope — skipping it
+  // means we don't scroll or paginate for posts below.
   await page.captureNetwork({
     urlPattern: '/graphql',
     bodyPattern: 'PolarisProfilePageContentQuery|ProfilePageQuery|UserByUsernameQuery',
     key: 'profileResponse'
   });
 
-  await page.captureNetwork({
-    urlPattern: '/graphql',
-    bodyPattern: 'PolarisProfilePostsQuery|PolarisProfilePostsTabContentQuery_connection|ProfilePostsQuery|UserMediaQuery',
-    key: 'postsResponse'
-  });
+  if (wantsPosts) {
+    await page.captureNetwork({
+      urlPattern: '/graphql',
+      bodyPattern: 'PolarisProfilePostsQuery|PolarisProfilePostsTabContentQuery_connection|ProfilePostsQuery|UserMediaQuery',
+      key: 'postsResponse'
+    });
+  }
 
   await page.setData('status', 'Network capture configured');
 
@@ -413,7 +439,9 @@ const fetchWebInfo = async () => {
     message: 'Waiting for profile data...',
   });
   let profileData = null;
-  let postsData = null;
+  // When posts are not requested, treat postsData as "already done" so the
+  // wait loop exits as soon as the profile capture arrives.
+  let postsData = wantsPosts ? null : { skipped: true };
   let attempts = 0;
   const maxAttempts = 30;
 
@@ -465,16 +493,21 @@ const fetchWebInfo = async () => {
           // Scrape the following list once we have the authoritative user id
           // and expected following count. This runs against Instagram's
           // internal friendships endpoint via page.evaluate and is portable.
-          await page.setProgress({
-            phase: { step: 1, total: 3, label: 'Fetching following' },
-            message: `Fetching following list for @${state.profileData.username}...`,
-          });
-          state.followingAccounts = await scrapeFollowingAccounts(
-            state.profileData.id || state.profileData.pk,
-            state.profileData.following_count,
-          );
-          state.isFollowingComplete = true;
-          await page.setData('following_count_collected', state.followingAccounts.length);
+          if (wantsFollowing) {
+            await page.setProgress({
+              phase: { step: 1, total: 3, label: 'Fetching following' },
+              message: `Fetching following list for @${state.profileData.username}...`,
+            });
+            state.followingAccounts = await scrapeFollowingAccounts(
+              state.profileData.id || state.profileData.pk,
+              state.profileData.following_count,
+            );
+            state.isFollowingComplete = true;
+            await page.setData('following_count_collected', state.followingAccounts.length);
+          } else {
+            // Mark complete so the done check doesn't wait on it.
+            state.isFollowingComplete = true;
+          }
         }
       }
     }
@@ -490,8 +523,9 @@ const fetchWebInfo = async () => {
     }
   }
 
-  // If we didn't get posts data, try scrolling to trigger loading
-  if (!postsData) {
+  // If we didn't get posts data (and posts were actually requested), try
+  // scrolling to trigger loading.
+  if (wantsPosts && !postsData) {
     await page.setProgress({
       phase: { step: 2, total: 3, label: 'Fetching posts' },
       message: 'Scrolling to load posts...',
@@ -502,8 +536,10 @@ const fetchWebInfo = async () => {
     postsData = await page.getCapturedResponse('postsResponse');
   }
 
-  // Process initial posts data
-  if (postsData) {
+  // Process initial posts data (only when posts were requested — when
+  // posts are skipped, postsData is a {skipped: true} sentinel that would
+  // otherwise trip the truthiness check below).
+  if (wantsPosts && postsData) {
     const timelineData = postsData?.data?.data?.xdt_api__v1__feed__user_timeline_graphql_connection;
     if (timelineData) {
       const { edges, page_info } = timelineData;
@@ -591,7 +627,10 @@ const fetchWebInfo = async () => {
   // Scrapes from Accounts Center. DOM uses stable ARIA roles:
   //   dialog > list > listitem (textContent = name)
   // "See all advertisers" opens a dialog; "See all ad topics" navigates to /ads/ad_topics/ dialog.
-
+  //
+  // Gated on instagram.ads: when the caller didn't request ads, we skip
+  // the entire accountscenter navigation and dialog scraping.
+  if (wantsAds) {
   await page.setProgress({
     phase: { step: 3, total: 3, label: 'Fetching ad interests' },
     message: 'Navigating to ad preferences...',
@@ -668,6 +707,7 @@ const fetchWebInfo = async () => {
     phase: { step: 3, total: 3, label: 'Fetching ad interests' },
     message: `Ad interests: ${state.adsData.advertisers.length} advertisers, ${state.adsData.ad_topics.length} topics`,
   });
+  } // end if (wantsAds)
 
   // Transform data to schema format
   const transformDataForSchema = () => {
@@ -699,8 +739,12 @@ const fetchWebInfo = async () => {
       };
     });
 
-    return {
-      'instagram.profile': {
+    // Build the scoped result, only including keys for scopes the caller
+    // actually requested. When requestedScopesList is null (legacy),
+    // wantsScope always returns true and all four scopes are emitted.
+    const scopedResult = {};
+    if (wantsProfile) {
+      scopedResult['instagram.profile'] = {
         username: profile.username,
         full_name: profile.full_name,
         bio: profile.biography,
@@ -712,18 +756,27 @@ const fetchWebInfo = async () => {
         is_private: profile.is_private,
         is_verified: profile.is_verified,
         is_business: profile.is_business,
-      },
-      'instagram.posts': {
+      };
+    }
+    if (wantsPosts) {
+      scopedResult['instagram.posts'] = {
         posts: posts,
-      },
-      'instagram.following': {
+      };
+    }
+    if (wantsFollowing) {
+      scopedResult['instagram.following'] = {
         accounts: state.followingAccounts,
         total: state.followingAccounts.length,
-      },
-      'instagram.ads': {
+      };
+    }
+    if (wantsAds) {
+      scopedResult['instagram.ads'] = {
         advertisers: state.adsData.advertisers,
         ad_topics: state.adsData.ad_topics,
-      },
+      };
+    }
+    return {
+      ...scopedResult,
       exportSummary: {
         count: posts.length,
         label: posts.length === 1 ? 'post' : 'posts'
@@ -731,6 +784,7 @@ const fetchWebInfo = async () => {
       timestamp: new Date().toISOString(),
       version: "2.0.0-playwright",
       platform: "instagram",
+      requestedScopes: requestedScopesList,
     };
   };
 
