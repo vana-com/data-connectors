@@ -242,6 +242,22 @@
         "script": "sha256:4e070bc31afd210563db5c0ece547c9535f197b79b5b28951d87993c8538dafe",
         "metadata": "sha256:0edfdc3e73e503cfca05e61cd2906854c1268075b1a74edd405b3a32c6aad84e"
       }
+    },
+    {
+      "id": "icloud-notes-playwright",
+      "company": "Apple",
+      "version": "0.1.0",
+      "name": "iCloud Notes",
+      "status": "experimental",
+      "description": "Exports your Apple Notes (content, titles, metadata) and folder structure via iCloud using Playwright browser automation. Upstreamed from Context Gateway; runtime convergence with other canonical connectors is tracked under Phase 4.",
+      "files": {
+        "script": "apple/icloud-notes-playwright.js",
+        "metadata": "apple/icloud-notes-playwright.json"
+      },
+      "checksums": {
+        "script": "sha256:816a388fab36c7fc58c683a9bc590d27d2ea7fd19d8e4c7bc5624f84359dd2fb",
+        "metadata": "sha256:8417e5737575c74d133db8ec2a718e61ded6bc3cb25536fb70876ceff89194e4"
+      }
     }
   ]
 }

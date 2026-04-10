@@ -1,0 +1,31 @@
+{
+  "name": "Instagram Following",
+  "version": "1.0.0",
+  "scope": "instagram.following",
+  "dialect": "json",
+  "description": "The list of Instagram accounts the user follows, as returned by the Instagram friendships/following endpoint.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "accounts": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "username": { "type": "string" },
+            "full_name": { "type": "string" },
+            "pk": { "type": "string" },
+            "is_private": { "type": "boolean" },
+            "is_verified": { "type": "boolean" },
+            "profile_pic_url": { "type": "string" }
+          },
+          "required": ["username"],
+          "additionalProperties": false
+        }
+      },
+      "total": { "type": "number" }
+    },
+    "required": ["accounts"],
+    "additionalProperties": false
+  }
+}

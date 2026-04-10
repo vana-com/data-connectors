@@ -1,14 +1,16 @@
 {
-  "id": "uber-playwright",
+  "manifest_version": "1.0",
+  "connector_id": "uber-playwright",
+  "source_id": "uber",
   "version": "1.0.0",
   "name": "Uber",
   "company": "Uber",
-  "iconURL": "icons/uber.svg",
   "description": "Exports your Uber trip history and receipts using Playwright browser automation.",
-  "connectURL": "https://m.uber.com",
-  "connectSelector": "[data-testid]",
-  "exportFrequency": "weekly",
   "runtime": "playwright",
+  "page_api_version": 1,
+  "connect_url": "https://m.uber.com",
+  "connect_selector": "[data-testid]",
+  "icon": "icons/uber.svg",
   "scopes": [
     {
       "scope": "uber.trips",
@@ -21,6 +23,11 @@
       "description": "Fare breakdowns and receipt details for each trip"
     }
   ],
+  "id": "uber-playwright",
+  "connectURL": "https://m.uber.com",
+  "connectSelector": "[data-testid]",
+  "iconURL": "icons/uber.svg",
+  "exportFrequency": "weekly",
   "vectorize_config": {
     "documents": "trips"
   }

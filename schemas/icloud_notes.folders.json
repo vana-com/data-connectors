@@ -1,0 +1,28 @@
+{
+  "name": "iCloud Notes Folders",
+  "version": "1.0.0",
+  "scope": "icloud_notes.folders",
+  "dialect": "json",
+  "description": "Folder structure used to organize iCloud Notes.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "folders": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "name": { "type": "string" },
+            "parent_id": { "type": ["string", "null"] }
+          },
+          "required": ["id", "name"],
+          "additionalProperties": false
+        }
+      },
+      "total": { "type": "number" }
+    },
+    "required": ["folders"],
+    "additionalProperties": false
+  }
+}

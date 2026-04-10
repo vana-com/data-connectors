@@ -1,19 +1,43 @@
 {
-  "id": "instagram-playwright",
+  "manifest_version": "1.0",
+  "connector_id": "instagram-playwright",
+  "source_id": "instagram",
   "version": "1.0.0",
   "name": "Instagram",
   "company": "Meta",
-  "iconURL": "icons/instagram.svg",
   "description": "Exports your Instagram profile and posts using Playwright browser automation.",
+  "runtime": "playwright",
+  "page_api_version": 1,
+  "connect_url": "https://www.instagram.com/accounts/login/",
+  "connect_selector": "svg[aria-label='Home'], a[href='/direct/inbox/']",
+  "icon": "icons/instagram.svg",
+  "scopes": [
+    {
+      "scope": "instagram.profile",
+      "label": "Your Instagram profile",
+      "description": "Profile information including bio and follower counts"
+    },
+    {
+      "scope": "instagram.posts",
+      "label": "Your Instagram posts",
+      "description": "Published posts from your feed"
+    },
+    {
+      "scope": "instagram.following",
+      "label": "Accounts you follow",
+      "description": "The list of Instagram accounts you follow"
+    },
+    {
+      "scope": "instagram.ads",
+      "label": "Your ad interests",
+      "description": "Advertisers you've seen and ad topics based on your activity"
+    }
+  ],
+  "id": "instagram-playwright",
   "connectURL": "https://www.instagram.com/accounts/login/",
   "connectSelector": "svg[aria-label='Home'], a[href='/direct/inbox/']",
+  "iconURL": "icons/instagram.svg",
   "exportFrequency": "daily",
-  "runtime": "playwright",
-  "scopes": [
-    { "scope": "instagram.profile", "label": "Your Instagram profile", "description": "Profile information including bio and follower counts" },
-    { "scope": "instagram.posts", "label": "Your Instagram posts", "description": "Published posts from your feed" },
-    { "scope": "instagram.ads", "label": "Your ad interests", "description": "Advertisers you've seen and ad topics based on your activity" }
-  ],
   "vectorize_config": {
     "documents": "caption"
   }

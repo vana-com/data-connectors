@@ -1,14 +1,16 @@
 {
-  "id": "shop-playwright",
+  "manifest_version": "1.0",
+  "connector_id": "shop-playwright",
+  "source_id": "shop",
   "version": "1.0.0",
   "name": "Shop",
   "company": "Shopify",
-  "iconURL": "icons/shop.svg",
   "description": "Exports your Shop app order history using Playwright browser automation.",
-  "connectURL": "https://shop.app/account/order-history",
-  "connectSelector": "main h1, main h2, [data-test*=\"order\"], [data-testid*=\"order\"]",
-  "exportFrequency": "weekly",
   "runtime": "playwright",
+  "page_api_version": 1,
+  "connect_url": "https://shop.app/account/order-history",
+  "connect_selector": "main h1, main h2, [data-test*=\"order\"], [data-testid*=\"order\"]",
+  "icon": "icons/shop.svg",
   "scopes": [
     {
       "scope": "shop.orders",
@@ -16,6 +18,11 @@
       "description": "Complete order history from the Shop app including merchants, items, totals, and delivery status"
     }
   ],
+  "id": "shop-playwright",
+  "connectURL": "https://shop.app/account/order-history",
+  "connectSelector": "main h1, main h2, [data-test*=\"order\"], [data-testid*=\"order\"]",
+  "iconURL": "icons/shop.svg",
+  "exportFrequency": "weekly",
   "vectorize_config": {
     "documents": "orders"
   }

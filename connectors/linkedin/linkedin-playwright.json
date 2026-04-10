@@ -1,14 +1,16 @@
 {
-  "id": "linkedin-playwright",
+  "manifest_version": "1.0",
+  "connector_id": "linkedin-playwright",
+  "source_id": "linkedin",
   "version": "1.0.0",
   "name": "LinkedIn",
   "company": "LinkedIn",
-  "iconURL": "icons/linkedin.svg",
   "description": "Exports your LinkedIn profile, work experience, education, skills, languages, and connections using Playwright browser automation.",
-  "connectURL": "https://www.linkedin.com/login",
-  "connectSelector": "a[href*='/feed/'], .feed-identity-module, .global-nav__me",
-  "exportFrequency": "weekly",
   "runtime": "playwright",
+  "page_api_version": 1,
+  "connect_url": "https://www.linkedin.com/login",
+  "connect_selector": "a[href*='/feed/'], .feed-identity-module, .global-nav__me",
+  "icon": "icons/linkedin.svg",
   "scopes": [
     {
       "scope": "linkedin.profile",
@@ -41,6 +43,11 @@
       "description": "Your LinkedIn connections with names, headlines, profile URLs, and date connected"
     }
   ],
+  "id": "linkedin-playwright",
+  "connectURL": "https://www.linkedin.com/login",
+  "connectSelector": "a[href*='/feed/'], .feed-identity-module, .global-nav__me",
+  "iconURL": "icons/linkedin.svg",
+  "exportFrequency": "weekly",
   "vectorize_config": {
     "documents": "connections"
   }

@@ -1,0 +1,43 @@
+name: Contract Guardrails
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  contract-guardrails:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Validate manifests (HC-MANIFEST-CONTRACT-001/002/003, HC-VERSIONING-INDEPENDENT-001, HC-WHAT-NOT-TO-DO-002)
+        run: node scripts/validate-manifests.mjs
+
+      - name: Check manifests normalized
+        run: node scripts/normalize-manifests.mjs --check
+
+      - name: Validate scope-schema coverage (HC-RESULT-CONTRACT-001)
+        run: node scripts/validate-scope-schemas.mjs
+
+      - name: Check page API additive-only (HC-PHASE4-PAGE-API-ADDITIVE-001)
+        env:
+          BASE_REF: origin/${{ github.base_ref || 'main' }}
+        run: node scripts/check-page-api-additive.mjs
+
+      - name: Check source_id stability (HC-COMPAT-SOURCE-ID-001)
+        env:
+          BASE_REF: origin/${{ github.base_ref || 'main' }}
+        run: node scripts/check-source-id-stability.mjs
+
+      - name: Check scope schemas additive (HC-COMPAT-ADDITIVE-SCHEMA-001)
+        env:
+          BASE_REF: origin/${{ github.base_ref || 'main' }}
+        run: node scripts/check-additive-schemas.mjs

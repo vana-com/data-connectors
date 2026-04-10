@@ -1,18 +1,39 @@
 {
-  "id": "spotify-playwright",
+  "manifest_version": "1.0",
+  "connector_id": "spotify-playwright",
+  "source_id": "spotify",
   "version": "1.0.0",
   "name": "Spotify",
   "company": "Spotify",
-  "iconURL": "icons/spotify.svg",
   "description": "Exports your Spotify library, playlists, listening history, and preferences using Playwright browser automation.",
+  "runtime": "playwright",
+  "page_api_version": 1,
+  "connect_url": "https://open.spotify.com/",
+  "connect_selector": "button[data-testid='user-widget-link']",
+  "icon": "icons/spotify.svg",
+  "scopes": [
+    {
+      "scope": "spotify.profile",
+      "label": "Your Spotify profile",
+      "description": "Profile information"
+    },
+    {
+      "scope": "spotify.savedTracks",
+      "label": "Your liked songs",
+      "description": "Saved/liked tracks in your library"
+    },
+    {
+      "scope": "spotify.playlists",
+      "label": "Your playlists",
+      "description": "Playlists and their tracks"
+    }
+  ],
+  "id": "spotify-playwright",
   "connectURL": "https://open.spotify.com/",
   "connectSelector": "button[data-testid='user-widget-link']",
+  "iconURL": "icons/spotify.svg",
   "exportFrequency": "daily",
-  "runtime": "playwright",
-  "scopes": [
-    { "scope": "spotify.profile", "label": "Your Spotify profile", "description": "Profile information" },
-    { "scope": "spotify.savedTracks", "label": "Your liked songs", "description": "Saved/liked tracks in your library" },
-    { "scope": "spotify.playlists", "label": "Your playlists", "description": "Playlists and their tracks" }
-  ],
-  "vectorize_config": { "documents": "savedTracks" }
+  "vectorize_config": {
+    "documents": "savedTracks"
+  }
 }

@@ -1,0 +1,30 @@
+{
+  "name": "Page API Conformance Result",
+  "version": "1.0.0",
+  "scope": "conformance.result",
+  "dialect": "json",
+  "description": "Record of which page API methods the host runtime implements and how they responded to the conformance probe.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "page_api_version": { "type": "number" },
+      "checked_at": { "type": "string" },
+      "methods": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object",
+          "properties": {
+            "present": { "type": "boolean" },
+            "tried": { "type": "boolean" },
+            "ok": { "type": "boolean" },
+            "error": { "type": ["string", "null"] }
+          },
+          "required": ["present", "tried", "ok"],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": ["page_api_version", "checked_at", "methods"],
+    "additionalProperties": false
+  }
+}

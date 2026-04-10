@@ -1,0 +1,25 @@
+{
+  "manifest_version": "1.0",
+  "connector_id": "conformance-playwright",
+  "source_id": "conformance",
+  "version": "1.0.0",
+  "name": "Page API Conformance",
+  "company": "Vana",
+  "description": "Synthetic connector that exercises every method in the canonical page API minimum surface. Used by CI to detect runtime drift between shells (Context Gateway, DataConnect, future runners).",
+  "runtime": "playwright",
+  "page_api_version": 1,
+  "connect_url": "https://example.com/",
+  "connect_selector": "body",
+  "scopes": [
+    {
+      "scope": "conformance.result",
+      "label": "Conformance probe result",
+      "description": "A structured record of which page API methods the runtime implements."
+    }
+  ],
+  "capabilities": [
+    "network-capture",
+    "http-fetch",
+    "keyboard-input"
+  ]
+}

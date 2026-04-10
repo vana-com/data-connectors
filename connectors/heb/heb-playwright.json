@@ -1,14 +1,16 @@
 {
-  "id": "heb-playwright",
+  "manifest_version": "1.0",
+  "connector_id": "heb-playwright",
+  "source_id": "heb",
   "version": "1.0.0",
   "name": "H-E-B",
   "company": "HEB",
-  "iconURL": "icons/heb.png",
   "description": "Exports your H-E-B account profile, order history, and product nutrition data using Playwright browser automation.",
-  "connectURL": "https://www.heb.com/my-account/your-orders",
-  "connectSelector": "button[aria-label='My account']",
-  "exportFrequency": "weekly",
   "runtime": "playwright",
+  "page_api_version": 1,
+  "connect_url": "https://www.heb.com/my-account/your-orders",
+  "connect_selector": "button[aria-label='My account']",
+  "icon": "icons/heb.png",
   "scopes": [
     {
       "scope": "heb.profile",
@@ -27,6 +29,11 @@
       "schema": "https://schema.org/NutritionInformation"
     }
   ],
+  "id": "heb-playwright",
+  "connectURL": "https://www.heb.com/my-account/your-orders",
+  "connectSelector": "button[aria-label='My account']",
+  "iconURL": "icons/heb.png",
+  "exportFrequency": "weekly",
   "vectorize_config": {
     "documents": "name"
   }

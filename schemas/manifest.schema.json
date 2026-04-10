@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/vana-com/data-connectors/main/schemas/manifest.schema.json",
+  "title": "Connector Manifest",
+  "description": "Canonical manifest contract for data-connectors. Every *-playwright.json file must validate against this schema.",
+  "type": "object",
+  "required": [
+    "manifest_version",
+    "connector_id",
+    "source_id",
+    "version",
+    "name",
+    "company",
+    "description",
+    "runtime",
+    "page_api_version",
+    "connect_url",
+    "connect_selector",
+    "scopes"
+  ],
+  "properties": {
+    "manifest_version": {
+      "type": "string",
+      "description": "Version of this manifest schema itself. Independent of connector version.",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "connector_id": {
+      "type": "string",
+      "description": "Globally unique connector artifact id, e.g. 'instagram-playwright'.",
+      "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+    "source_id": {
+      "type": "string",
+      "description": "Stable product-facing source id, e.g. 'instagram'. Must not change across releases without a versioned migration path.",
+      "pattern": "^[a-z0-9][a-z0-9_]*$"
+    },
+    "version": {
+      "type": "string",
+      "description": "Connector version (semver). Independent of manifest_version, page_api_version, and scope schema versions.",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z-.]+)?$"
+    },
+    "page_api_version": {
+      "type": "integer",
+      "description": "Major version of the page API this connector requires. Independent of connector version.",
+      "minimum": 1
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "company": {
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1
+    },
+    "runtime": {
+      "type": "string",
+      "enum": ["playwright", "vanilla", "network-capture"]
+    },
+    "connect_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "Login / start URL for the platform."
+    },
+    "connect_selector": {
+      "type": "string",
+      "minLength": 4,
+      "description": "CSS selector that is visible only when the user is logged in."
+    },
+    "icon": {
+      "type": "string",
+      "description": "Path to the canonical connector icon relative to the repo root."
+    },
+    "scopes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "oneOf": [
+          {
+            "type": "string",
+            "pattern": "^[a-z0-9_-]+\\.[a-z0-9_.-]+$"
+          },
+          {
+            "type": "object",
+            "required": ["scope"],
+            "properties": {
+              "scope": {
+                "type": "string",
+                "pattern": "^[a-z0-9_-]+\\.[A-Za-z0-9_.-]+$"
+              },
+              "label": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "schema": {
+                "type": "string",
+                "description": "Optional external cross-reference schema URI (e.g. https://schema.org/NutritionInformation). Distinct from the JSON Schema the scope payload validates against."
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "runtime_requirements": {
+      "type": "object",
+      "description": "Declarative runtime constraints. Runners use this for feature detection.",
+      "properties": {
+        "browser": {
+          "type": "string",
+          "description": "Browser engine requirement, e.g. 'chromium'."
+        },
+        "node": {
+          "type": "string",
+          "description": "Minimum Node version, e.g. '>=20'."
+        },
+        "playwright": {
+          "type": "string",
+          "description": "Playwright version constraint."
+        }
+      },
+      "additionalProperties": false
+    },
+    "capabilities": {
+      "type": "array",
+      "description": "Optional feature flags the connector needs. Runners may reject connectors whose capabilities they do not support.",
+      "items": {
+        "type": "string",
+        "enum": [
+          "network-capture",
+          "http-fetch",
+          "headed-takeover",
+          "captcha-solve",
+          "frames",
+          "keyboard-input",
+          "mouse-input"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "connectURL": {
+      "type": "string",
+      "format": "uri",
+      "description": "Legacy alias for connect_url. Kept for backward compatibility during migration."
+    },
+    "connectSelector": {
+      "type": "string",
+      "description": "Legacy alias for connect_selector. Kept for backward compatibility during migration."
+    },
+    "iconURL": {
+      "type": "string",
+      "description": "Legacy alias for icon. Kept for backward compatibility during migration."
+    },
+    "id": {
+      "type": "string",
+      "description": "Legacy alias for connector_id. Kept for backward compatibility during migration."
+    },
+    "exportFrequency": {
+      "type": "string",
+      "enum": ["daily", "weekly", "monthly"],
+      "description": "Legacy field; shell-specific concern, will move to per-shell overlays in a future manifest_version."
+    },
+    "vectorize_config": {
+      "type": "object",
+      "description": "Legacy field; shell-specific concern, will move to per-shell overlays in a future manifest_version.",
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}
