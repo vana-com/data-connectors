@@ -134,6 +134,30 @@ for (const connector of connectors) {
   }
 }
 
+// Scopes declared by CI-only fixtures under connectors/_conformance/.
+// These are not shipped connectors — they don't belong in registry.json
+// or in the Gateway — but their schemas are legitimately used by the
+// cross-runtime conformance harness, so the orphan check should not
+// flag them.
+const fixtureScopes = new Set();
+try {
+  const conformanceDir = join(REPO_ROOT, "connectors", "_conformance");
+  const entries = await readdir(conformanceDir);
+  for (const entry of entries) {
+    if (!entry.endsWith(".json")) continue;
+    try {
+      const metadata = await readJson(join(conformanceDir, entry));
+      if (Array.isArray(metadata.scopes)) {
+        for (const s of metadata.scopes) fixtureScopes.add(s.scope);
+      }
+    } catch {
+      // Ignore unreadable fixture manifests.
+    }
+  }
+} catch {
+  // No _conformance directory — fine.
+}
+
 // 5. Scan schemas/ directory for orphaned schema detection
 const schemaDir = join(REPO_ROOT, "schemas");
 let schemaFiles;
@@ -145,8 +169,17 @@ try {
   schemaFiles = [];
 }
 
+// manifest.schema.json is the connector-manifest meta-schema, not a scope
+// schema. Exclude it from orphan reporting.
+const NON_SCOPE_SCHEMAS = new Set(["manifest.schema"]);
+
 const declaredScopes = new Set(scopeToConnector.keys());
-const orphanedSchemas = schemaFiles.filter((s) => !declaredScopes.has(s));
+const orphanedSchemas = schemaFiles.filter(
+  (s) =>
+    !declaredScopes.has(s) &&
+    !fixtureScopes.has(s) &&
+    !NON_SCOPE_SCHEMAS.has(s)
+);
 
 // ---------------------------------------------------------------------------
 // Three-way checks
