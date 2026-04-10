@@ -5,7 +5,7 @@
   "version": "0.1.0",
   "name": "iCloud Notes",
   "company": "Apple",
-  "description": "Exports your Apple Notes (content, titles, metadata) and folder structure via iCloud using Playwright browser automation. NOTE: The current script depends on CG-runtime-only page methods (getInput, frame_click/fill/evaluate/waitForSelector, keyboard_press/type) and does not yet run under the canonical DataConnect playwright-runner. Runtime convergence is a Phase 4+ follow-up; the capability flag `cg-legacy-page-api` advertises this limitation so runners can reject the connector up front.",
+  "description": "Exports your Apple Notes and folders from iCloud.",
   "runtime": "playwright",
   "page_api_version": 1,
   "connect_url": "https://www.icloud.com/notes",

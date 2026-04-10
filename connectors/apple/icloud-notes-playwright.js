@@ -3,6 +3,15 @@
  *
  * Authenticates with Apple ID, then uses the CloudKit API directly
  * to fetch all notes with full content via paginated queries.
+ *
+ * RUNTIME NOTE (for maintainers, not end users): this script depends on
+ * CG-runtime-only page methods — getInput, frame_click/fill/evaluate/
+ * waitForSelector, keyboard_press/type — and does not yet run under the
+ * canonical DataConnect playwright-runner. The manifest's capabilities
+ * array advertises this as `cg-legacy-page-api` so runners can reject the
+ * connector up front. Runtime convergence is a Phase 4+ follow-up: either
+ * rewrite the Apple auth widget flow to use requestInput + the canonical
+ * minimum surface, or promote frame_* and keyboard_* into that surface.
  */
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -588,17 +597,24 @@ const folders = Object.entries(folderMap).map(([recordName, title]) => ({
 
 const notesWithContent = notes.filter((n) => n.textContent).length;
 const result = {
-  notes,
-  folders,
-  userName: fullName,
+  'icloud_notes.notes': {
+    notes,
+    total: notes.length,
+    userName: fullName,
+  },
+  'icloud_notes.folders': {
+    folders,
+    total: folders.length,
+  },
   parseErrors: parseErrors.length > 0 ? parseErrors : undefined,
   exportSummary: {
     count: notes.length,
     label: notes.length === 1 ? "note" : "notes",
     details: `${notes.length} notes from iCloud Notes (${notesWithContent} with full content)`,
   },
-  platform: "icloud",
+  platform: "icloud_notes",
   timestamp: new Date().toISOString(),
+  version: "1.0.0",
 };
 
 await page.setData("result", result);
