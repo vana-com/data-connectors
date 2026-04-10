@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "name": "LinkedIn",
   "company": "LinkedIn",
-  "description": "Exports your LinkedIn profile, work experience, education, skills, languages, and connections using Playwright browser automation.",
+  "description": "Exports your LinkedIn profile, work experience, education, skills, languages, and connections.",
   "runtime": "playwright",
   "page_api_version": 1,
   "connect_url": "https://www.linkedin.com/login",

@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "name": "Spotify",
   "company": "Spotify",
-  "description": "Exports your Spotify library, playlists, listening history, and preferences using Playwright browser automation.",
+  "description": "Exports your Spotify library, playlists, listening history, and preferences.",
   "runtime": "playwright",
   "page_api_version": 1,
   "connect_url": "https://open.spotify.com/",

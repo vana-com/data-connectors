@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "name": "H-E-B",
   "company": "HEB",
-  "description": "Exports your H-E-B account profile, order history, and product nutrition data using Playwright browser automation.",
+  "description": "Exports your H-E-B account profile, order history, and product nutrition data.",
   "runtime": "playwright",
   "page_api_version": 1,
   "connect_url": "https://www.heb.com/my-account/your-orders",

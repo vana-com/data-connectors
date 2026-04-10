@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "name": "Tinder",
   "company": "Tinder",
-  "description": "Exports your Tinder profile, matches, and messages using Playwright browser automation.",
+  "description": "Exports your Tinder profile, matches, and messages.",
   "runtime": "playwright",
   "page_api_version": 1,
   "connect_url": "https://tinder.com",

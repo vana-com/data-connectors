@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "name": "YouTube",
   "company": "Google",
-  "description": "Exports your YouTube profile, subscriptions, playlists, playlist items, liked videos, watch later list, and top 50 recent watch history entries using Playwright browser automation.",
+  "description": "Exports your YouTube profile, subscriptions, playlists, playlist items, liked videos, watch later list, and top 50 recent watch history entries.",
   "runtime": "playwright",
   "page_api_version": 1,
   "connect_url": "https://www.youtube.com/",

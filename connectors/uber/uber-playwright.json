@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "name": "Uber",
   "company": "Uber",
-  "description": "Exports your Uber trip history and receipts using Playwright browser automation.",
+  "description": "Exports your Uber trip history and receipts.",
   "runtime": "playwright",
   "page_api_version": 1,
   "connect_url": "https://m.uber.com",

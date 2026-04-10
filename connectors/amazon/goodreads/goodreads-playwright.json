@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "name": "Goodreads",
   "company": "Amazon",
-  "description": "Exports your Goodreads library, shelves, ratings, and reviews using Playwright browser automation.",
+  "description": "Exports your Goodreads library, shelves, ratings, and reviews.",
   "runtime": "playwright",
   "page_api_version": 1,
   "connect_url": "https://www.goodreads.com/user/sign_in",

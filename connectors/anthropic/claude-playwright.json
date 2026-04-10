@@ -5,7 +5,7 @@
   "version": "1.1.0",
   "name": "Claude",
   "company": "Anthropic",
-  "description": "Exports your Claude conversations and projects from claude.ai using Playwright browser automation.",
+  "description": "Exports your Claude conversations and projects from claude.ai.",
   "runtime": "playwright",
   "page_api_version": 1,
   "connect_url": "https://claude.ai/login",

@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "name": "Whole Foods Market",
   "company": "wholefoods",
-  "description": "Exports your Whole Foods Market order history (via Amazon) and product nutrition data using Playwright browser automation.",
+  "description": "Exports your Whole Foods Market order history (via Amazon) and product nutrition data.",
   "runtime": "playwright",
   "page_api_version": 1,
   "connect_url": "https://www.amazon.com/gp/your-account/order-history",

@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "name": "Shop",
   "company": "Shopify",
-  "description": "Exports your Shop app order history using Playwright browser automation.",
+  "description": "Exports your Shop app order history.",
   "runtime": "playwright",
   "page_api_version": 1,
   "connect_url": "https://shop.app/account/order-history",

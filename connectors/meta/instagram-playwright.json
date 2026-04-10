@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "name": "Instagram",
   "company": "Meta",
-  "description": "Exports your Instagram profile and posts using Playwright browser automation.",
+  "description": "Exports your Instagram profile and posts.",
   "runtime": "playwright",
   "page_api_version": 1,
   "connect_url": "https://www.instagram.com/accounts/login/",

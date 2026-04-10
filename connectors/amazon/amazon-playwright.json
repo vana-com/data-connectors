@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "name": "Amazon",
   "company": "Amazon",
-  "description": "Exports your Amazon order history and profile information using Playwright browser automation.",
+  "description": "Exports your Amazon order history and profile information.",
   "runtime": "playwright",
   "page_api_version": 1,
   "connect_url": "https://www.amazon.com",
