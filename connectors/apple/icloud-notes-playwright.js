@@ -408,19 +408,49 @@ if (!isLoggedIn) {
   }
 
   if (!isLoggedIn) {
-    await page.setData(
-      "status",
-      "Please sign in manually in the browser below.",
-    );
-    await page.promptUser(
-      "Automatic sign-in failed. Please sign in to your Apple ID manually, including any 2FA. The process will continue automatically once you are signed in.",
-      async () => {
-        config = await getCloudKitConfig();
-        return !!config;
-      },
-      5000,
-    );
-    isLoggedIn = !!config;
+    // Manual login fallback is only available when the runtime can surface
+    // a headed browser to the end user. In runtimes like Context Gateway
+    // where the remote browser is invisible (showBrowser returns
+    // { headed: false }), calling promptUser would either hang indefinitely
+    // or throw, so return a clean error instead.
+    let canShowHeaded = false;
+    if (typeof page.showBrowser === "function") {
+      try {
+        const result = await page.showBrowser(
+          "https://www.icloud.com/notes",
+        );
+        canShowHeaded = !!(result && result.headed);
+      } catch {
+        canShowHeaded = false;
+      }
+    }
+
+    if (canShowHeaded) {
+      await page.setData(
+        "status",
+        "Please sign in manually in the browser below.",
+      );
+      await page.promptUser(
+        "Automatic sign-in failed. Please sign in to your Apple ID manually, including any 2FA. The process will continue automatically once you are signed in.",
+        async () => {
+          config = await getCloudKitConfig();
+          return !!config;
+        },
+        5000,
+      );
+      isLoggedIn = !!config;
+    } else {
+      await page.setData(
+        "status",
+        "Automatic sign-in failed and this runtime cannot surface a manual sign-in browser.",
+      );
+      return {
+        success: false,
+        error:
+          "Automatic iCloud sign-in failed. " +
+          (lastError || "Please check your credentials and try again."),
+      };
+    }
   }
 }
 
