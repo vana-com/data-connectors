@@ -31,7 +31,7 @@
         "metadata": "github/github-playwright.json"
       },
       "checksums": {
-        "script": "sha256:a5bf3cc02484b7eb7f8bafe1453045cf4e0a0b9af9cb979d97d6aaf13fde2036",
+        "script": "sha256:3e1d2c137f50ee5cf96141f2b230e801ec26e58e1d84a814bf07278a08933128",
         "metadata": "sha256:d96e4fa20cdb568d92959e3008278d53f6b5a7c8ce5d3aa9cd41a58dcff19e33"
       }
     },
@@ -47,7 +47,7 @@
         "metadata": "meta/instagram-playwright.json"
       },
       "checksums": {
-        "script": "sha256:1341018fe5bf1cb622b61b9ef4a2c6ec2cfa0f8bcf2489e0c444b8065225c13a",
+        "script": "sha256:1a75e0075ba4fb4340ec0833a11b9b210dd04de30edeebfdc05e17523320e90e",
         "metadata": "sha256:ce47799e786a75ac5a579ac34bfffc0f257a05dda50ac67e6af8c5cdd39c7150"
       }
     },
@@ -143,7 +143,7 @@
         "metadata": "oura/oura-playwright.json"
       },
       "checksums": {
-        "script": "sha256:8b2d087055d9dcb6d21409caecc232b440efa53fd32f538299faaa8283dfd080",
+        "script": "sha256:1dac77ca0d004d116020459f3fd724bad3dc7db6c0deb7e789e0d9397e39feab",
         "metadata": "sha256:8ab8a4b533245bcff84e226e41e11fea85f6fef569e9fcf4472b903c85530c05"
       }
     },
@@ -255,7 +255,7 @@
         "metadata": "apple/icloud-notes-playwright.json"
       },
       "checksums": {
-        "script": "sha256:fcbefc429a58851a313db71fd777997105ea0d63bcea34d3de31b9446ec24787",
+        "script": "sha256:5c2db6eb459db477d72e1630ed87697cc06c4699fbe2c909ad8a0f9206ca1e8a",
         "metadata": "sha256:75b6fd2d0c561fe6fae5a57e74b1fabe436f170d8be68eeb327dbe13d786bae3"
       }
     }

@@ -21,6 +21,66 @@ const state = {
   isComplete: false
 };
 
+// ── Resilience helpers (ported from CG prod instagram-headless.js) ───
+//
+// Instagram's edges occasionally return transient HTTP errors on login,
+// account-center navigation, and graphql queries. Without wrapping
+// page.goto / page.evaluate / page.waitForSelector / page.setData in
+// timeouts + try/catch, a single blip surfaces to the caller as a raw
+// `net::ERR_HTTP_RESPONSE_CODE_FAILURE` and kills the whole run.
+//
+// These helpers match the ones shipped in CG origin/main's hand-
+// maintained Instagram connector. They are intentionally defined inline
+// rather than imported because data-connectors scripts are executed as
+// raw source by both the CG client-side VM and data-connect's
+// playwright-runner — neither resolves `import` statements. Shared
+// helpers need their own solution (see the "generalized error handling
+// at the proxy level" followup in the connector contract plan).
+
+const withTimeout = async (promise, ms, label) => {
+  let timeoutId = null;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timeoutId = setTimeout(
+          () => reject(new Error(`${label} timed out after ${ms}ms`)),
+          ms,
+        );
+      }),
+    ]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+};
+
+// Wrap page.goto in a timeout + retry loop. Returns true on success and
+// false if every attempt failed. Callers can decide whether a failed
+// navigation is fatal (login page) or recoverable (individual ads sub-
+// page, where we want to skip the scope instead of killing the run).
+const safeGoto = async (url, options = {}) => {
+  const { attempts = 3, timeout = 15000, betweenMs = 2000 } = options;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      await withTimeout(
+        page.goto(url, { timeout }),
+        timeout + 5000,
+        `goto ${url}`,
+      );
+      return true;
+    } catch (error) {
+      const message = error?.message || String(error);
+      console.error(
+        `[instagram] Navigation attempt ${attempt}/${attempts} failed for ${url}: ${message}`,
+      );
+      if (attempt < attempts) {
+        await page.sleep(betweenMs);
+      }
+    }
+  }
+  return false;
+};
+
 // Helper: Scrape the list of accounts the logged-in user follows via
 // Instagram's internal friendships endpoint. Runs entirely inside
 // page.evaluate so it's portable across any runtime that implements the
@@ -181,7 +241,17 @@ const fetchWebInfo = async () => {
   const isLoggedIn = webInfo && webInfo.username;
 
   if (!isLoggedIn) {
-    await page.goto('https://www.instagram.com/accounts/login/');
+    // Navigation to the login page is load-bearing; retry a few times
+    // before giving up so a transient HTTP blip doesn't kill the whole run.
+    const loginReachable = await safeGoto(
+      'https://www.instagram.com/accounts/login/',
+    );
+    if (!loginReachable) {
+      return {
+        success: false,
+        error: 'Could not reach Instagram login page after multiple attempts.',
+      };
+    }
     await page.sleep(2000);
 
     // Selectors are deliberately broad — Instagram ships different DOMs by
@@ -425,12 +495,22 @@ const fetchWebInfo = async () => {
 
   await page.setData('status', 'Network capture configured');
 
-  // Navigate to user's profile
+  // Navigate to user's profile — profile is load-bearing for the Following
+  // scrape (we need the user id) and for the final exported username, so
+  // retry a few times before bailing.
   await page.setProgress({
     phase: { step: 1, total: 3, label: 'Fetching profile' },
     message: `Navigating to profile: @${username}`,
   });
-  await page.goto(`https://www.instagram.com/${username}/`);
+  const profileReachable = await safeGoto(
+    `https://www.instagram.com/${username}/`,
+  );
+  if (!profileReachable) {
+    return {
+      success: false,
+      error: `Could not reach Instagram profile page for @${username} after multiple attempts.`,
+    };
+  }
   await page.sleep(3000);
 
   // Wait for profile data
@@ -636,7 +716,17 @@ const fetchWebInfo = async () => {
     message: 'Navigating to ad preferences...',
   });
 
-  await page.goto('https://accountscenter.instagram.com/ads/');
+  // Ads sub-page navigation failures are recoverable — we skip the ads
+  // scope rather than killing the run. The scoped result will come back
+  // with advertisers/ad_topics as empty arrays.
+  const adsReachable = await safeGoto(
+    'https://accountscenter.instagram.com/ads/',
+  );
+  if (!adsReachable) {
+    console.error(
+      '[instagram] Could not reach ads landing; skipping instagram.ads scope',
+    );
+  }
   await page.sleep(4000);
 
   // Helper: extract names from listitem elements inside a dialog
@@ -651,55 +741,83 @@ const fetchWebInfo = async () => {
     `);
   };
 
-  // 1. Advertisers — click "See all" button to open dialog
-  await page.setProgress({
-    phase: { step: 3, total: 3, label: 'Fetching ad interests' },
-    message: 'Collecting advertisers...',
-  });
+  // 1. Advertisers — click "See all" button to open dialog.
+  // Wrapped in try/catch so a transient DOM or network issue in this
+  // sub-phase doesn't kill the whole ads collection.
+  if (adsReachable) {
+    try {
+      await page.setProgress({
+        phase: { step: 3, total: 3, label: 'Fetching ad interests' },
+        message: 'Collecting advertisers...',
+      });
 
-  await page.evaluate(`
-    (() => {
-      const btn = document.querySelector('[role="button"][aria-label*="advertiser" i]');
-      if (btn) btn.click();
-    })()
-  `);
-  await page.sleep(2000);
+      await page.evaluate(`
+        (() => {
+          const btn = document.querySelector('[role="button"][aria-label*="advertiser" i]');
+          if (btn) btn.click();
+        })()
+      `);
+      await page.sleep(2000);
 
-  const advertiserNames = await scrapeDialogList();
-  state.adsData.advertisers = advertiserNames.map(name => ({ name }));
+      const advertiserNames = await scrapeDialogList();
+      state.adsData.advertisers = advertiserNames.map(name => ({ name }));
 
-  // Close dialog
-  await page.evaluate(`
-    (() => {
-      const dialog = document.querySelector('[role="dialog"]');
-      const close = dialog?.querySelector('[aria-label="Close" i]');
-      if (close) close.click();
-    })()
-  `);
-  await page.sleep(1000);
+      // Close dialog
+      await page.evaluate(`
+        (() => {
+          const dialog = document.querySelector('[role="dialog"]');
+          const close = dialog?.querySelector('[aria-label="Close" i]');
+          if (close) close.click();
+        })()
+      `);
+      await page.sleep(1000);
+    } catch (error) {
+      console.error(
+        '[instagram] advertisers scrape failed:',
+        error?.message || String(error),
+      );
+    }
+  }
 
   await page.setProgress({
     phase: { step: 3, total: 3, label: 'Fetching ad interests' },
     message: `Found ${state.adsData.advertisers.length} advertisers. Collecting ad topics...`,
   });
 
-  // 2. Ad topics — navigate to sub-page which opens its own dialog
-  await page.goto('https://accountscenter.instagram.com/ads/ad_topics/');
-  await page.sleep(3000);
-
-  const topicNames = await page.evaluate(`
-    (() => {
-      const dialog = document.querySelector('[role="dialog"]');
-      if (!dialog) return [];
-      // "Your activity-based topics" section has a heading followed by a generic with topic text,
-      // or list items. Collect all listitem texts from the dialog, filtering out non-topic entries.
-      const items = dialog.querySelectorAll('[role="list"] [role="listitem"]');
-      return Array.from(items)
-        .map(el => el.textContent.trim())
-        .filter(t => t.length > 0 && !t.toLowerCase().includes('special topic') && !t.toLowerCase().includes('see less'));
-    })()
-  `);
-  state.adsData.ad_topics = topicNames.map(name => ({ name }));
+  // 2. Ad topics — navigate to sub-page which opens its own dialog.
+  // Retry the navigation via safeGoto, and wrap the scrape in try/catch
+  // so partial ads data (e.g., advertisers collected but topics failed)
+  // still surfaces to the caller.
+  const topicsReachable = await safeGoto(
+    'https://accountscenter.instagram.com/ads/ad_topics/',
+  );
+  if (topicsReachable) {
+    try {
+      await page.sleep(3000);
+      const topicNames = await page.evaluate(`
+        (() => {
+          const dialog = document.querySelector('[role="dialog"]');
+          if (!dialog) return [];
+          // "Your activity-based topics" section has a heading followed by a generic with topic text,
+          // or list items. Collect all listitem texts from the dialog, filtering out non-topic entries.
+          const items = dialog.querySelectorAll('[role="list"] [role="listitem"]');
+          return Array.from(items)
+            .map(el => el.textContent.trim())
+            .filter(t => t.length > 0 && !t.toLowerCase().includes('special topic') && !t.toLowerCase().includes('see less'));
+        })()
+      `);
+      state.adsData.ad_topics = topicNames.map(name => ({ name }));
+    } catch (error) {
+      console.error(
+        '[instagram] ad topics scrape failed:',
+        error?.message || String(error),
+      );
+    }
+  } else {
+    console.error(
+      '[instagram] Could not reach ads/ad_topics; skipping topics sub-scrape',
+    );
+  }
 
   state.isAdsComplete = state.adsData.advertisers.length > 0 || state.adsData.ad_topics.length > 0;
 

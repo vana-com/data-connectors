@@ -16,6 +16,50 @@
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
+// Resilience helpers. See connectors/meta/instagram-playwright.js for
+// the rationale — canonical scripts can't import shared modules, so
+// these helpers are inlined per connector until the proxy layer exposes
+// them natively.
+const withTimeout = async (promise, ms, label) => {
+  let timeoutId = null;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timeoutId = setTimeout(
+          () => reject(new Error(`${label} timed out after ${ms}ms`)),
+          ms,
+        );
+      }),
+    ]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+};
+
+const safeGoto = async (url, options = {}) => {
+  const { attempts = 3, timeout = 15000, betweenMs = 2000 } = options;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      await withTimeout(
+        page.goto(url, { timeout }),
+        timeout + 5000,
+        `goto ${url}`,
+      );
+      return true;
+    } catch (error) {
+      const message = error?.message || String(error);
+      console.error(
+        `[icloud-notes] Navigation attempt ${attempt}/${attempts} failed for ${url}: ${message}`,
+      );
+      if (attempt < attempts) {
+        await page.sleep(betweenMs);
+      }
+    }
+  }
+  return false;
+};
+
 function decodeBase64(value) {
   if (!value) return null;
   try {
@@ -134,7 +178,13 @@ const getCloudKitConfig = async () => {
 // ── Phase 1: Navigate and check login ────────────────────────────────
 
 await page.setData("status", "Launching iCloud...");
-await page.goto("https://www.icloud.com/notes");
+const notesReachable = await safeGoto("https://www.icloud.com/notes");
+if (!notesReachable) {
+  return {
+    success: false,
+    error: "Could not reach iCloud Notes after multiple attempts.",
+  };
+}
 await page.sleep(5000);
 
 let config = await getCloudKitConfig();
@@ -180,7 +230,7 @@ if (!isLoggedIn) {
 
   if (!hasAuthFrame) {
     await page.setData("status", "Retrying sign in...");
-    await page.goto("https://www.icloud.com/");
+    await safeGoto("https://www.icloud.com/");
     await page.sleep(5000);
     const clicked = await page.evaluate(`
       (() => {

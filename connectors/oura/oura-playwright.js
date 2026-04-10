@@ -16,6 +16,50 @@ const state = {
   isComplete: false,
 };
 
+// Resilience helpers. See connectors/meta/instagram-playwright.js for
+// the rationale — canonical scripts can't import shared modules, so
+// these helpers are inlined per connector until the proxy layer exposes
+// them natively.
+const withTimeout = async (promise, ms, label) => {
+  let timeoutId = null;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timeoutId = setTimeout(
+          () => reject(new Error(`${label} timed out after ${ms}ms`)),
+          ms,
+        );
+      }),
+    ]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+};
+
+const safeGoto = async (url, options = {}) => {
+  const { attempts = 3, timeout = 15000, betweenMs = 2000 } = options;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      await withTimeout(
+        page.goto(url, { timeout }),
+        timeout + 5000,
+        `goto ${url}`,
+      );
+      return true;
+    } catch (error) {
+      const message = error?.message || String(error);
+      console.error(
+        `[oura] Navigation attempt ${attempt}/${attempts} failed for ${url}: ${message}`,
+      );
+      if (attempt < attempts) {
+        await page.sleep(betweenMs);
+      }
+    }
+  }
+  return false;
+};
+
 // ─── Browser-Phase Helpers ───────────────────────────────────────────
 
 const checkLoginStatus = async () => {
@@ -121,7 +165,13 @@ const fetchDailyDataChunked = async (startDate, endDate, chunkDays) => {
   // ═══ PHASE 1: Browser — Login ═══
 
   await page.setData('status', 'Checking login status...');
-  await page.goto('https://cloud.ouraring.com/');
+  const dashboardReachable = await safeGoto('https://cloud.ouraring.com/');
+  if (!dashboardReachable) {
+    return {
+      success: false,
+      error: 'Could not reach Oura dashboard after multiple attempts.',
+    };
+  }
   await page.sleep(3000);
 
   let isLoggedIn = await checkLoginStatus();
@@ -132,7 +182,15 @@ const fetchDailyDataChunked = async (startDate, endDate, chunkDays) => {
   }
 
   if (!isLoggedIn) {
-    await page.goto('https://cloud.ouraring.com/user/sign-in');
+    const signInReachable = await safeGoto(
+      'https://cloud.ouraring.com/user/sign-in',
+    );
+    if (!signInReachable) {
+      return {
+        success: false,
+        error: 'Could not reach Oura sign-in page after multiple attempts.',
+      };
+    }
     await page.sleep(2000);
 
     // Check if login form is present

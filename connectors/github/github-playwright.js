@@ -15,6 +15,56 @@ const state = {
   isComplete: false,
 };
 
+// ── Resilience helpers ───────────────────────────────────────────────
+//
+// Wrap page.goto in a timeout + retry loop so transient HTTP blips
+// don't kill the whole run. Returns true on success and false if every
+// attempt failed. See connectors/meta/instagram-playwright.js for the
+// rationale — both runtimes (CG client VM and data-connect playwright-
+// runner) execute canonical scripts as raw source, so shared helpers
+// have to be inlined per connector until the proxy layer exposes them
+// natively (tracked as a followup in the contract plan).
+
+const withTimeout = async (promise, ms, label) => {
+  let timeoutId = null;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timeoutId = setTimeout(
+          () => reject(new Error(`${label} timed out after ${ms}ms`)),
+          ms,
+        );
+      }),
+    ]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+};
+
+const safeGoto = async (url, options = {}) => {
+  const { attempts = 3, timeout = 15000, betweenMs = 2000 } = options;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      await withTimeout(
+        page.goto(url, { timeout }),
+        timeout + 5000,
+        `goto ${url}`,
+      );
+      return true;
+    } catch (error) {
+      const message = error?.message || String(error);
+      console.error(
+        `[github] Navigation attempt ${attempt}/${attempts} failed for ${url}: ${message}`,
+      );
+      if (attempt < attempts) {
+        await page.sleep(betweenMs);
+      }
+    }
+  }
+  return false;
+};
+
 const GITHUB_USERNAME_REGEX = /^[a-zA-Z0-9-]+$/;
 
 const isValidGitHubUsername = (value) =>
@@ -76,7 +126,8 @@ const resolveUsername = async () => {
   const current = await readLoggedInUsername();
   if (isValidGitHubUsername(current)) return current;
 
-  await page.goto("https://github.com/settings/profile");
+  const reachable = await safeGoto("https://github.com/settings/profile");
+  if (!reachable) return null;
   await page.sleep(1500);
 
   const fromSettings = await readLoggedInUsername();
@@ -86,7 +137,8 @@ const resolveUsername = async () => {
 const extractProfile = async (username) => {
   if (!isValidGitHubUsername(username)) return null;
 
-  await page.goto(`https://github.com/${username}`);
+  const reachable = await safeGoto(`https://github.com/${username}`);
+  if (!reachable) return null;
   await page.sleep(1500);
 
   try {
@@ -134,7 +186,10 @@ const extractRepositories = async (username) => {
   const maxPages = 60;
 
   for (let pageIndex = 1; pageIndex <= maxPages; pageIndex++) {
-    await page.goto(`https://github.com/${username}?page=${pageIndex}&tab=repositories`);
+    const reachable = await safeGoto(
+      `https://github.com/${username}?page=${pageIndex}&tab=repositories`,
+    );
+    if (!reachable) break;
     await page.sleep(1000);
 
     try {
@@ -211,7 +266,8 @@ const extractStarred = async (username) => {
 
     try {
       for (const pageUrl of pageUrls) {
-        await page.goto(pageUrl);
+        const reachable = await safeGoto(pageUrl);
+        if (!reachable) continue;
         await page.sleep(1500);
 
         const candidate = await page.evaluate(`
@@ -335,13 +391,25 @@ const extractStarred = async (username) => {
 // ── Main Flow ────────────────────────────────────────────────────────
 
 await page.setData('status', 'Checking GitHub login...');
-await page.goto('https://github.com/');
+const homeReachable = await safeGoto('https://github.com/');
+if (!homeReachable) {
+  return {
+    success: false,
+    error: 'Could not reach GitHub after multiple attempts.',
+  };
+}
 await page.sleep(1500);
 
 let loggedIn = await checkLoggedIn();
 
 if (!loggedIn) {
-  await page.goto('https://github.com/login');
+  const loginReachable = await safeGoto('https://github.com/login');
+  if (!loginReachable) {
+    return {
+      success: false,
+      error: 'Could not reach GitHub login page after multiple attempts.',
+    };
+  }
   await page.sleep(2000);
 
   let attempts = 0;
@@ -358,7 +426,7 @@ if (!loggedIn) {
 
     if (!hasLoginForm) {
       lastError = 'Login form not found. Retrying...';
-      await page.goto('https://github.com/login');
+      await safeGoto('https://github.com/login');
       await page.sleep(2000);
       continue;
     }
@@ -409,7 +477,7 @@ if (!loggedIn) {
         await page.sleep(2000);
       } catch (e) {
         // Fallback: navigate directly
-        await page.goto('https://github.com/sessions/two-factor/app');
+        await safeGoto('https://github.com/sessions/two-factor/app');
         await page.sleep(2000);
       }
     }
@@ -492,7 +560,7 @@ if (!loggedIn) {
 
     if (errorMsg) {
       lastError = `Login failed: ${errorMsg}`;
-      await page.goto('https://github.com/login');
+      await safeGoto('https://github.com/login');
       await page.sleep(2000);
       continue;
     }
