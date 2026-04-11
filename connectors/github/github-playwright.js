@@ -420,14 +420,59 @@ if (!loggedIn) {
   while (!loggedIn && attempts < maxAttempts) {
     attempts++;
 
-    const hasLoginForm = await page.evaluate(`
-      !!document.querySelector('#login_field') && !!document.querySelector('#password')
-    `);
+    // Wait for the login form to attach. A plain querySelector check can
+    // race against the login page's hydration — the goto promise resolves
+    // when the browser fires "load", but React takes a beat longer to
+    // mount the form inputs. Use the canonical waitForSelector with a
+    // 10s budget so we give GitHub time to paint the form before
+    // declaring "not found".
+    let hasLoginForm = false;
+    try {
+      await page.waitForSelector(
+        '#login_field, input[name="login"]',
+        { timeout: 10000 },
+      );
+      // Also verify the password field is there — if GitHub served a
+      // CAPTCHA challenge or device-verify interstitial, the username
+      // field alone might be present but the password field wouldn't be.
+      hasLoginForm = await page.evaluate(`
+        !!document.querySelector('#login_field, input[name="login"]') &&
+        !!document.querySelector('#password, input[name="password"]')
+      `);
+    } catch (waitErr) {
+      hasLoginForm = false;
+    }
 
     if (!hasLoginForm) {
-      lastError = 'Login form not found. Retrying...';
-      await safeGoto('https://github.com/login');
-      await page.sleep(2000);
+      // Capture observability: what DID GitHub serve? Include page title,
+      // URL, the first visible h1, and a body text snippet in the
+      // lastError so a downstream failure message tells us whether we
+      // hit a CAPTCHA, rate-limit page, device-verify interstitial, or
+      // something else entirely.
+      let debugInfo = '';
+      try {
+        debugInfo = await page.evaluate(`
+          (() => {
+            const title = document.title || '';
+            const url = window.location.href || '';
+            const h1 = (document.querySelector('h1')?.textContent || '').trim();
+            const h2 = (document.querySelector('h2')?.textContent || '').trim();
+            const bodyText = (document.body?.innerText || '')
+              .replace(/\\s+/g, ' ')
+              .trim()
+              .slice(0, 400);
+            return \`title="\${title}" url="\${url}" h1="\${h1}" h2="\${h2}" body="\${bodyText}"\`;
+          })()
+        `);
+      } catch (e) {
+        debugInfo = `(could not capture page state: ${e?.message || String(e)})`;
+      }
+      lastError = `Login form not found on attempt ${attempts}/${maxAttempts}. ${debugInfo}`;
+      console.error(`[github] ${lastError}`);
+      if (attempts < maxAttempts) {
+        await safeGoto('https://github.com/login');
+        await page.sleep(2000);
+      }
       continue;
     }
 
