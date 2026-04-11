@@ -92,67 +92,99 @@ const toInt = (raw) => {
 };
 `;
 
-const checkLoggedIn = async () => {
-  // Give GitHub's header/meta a beat to hydrate. The old version did a
-  // bare page.evaluate which could race against a just-navigated page
-  // and return false on a dashboard that was about to render the
-  // logged-in user-login meta tag.
-  try {
-    await page.waitForSelector(
-      'meta[name="user-login"], a[href="/login"], form[action="/session"], summary[aria-label*="View profile and more"], img.avatar-user',
-      { timeout: 5000 },
-    );
-  } catch {
-    // Not a hard failure — fall through to the check below and let it
-    // decide. Some pages (404s, error pages) may not match any of these.
-  }
+// Poll for a logged-in signal for up to `timeoutMs` ms. Returns true as
+// soon as any positive signal matches. Handles the common race where
+// GitHub is mid-navigation to the authenticated dashboard and the next
+// few selectors aren't mounted yet. Explicitly short-circuits to false
+// on /login or /session paths.
+const checkLoggedIn = async (options = {}) => {
+  const { timeoutMs = 10000, pollIntervalMs = 1000 } = options;
+  const deadline = Date.now() + timeoutMs;
+  let lastSnapshot = '';
+  while (Date.now() < deadline) {
+    try {
+      const result = await page.evaluate(`
+        (() => {
+          const path = window.location.pathname || '';
+          const url = window.location.href || '';
 
-  try {
-    return await page.evaluate(`
-      (() => {
-        // Explicit sign-in page: definitely not logged in.
-        const path = window.location.pathname || '';
-        if (path === '/login' || path.startsWith('/session') || path.startsWith('/sessions/')) {
-          return false;
-        }
+          // Explicit sign-in pages — immediate no.
+          if (
+            path === '/login' ||
+            path.startsWith('/session') ||
+            path.startsWith('/sessions/')
+          ) {
+            return { loggedIn: false, why: 'on-login-page', url };
+          }
 
-        // Positive signal 1: authenticated user meta tag (GitHub has
-        // shipped this for years on every logged-in page).
-        const userMeta = document.querySelector("meta[name='user-login']");
-        const username = (userMeta?.getAttribute("content") || '').trim();
-        if (username) return true;
+          // Positive: authenticated user-login meta.
+          const userMeta = document.querySelector("meta[name='user-login']");
+          const username = (userMeta?.getAttribute('content') || '').trim();
+          if (username) return { loggedIn: true, why: 'user-login-meta:' + username, url };
 
-        // Positive signal 2: avatar summary/button in the header
-        // (GitHub renders this only when authenticated).
-        if (document.querySelector('summary[aria-label*="View profile and more"]')) {
-          return true;
-        }
+          // Positive: profile menu button in the header.
+          if (document.querySelector('summary[aria-label*="View profile and more"]')) {
+            return { loggedIn: true, why: 'profile-menu', url };
+          }
 
-        // Positive signal 3: avatar image anywhere in the header.
-        if (document.querySelector('header img.avatar-user')) {
-          return true;
-        }
+          // Positive: header avatar image.
+          if (document.querySelector('header img.avatar-user')) {
+            return { loggedIn: true, why: 'header-avatar', url };
+          }
 
-        // Positive signal 4: dashboard-specific content that only
-        // renders for authenticated users (GitHub's home dashboard
-        // heading, "Top repositories" widget, etc.).
-        const bodyText = (document.body?.innerText || '').toLowerCase();
-        if (bodyText.includes('top repositories') && bodyText.includes('dashboard')) {
-          return true;
-        }
+          // Positive: any avatar-user image on an unambiguously
+          // authenticated path (e.g. anything under /username/...).
+          if (
+            document.querySelector('img.avatar-user') &&
+            !path.startsWith('/login') &&
+            !path.startsWith('/session')
+          ) {
+            return { loggedIn: true, why: 'avatar-anywhere', url };
+          }
 
-        // Negative signal: explicit sign-in form or sign-in link.
-        const signedOut = !!document.querySelector(
-          'a[href="/login"][data-ga-click*="Sign in"], form[action="/session"], input[name="login"]'
-        );
-        if (signedOut) return false;
+          // Positive: dashboard-specific content (Home page widget,
+          // "Top repositories" + "Dashboard" heading combo).
+          const bodyText = (document.body?.innerText || '').toLowerCase();
+          if (
+            bodyText.includes('top repositories') &&
+            bodyText.includes('dashboard')
+          ) {
+            return { loggedIn: true, why: 'dashboard-text', url };
+          }
 
+          // Positive: "Home" header that's only on the authenticated
+          // dashboard.
+          if (
+            document.querySelector('h1, h2') &&
+            /your work/i.test(document.body?.innerText || '')
+          ) {
+            return { loggedIn: true, why: 'your-work-heading', url };
+          }
+
+          return { loggedIn: false, why: 'no-positive-signal', url };
+        })()
+      `);
+
+      if (result && result.loggedIn) {
+        console.log('[github] checkLoggedIn -> true:', result.why);
+        return true;
+      }
+
+      lastSnapshot = result ? `${result.why} (${result.url})` : '(no result)';
+
+      // If we're on the login page, no amount of waiting will help.
+      if (result && result.why === 'on-login-page') {
         return false;
-      })()
-    `);
-  } catch {
-    return false;
+      }
+    } catch (e) {
+      lastSnapshot = `error: ${e?.message || String(e)}`;
+    }
+
+    await page.sleep(pollIntervalMs);
   }
+
+  console.log(`[github] checkLoggedIn -> false after ${timeoutMs}ms, last: ${lastSnapshot}`);
+  return false;
 };
 
 const readLoggedInUsername = async () => {
@@ -447,7 +479,9 @@ if (!homeReachable) {
 }
 await page.sleep(1500);
 
-let loggedIn = await checkLoggedIn();
+// Initial check after landing on /. Give GitHub's dashboard a short
+// budget to render before deciding the user isn't logged in.
+let loggedIn = await checkLoggedIn({ timeoutMs: 5000 });
 
 if (!loggedIn) {
   const loginReachable = await safeGoto('https://github.com/login');
