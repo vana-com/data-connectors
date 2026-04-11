@@ -93,14 +93,61 @@ const toInt = (raw) => {
 `;
 
 const checkLoggedIn = async () => {
+  // Give GitHub's header/meta a beat to hydrate. The old version did a
+  // bare page.evaluate which could race against a just-navigated page
+  // and return false on a dashboard that was about to render the
+  // logged-in user-login meta tag.
+  try {
+    await page.waitForSelector(
+      'meta[name="user-login"], a[href="/login"], form[action="/session"], summary[aria-label*="View profile and more"], img.avatar-user',
+      { timeout: 5000 },
+    );
+  } catch {
+    // Not a hard failure — fall through to the check below and let it
+    // decide. Some pages (404s, error pages) may not match any of these.
+  }
+
   try {
     return await page.evaluate(`
       (() => {
+        // Explicit sign-in page: definitely not logged in.
+        const path = window.location.pathname || '';
+        if (path === '/login' || path.startsWith('/session') || path.startsWith('/sessions/')) {
+          return false;
+        }
+
+        // Positive signal 1: authenticated user meta tag (GitHub has
+        // shipped this for years on every logged-in page).
         const userMeta = document.querySelector("meta[name='user-login']");
-        const username = userMeta?.getAttribute("content")?.trim() || "";
-        const signedOut = !!document.querySelector('a[href="/login"], form[action="/session"]');
-        const hasAvatarMenu = !!document.querySelector('summary[aria-label*="View profile and more"]');
-        return Boolean(username) || (!signedOut && hasAvatarMenu);
+        const username = (userMeta?.getAttribute("content") || '').trim();
+        if (username) return true;
+
+        // Positive signal 2: avatar summary/button in the header
+        // (GitHub renders this only when authenticated).
+        if (document.querySelector('summary[aria-label*="View profile and more"]')) {
+          return true;
+        }
+
+        // Positive signal 3: avatar image anywhere in the header.
+        if (document.querySelector('header img.avatar-user')) {
+          return true;
+        }
+
+        // Positive signal 4: dashboard-specific content that only
+        // renders for authenticated users (GitHub's home dashboard
+        // heading, "Top repositories" widget, etc.).
+        const bodyText = (document.body?.innerText || '').toLowerCase();
+        if (bodyText.includes('top repositories') && bodyText.includes('dashboard')) {
+          return true;
+        }
+
+        // Negative signal: explicit sign-in form or sign-in link.
+        const signedOut = !!document.querySelector(
+          'a[href="/login"][data-ga-click*="Sign in"], form[action="/session"], input[name="login"]'
+        );
+        if (signedOut) return false;
+
+        return false;
       })()
     `);
   } catch {
