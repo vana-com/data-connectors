@@ -259,14 +259,90 @@ const resolveUsername = async () => {
   const current = await readLoggedInUsername({ timeoutMs: 5000 });
   if (isValidGitHubUsername(current)) return current;
 
-  // Fallback: navigate to settings/profile which always has the
-  // user-login meta and fewer client-rendered elements to race.
+  // Fallback 1: navigate to /settings/profile which always has the
+  // user-login meta and also renders a <input#user_profile_name>
+  // field containing the username as its value/placeholder.
   const reachable = await safeGoto("https://github.com/settings/profile");
   if (!reachable) return null;
-  await page.sleep(1500);
+  await page.sleep(2000);
 
   const fromSettings = await readLoggedInUsername({ timeoutMs: 8000 });
-  return isValidGitHubUsername(fromSettings) ? fromSettings : null;
+  if (isValidGitHubUsername(fromSettings)) return fromSettings;
+
+  // Fallback 2: scrape the username directly from the /settings/profile
+  // DOM. GitHub renders an <a> link to the profile page (href="/{username}")
+  // and the "Signed in as" header. Try a bunch of selectors.
+  try {
+    const fromDom = await page.evaluate(`
+      (() => {
+        // Profile link in account switcher: a[href^="/"][class*="UnderlineNav"]
+        const links = Array.from(document.querySelectorAll('a[href^="/"]'));
+        for (const link of links) {
+          const href = link.getAttribute('href') || '';
+          const match = href.match(/^\\/([a-zA-Z0-9-]+)$/);
+          if (!match) continue;
+          const candidate = match[1];
+          // Filter out common top-level paths.
+          const blocked = new Set([
+            'login', 'signup', 'join', 'logout', 'session', 'settings',
+            'notifications', 'explore', 'marketplace', 'pricing',
+            'enterprise', 'about', 'features', 'contact', 'security',
+            'pulls', 'issues', 'dashboard', 'new', 'home', 'sponsors',
+            'codespaces', 'discussions', 'topics', 'trending',
+            'collections', 'copilot', 'search',
+          ]);
+          if (blocked.has(candidate)) continue;
+          return candidate;
+        }
+
+        // "Signed in as {username}" text in header user menu
+        const signedInSpan = Array.from(document.querySelectorAll('span, div'))
+          .find((el) => {
+            const t = (el.textContent || '').trim();
+            return t.startsWith('Signed in as ') && t.length < 80;
+          });
+        if (signedInSpan) {
+          const m = signedInSpan.textContent.match(/Signed in as ([a-zA-Z0-9-]+)/);
+          if (m) return m[1];
+        }
+
+        // Page title — /settings/profile has title like "Your Profile"
+        // but the OG meta sometimes contains the username.
+        const og = document.querySelector('meta[property="og:title"]');
+        if (og) {
+          const content = (og.getAttribute('content') || '').trim();
+          const m = content.match(/^([a-zA-Z0-9-]+)\\b/);
+          if (m) return m[1];
+        }
+
+        return null;
+      })()
+    `);
+    if (isValidGitHubUsername(fromDom)) return fromDom;
+  } catch {}
+
+  // Last resort: capture page state so we can see what's actually on
+  // /settings/profile and fail with actionable info. Stash in state
+  // so the caller can surface it in the returned error.
+  try {
+    const debug = await page.evaluate(`
+      (() => {
+        const title = document.title || '';
+        const url = window.location.href || '';
+        const bodyText = (document.body?.innerText || '').replace(/\\s+/g, ' ').trim().slice(0, 300);
+        const metas = Array.from(document.querySelectorAll('meta[name]'))
+          .map((m) => \`\${m.getAttribute('name')}=\${(m.getAttribute('content') || '').slice(0, 60)}\`)
+          .slice(0, 10);
+        return \`title="\${title}" url="\${url}" metas=[\${metas.join(' | ')}] body="\${bodyText}"\`;
+      })()
+    `);
+    console.error('[github] resolveUsername failed, page state:', debug);
+    state.resolveUsernameDebug = debug;
+  } catch (e) {
+    state.resolveUsernameDebug = `(could not capture page state: ${e?.message || String(e)})`;
+  }
+
+  return null;
 };
 
 const extractProfile = async (username) => {
@@ -801,7 +877,13 @@ await page.setData('status', 'Login confirmed. Resolving account...');
 
 const username = await resolveUsername();
 if (!isValidGitHubUsername(username)) {
-  return { success: false, error: 'Could not resolve a valid GitHub username after login.' };
+  const debugSuffix = state.resolveUsernameDebug
+    ? ` | ${state.resolveUsernameDebug}`
+    : '';
+  return {
+    success: false,
+    error: `Could not resolve a valid GitHub username after login.${debugSuffix}`,
+  };
 }
 state.username = username;
 
