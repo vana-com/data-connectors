@@ -187,29 +187,85 @@ const checkLoggedIn = async (options = {}) => {
   return false;
 };
 
-const readLoggedInUsername = async () => {
-  try {
-    return await page.evaluate(`
-      (() => {
-        const userMeta = document.querySelector("meta[name='user-login']");
-        const username = userMeta?.getAttribute("content")?.trim() || "";
-        return username || null;
-      })()
-    `);
-  } catch {
-    return null;
+// Poll for a username across several signals. The meta tag is the
+// canonical source but doesn't always render immediately after login;
+// fall back to header avatar alt text, profile links, and the
+// /username URL on /settings/profile redirects.
+const readLoggedInUsername = async (options = {}) => {
+  const { timeoutMs = 5000, pollIntervalMs = 500 } = options;
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      const username = await page.evaluate(`
+        (() => {
+          // Canonical: meta[name="user-login"]
+          const userMeta = document.querySelector("meta[name='user-login']");
+          const fromMeta = (userMeta?.getAttribute('content') || '').trim();
+          if (fromMeta) return fromMeta;
+
+          // Header avatar alt text (usually "@username")
+          const avatar =
+            document.querySelector('header img.avatar-user[alt]') ||
+            document.querySelector('img.avatar-user[alt]');
+          if (avatar) {
+            const alt = (avatar.getAttribute('alt') || '').trim();
+            // Strip leading @ if present.
+            const stripped = alt.replace(/^@+/, '');
+            if (stripped && /^[a-zA-Z0-9-]+$/.test(stripped)) {
+              return stripped;
+            }
+          }
+
+          // Profile link in the header (href="/username")
+          const profileLink = document.querySelector(
+            'header a[href^="/"][data-hovercard-type="user"]'
+          );
+          if (profileLink) {
+            const href = profileLink.getAttribute('href') || '';
+            const match = href.match(/^\\/([a-zA-Z0-9-]+)$/);
+            if (match) return match[1];
+          }
+
+          // Fallback: if the current URL is /settings/profile, we can't
+          // derive the username from the path. Check any "View profile"
+          // link the header might expose.
+          const viewProfile = document.querySelector(
+            'a[href^="/"][aria-label*="Signed in as"], a[aria-label*="Signed in"]'
+          );
+          if (viewProfile) {
+            const label = viewProfile.getAttribute('aria-label') || '';
+            const match = label.match(/Signed in as ([a-zA-Z0-9-]+)/i);
+            if (match) return match[1];
+          }
+
+          return null;
+        })()
+      `);
+
+      if (username && /^[a-zA-Z0-9-]+$/.test(username)) {
+        return username;
+      }
+    } catch {
+      // Ignore and retry.
+    }
+    await page.sleep(pollIntervalMs);
   }
+  return null;
 };
 
 const resolveUsername = async () => {
-  const current = await readLoggedInUsername();
+  // First try wherever we are now — the dashboard usually has the user
+  // meta tag / avatar once it's hydrated.
+  const current = await readLoggedInUsername({ timeoutMs: 5000 });
   if (isValidGitHubUsername(current)) return current;
 
+  // Fallback: navigate to settings/profile which always has the
+  // user-login meta and fewer client-rendered elements to race.
   const reachable = await safeGoto("https://github.com/settings/profile");
   if (!reachable) return null;
   await page.sleep(1500);
 
-  const fromSettings = await readLoggedInUsername();
+  const fromSettings = await readLoggedInUsername({ timeoutMs: 8000 });
   return isValidGitHubUsername(fromSettings) ? fromSettings : null;
 };
 
