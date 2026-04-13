@@ -2,7 +2,7 @@
   "manifest_version": "1.0",
   "connector_id": "linkedin-playwright",
   "source_id": "linkedin",
-  "version": "1.0.0",
+  "version": "5.0.0",
   "name": "LinkedIn",
   "company": "LinkedIn",
   "description": "Exports your LinkedIn profile, work experience, education, skills, languages, and connections.",

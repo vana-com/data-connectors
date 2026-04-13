@@ -2,7 +2,7 @@
   "manifest_version": "1.0",
   "connector_id": "heb-playwright",
   "source_id": "heb",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "name": "H-E-B",
   "company": "HEB",
   "description": "Exports your H-E-B account profile, order history, and product nutrition data.",

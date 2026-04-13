@@ -2,7 +2,7 @@
   "manifest_version": "1.0",
   "connector_id": "instagram-playwright",
   "source_id": "instagram",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "name": "Instagram",
   "company": "Meta",
   "description": "Exports your Instagram profile and posts.",
