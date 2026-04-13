@@ -11,6 +11,13 @@
   "connect_url": "https://shop.app/account/order-history",
   "connect_selector": "main h1, main h2, [data-test*=\"order\"], [data-testid*=\"order\"]",
   "icon": "icons/shop.svg",
+  "consumer_metadata": {
+    "display_name": "Shop",
+    "brand_domain": "shop.app",
+    "aliases": ["shopify"],
+    "icon_key": "shop",
+    "default_scope": "shop.orders"
+  },
   "scopes": [
     {
       "scope": "shop.orders",

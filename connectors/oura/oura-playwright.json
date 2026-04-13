@@ -10,6 +10,13 @@
   "page_api_version": 1,
   "connect_url": "https://cloud.ouraring.com/",
   "connect_selector": "a[href*='readiness'], a[href*='sleep'], [class*='dashboard'], [class*='Dashboard']",
+  "consumer_metadata": {
+    "display_name": "Oura Ring",
+    "brand_domain": "ouraring.com",
+    "aliases": ["ouraring"],
+    "icon_key": "oura",
+    "default_scope": "oura.readiness"
+  },
   "scopes": [
     {
       "scope": "oura.readiness",

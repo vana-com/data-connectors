@@ -112,6 +112,123 @@ function validateScopes(scopes, sourceId, errors, path) {
   }
 }
 
+function validateConsumerMetadata(manifest, errors, path) {
+  const { consumer_metadata: metadata } = manifest;
+  if (metadata == null) {
+    return;
+  }
+  if (typeof metadata !== "object" || Array.isArray(metadata)) {
+    errors.push(`${path}: consumer_metadata must be an object when present`);
+    return;
+  }
+
+  const allowed = new Set([
+    "display_name",
+    "brand_domain",
+    "aliases",
+    "icon_key",
+    "default_scope",
+  ]);
+  for (const key of Object.keys(metadata)) {
+    if (!allowed.has(key)) {
+      errors.push(
+        `${path}: consumer_metadata has disallowed field "${key}" (allowed: ${[...allowed].join(", ")})`,
+      );
+    }
+  }
+
+  if (
+    "display_name" in metadata &&
+    (typeof metadata.display_name !== "string" ||
+      metadata.display_name.trim() === "")
+  ) {
+    errors.push(
+      `${path}: consumer_metadata.display_name must be a non-empty string`,
+    );
+  }
+
+  if ("brand_domain" in metadata) {
+    if (
+      typeof metadata.brand_domain !== "string" ||
+      metadata.brand_domain.trim() === ""
+    ) {
+      errors.push(
+        `${path}: consumer_metadata.brand_domain must be a non-empty string`,
+      );
+    } else {
+      try {
+        const url = new URL(`https://${metadata.brand_domain}`);
+        if (
+          url.hostname !== metadata.brand_domain ||
+          metadata.brand_domain.includes("/")
+        ) {
+          errors.push(
+            `${path}: consumer_metadata.brand_domain "${metadata.brand_domain}" must be a bare hostname`,
+          );
+        }
+      } catch {
+        errors.push(
+          `${path}: consumer_metadata.brand_domain "${metadata.brand_domain}" is not a valid hostname`,
+        );
+      }
+    }
+  }
+
+  if ("aliases" in metadata) {
+    if (!Array.isArray(metadata.aliases)) {
+      errors.push(`${path}: consumer_metadata.aliases must be an array`);
+    } else {
+      const normalized = new Set();
+      for (const [idx, alias] of metadata.aliases.entries()) {
+        if (typeof alias !== "string" || alias.trim() === "") {
+          errors.push(
+            `${path}: consumer_metadata.aliases[${idx}] must be a non-empty string`,
+          );
+          continue;
+        }
+        const token = alias.trim().toLowerCase();
+        if (normalized.has(token)) {
+          errors.push(
+            `${path}: consumer_metadata.aliases contains duplicate alias "${alias}"`,
+          );
+        }
+        normalized.add(token);
+      }
+    }
+  }
+
+  if (
+    "icon_key" in metadata &&
+    (typeof metadata.icon_key !== "string" || metadata.icon_key.trim() === "")
+  ) {
+    errors.push(
+      `${path}: consumer_metadata.icon_key must be a non-empty string`,
+    );
+  }
+
+  if ("default_scope" in metadata) {
+    if (
+      typeof metadata.default_scope !== "string" ||
+      metadata.default_scope.trim() === ""
+    ) {
+      errors.push(
+        `${path}: consumer_metadata.default_scope must be a non-empty string`,
+      );
+    } else {
+      const scopes = Array.isArray(manifest.scopes)
+        ? manifest.scopes.map((entry) =>
+            typeof entry === "string" ? entry : entry?.scope,
+          )
+        : [];
+      if (!scopes.includes(metadata.default_scope)) {
+        errors.push(
+          `${path}: consumer_metadata.default_scope "${metadata.default_scope}" is not declared in scopes[]`,
+        );
+      }
+    }
+  }
+}
+
 function validateManifest(filePath, manifest, seenIds) {
   const errors = [];
   const warnings = [];
@@ -130,14 +247,21 @@ function validateManifest(filePath, manifest, seenIds) {
   }
 
   // manifest_version pattern
-  if (manifest.manifest_version && !MANIFEST_VERSION_PATTERN.test(manifest.manifest_version)) {
-    errors.push(`${rel}: manifest_version "${manifest.manifest_version}" must match N.N`);
+  if (
+    manifest.manifest_version &&
+    !MANIFEST_VERSION_PATTERN.test(manifest.manifest_version)
+  ) {
+    errors.push(
+      `${rel}: manifest_version "${manifest.manifest_version}" must match N.N`,
+    );
   }
 
   // connector_id pattern + uniqueness
   if (manifest.connector_id) {
     if (!CONNECTOR_ID_PATTERN.test(manifest.connector_id)) {
-      errors.push(`${rel}: connector_id "${manifest.connector_id}" invalid format`);
+      errors.push(
+        `${rel}: connector_id "${manifest.connector_id}" invalid format`,
+      );
     }
     if (seenIds.has(manifest.connector_id)) {
       errors.push(
@@ -187,7 +311,9 @@ function validateManifest(filePath, manifest, seenIds) {
 
   // runtime enum
   if (manifest.runtime && !ALLOWED_RUNTIMES.has(manifest.runtime)) {
-    errors.push(`${rel}: runtime "${manifest.runtime}" not in ${[...ALLOWED_RUNTIMES].join(",")}`);
+    errors.push(
+      `${rel}: runtime "${manifest.runtime}" not in ${[...ALLOWED_RUNTIMES].join(",")}`,
+    );
   }
 
   // connect_url is a URL
@@ -195,7 +321,9 @@ function validateManifest(filePath, manifest, seenIds) {
     try {
       new URL(manifest.connect_url);
     } catch {
-      errors.push(`${rel}: connect_url "${manifest.connect_url}" is not a valid URL`);
+      errors.push(
+        `${rel}: connect_url "${manifest.connect_url}" is not a valid URL`,
+      );
     }
   }
 
@@ -208,6 +336,8 @@ function validateManifest(filePath, manifest, seenIds) {
   if (manifest.source_id) {
     validateScopes(manifest.scopes, manifest.source_id, errors, rel);
   }
+
+  validateConsumerMetadata(manifest, errors, rel);
 
   // Forbidden shell-overlay fields
   for (const field of FORBIDDEN_SHELL_FIELDS) {

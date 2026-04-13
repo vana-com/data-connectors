@@ -11,6 +11,13 @@
   "connect_url": "https://chatgpt.com/",
   "connect_selector": "nav a[href^='/c/']",
   "icon": "icons/chatgpt.svg",
+  "consumer_metadata": {
+    "display_name": "ChatGPT",
+    "brand_domain": "chatgpt.com",
+    "aliases": ["openai"],
+    "icon_key": "chatgpt",
+    "default_scope": "chatgpt.conversations"
+  },
   "scopes": [
     {
       "scope": "chatgpt.memories",

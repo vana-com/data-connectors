@@ -1,6 +1,6 @@
 {
   "version": "2.0.0",
-  "lastUpdated": "2026-03-29T00:00:00Z",
+  "lastUpdated": "2026-04-13T00:00:00Z",
   "baseUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main/connectors",
   "connectors": [
     {
@@ -10,13 +10,21 @@
       "name": "ChatGPT",
       "status": "stable",
       "description": "Exports your email, memories, and all conversations from ChatGPT.",
+      "consumerMetadata": {
+        "sourceId": "chatgpt",
+        "displayName": "ChatGPT",
+        "brandDomain": "chatgpt.com",
+        "aliases": ["openai"],
+        "iconKey": "chatgpt",
+        "defaultScope": "chatgpt.conversations"
+      },
       "files": {
         "script": "openai/chatgpt-playwright.js",
         "metadata": "openai/chatgpt-playwright.json"
       },
       "checksums": {
         "script": "sha256:72518dd765ff2103a0ad7dd184a9efcfac359764fca1613714400e661b2fe73a",
-        "metadata": "sha256:d8e865b7460e418b907b5a3012183ce64d408744ea995a7d01b0b1a8f48542e5"
+        "metadata": "sha256:a8200bc029fed4e459176df874f7b3ca3d1b9c7f07ec9ea461cdad0fe8122c36"
       }
     },
     {
@@ -26,13 +34,20 @@
       "name": "GitHub",
       "status": "stable",
       "description": "Exports your GitHub profile, repositories, and starred repositories.",
+      "consumerMetadata": {
+        "sourceId": "github",
+        "displayName": "GitHub",
+        "brandDomain": "github.com",
+        "iconKey": "github",
+        "defaultScope": "github.profile"
+      },
       "files": {
         "script": "github/github-playwright.js",
         "metadata": "github/github-playwright.json"
       },
       "checksums": {
         "script": "sha256:ef4ac623486eef3adf106a41f2b397ebfc0dc35daedbfb19a247fd495571e9a3",
-        "metadata": "sha256:d96e4fa20cdb568d92959e3008278d53f6b5a7c8ce5d3aa9cd41a58dcff19e33"
+        "metadata": "sha256:a06c9f02f8e649fa0151b9bd5506440559fad479ce4bcc56bb358bfd0e4ac6a8"
       }
     },
     {
@@ -42,13 +57,21 @@
       "name": "Instagram",
       "status": "stable",
       "description": "Exports your Instagram profile and posts.",
+      "consumerMetadata": {
+        "sourceId": "instagram",
+        "displayName": "Instagram",
+        "brandDomain": "instagram.com",
+        "aliases": ["meta"],
+        "iconKey": "instagram",
+        "defaultScope": "instagram.posts"
+      },
       "files": {
         "script": "meta/instagram-playwright.js",
         "metadata": "meta/instagram-playwright.json"
       },
       "checksums": {
         "script": "sha256:1a75e0075ba4fb4340ec0833a11b9b210dd04de30edeebfdc05e17523320e90e",
-        "metadata": "sha256:ec24178c65f509d609b5278507c974d4ebbf79b4e82978d8fe9b3f0befd8553e"
+        "metadata": "sha256:f832e7f12ef05e30ecf5932f8e6931f10613b880c68694f075cb5d159d90e80d"
       }
     },
     {
@@ -58,13 +81,20 @@
       "name": "Instagram Ads",
       "status": "beta",
       "description": "Exports your Instagram ad interests — advertisers and ad topics.",
+      "consumerMetadata": {
+        "sourceId": "instagram",
+        "displayName": "Instagram Ads",
+        "brandDomain": "instagram.com",
+        "iconKey": "instagram",
+        "defaultScope": "instagram.ads"
+      },
       "files": {
         "script": "meta/instagram-ads-playwright.js",
         "metadata": "meta/instagram-ads-playwright.json"
       },
       "checksums": {
         "script": "sha256:ef759279f73e52a05b063cf8e6a6bceb63409039f35f529b342bc1af004c972d",
-        "metadata": "sha256:743e6d6b7ee529585284a377fed92d5f0f403faefb1a4fb796da36a6dd0e3a88"
+        "metadata": "sha256:772e67958517a5aab3afd973bcd24ac206c987deb9f5d6cf22f31fe4202379e0"
       }
     },
     {
@@ -74,13 +104,20 @@
       "name": "LinkedIn",
       "status": "stable",
       "description": "Exports your LinkedIn profile, work experience, education, skills, languages, and connections.",
+      "consumerMetadata": {
+        "sourceId": "linkedin",
+        "displayName": "LinkedIn",
+        "brandDomain": "linkedin.com",
+        "iconKey": "linkedin",
+        "defaultScope": "linkedin.profile"
+      },
       "files": {
         "script": "linkedin/linkedin-playwright.js",
         "metadata": "linkedin/linkedin-playwright.json"
       },
       "checksums": {
         "script": "sha256:351a1a6706903bfbd7055c332f8baa118faa1ccb556cf019005f77cde422480b",
-        "metadata": "sha256:28110ba9be138fea3c18ce0ab85ceff201fe4139513c2383dfb3478015561434"
+        "metadata": "sha256:7cabb77ddee01e11f8d51c3f2de1d9cf5545c5dac3629d6cc1d43ce551704ea3"
       }
     },
     {
@@ -90,13 +127,20 @@
       "name": "Spotify",
       "status": "stable",
       "description": "Exports your Spotify library, playlists, listening history, and preferences.",
+      "consumerMetadata": {
+        "sourceId": "spotify",
+        "displayName": "Spotify",
+        "brandDomain": "spotify.com",
+        "iconKey": "spotify",
+        "defaultScope": "spotify.savedTracks"
+      },
       "files": {
         "script": "spotify/spotify-playwright.js",
         "metadata": "spotify/spotify-playwright.json"
       },
       "checksums": {
         "script": "sha256:35d879b28c1e3b2bb7c84e97985b8edb4e80dbd61d2dae17c969ad02ff5e3e37",
-        "metadata": "sha256:e19da9414f1dcdb816806e343441c1c433ea257a02abe18fc2eb0eaab35927dc"
+        "metadata": "sha256:600fd64a964bf406f0b8cd5759a17bb156b0246e26117fefc8458eb55c03d76d"
       }
     },
     {
@@ -106,13 +150,20 @@
       "name": "YouTube",
       "status": "beta",
       "description": "Exports your YouTube profile, subscriptions, playlists, playlist items, liked videos, watch later list, and top 50 recent watch history entries.",
+      "consumerMetadata": {
+        "sourceId": "youtube",
+        "displayName": "YouTube",
+        "brandDomain": "youtube.com",
+        "iconKey": "youtube",
+        "defaultScope": "youtube.profile"
+      },
       "files": {
         "script": "google/youtube-playwright.js",
         "metadata": "google/youtube-playwright.json"
       },
       "checksums": {
         "script": "sha256:41edd09ec113ad7f9d09c9c0de76e40577087ab4600d2c8ccba4ca95c3f919c6",
-        "metadata": "sha256:5824aeccf70a0f4c79b1d106c385ec9b05f5f237d0a8c709ade971d4961675c3"
+        "metadata": "sha256:57c0ee202e7a39db08d32258f5431c163e5837c5afde0e76ab6b7b191602b0ef"
       }
     },
     {
@@ -122,13 +173,21 @@
       "name": "Shop",
       "status": "beta",
       "description": "Exports your Shop app order history.",
+      "consumerMetadata": {
+        "sourceId": "shop",
+        "displayName": "Shop",
+        "brandDomain": "shop.app",
+        "aliases": ["shopify"],
+        "iconKey": "shop",
+        "defaultScope": "shop.orders"
+      },
       "files": {
         "script": "shopify/shop-playwright.js",
         "metadata": "shopify/shop-playwright.json"
       },
       "checksums": {
         "script": "sha256:d9364d7cbaf95fbf0e3130b9221195099b33afe3bb700f411d336e40a705d37f",
-        "metadata": "sha256:0870b994734ba53d98c9cc933de643d0b17cab14afd64d46185b1e533f303789"
+        "metadata": "sha256:13ed7d2ba551b930a89e02a6ff2a540ca1c4d13f72a653cb9af6af57f9847e31"
       }
     },
     {
@@ -138,13 +197,21 @@
       "name": "Oura Ring",
       "status": "stable",
       "description": "Exports your Oura Ring readiness scores, sleep data, and daily activity.",
+      "consumerMetadata": {
+        "sourceId": "oura",
+        "displayName": "Oura Ring",
+        "brandDomain": "ouraring.com",
+        "aliases": ["ouraring"],
+        "iconKey": "oura",
+        "defaultScope": "oura.readiness"
+      },
       "files": {
         "script": "oura/oura-playwright.js",
         "metadata": "oura/oura-playwright.json"
       },
       "checksums": {
         "script": "sha256:8535a104e9892ced48a54a47e5d61a4d2b45fb00dd1109631b5fffa311d9aa02",
-        "metadata": "sha256:2b51761983c8f902d61f657297f32ced90632bc68cf3a4e988c30255a3ea4406"
+        "metadata": "sha256:f0ec22cc24bfbe0d5b53c4dd73b07ed083e223175a35c3574349139af9b1211f"
       }
     },
     {
@@ -250,13 +317,20 @@
       "name": "iCloud Notes",
       "status": "experimental",
       "description": "Exports your Apple Notes and folders from iCloud.",
+      "consumerMetadata": {
+        "sourceId": "icloud_notes",
+        "displayName": "iCloud Notes",
+        "brandDomain": "icloud.com",
+        "iconKey": "icloud_notes",
+        "defaultScope": "icloud_notes.notes"
+      },
       "files": {
         "script": "apple/icloud-notes-playwright.js",
         "metadata": "apple/icloud-notes-playwright.json"
       },
       "checksums": {
         "script": "sha256:5c2db6eb459db477d72e1630ed87697cc06c4699fbe2c909ad8a0f9206ca1e8a",
-        "metadata": "sha256:75b6fd2d0c561fe6fae5a57e74b1fabe436f170d8be68eeb327dbe13d786bae3"
+        "metadata": "sha256:3a776edf46dd89e80a50d3f9c0b9e6efe2a8ecaa67eb5fc477364db0b932ca24"
       }
     }
   ]
