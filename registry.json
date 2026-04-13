@@ -14,7 +14,9 @@
         "sourceId": "chatgpt",
         "displayName": "ChatGPT",
         "brandDomain": "chatgpt.com",
-        "aliases": ["openai"],
+        "aliases": [
+          "openai"
+        ],
         "iconKey": "chatgpt",
         "defaultScope": "chatgpt.conversations"
       },
@@ -24,7 +26,7 @@
       },
       "checksums": {
         "script": "sha256:72518dd765ff2103a0ad7dd184a9efcfac359764fca1613714400e661b2fe73a",
-        "metadata": "sha256:a8200bc029fed4e459176df874f7b3ca3d1b9c7f07ec9ea461cdad0fe8122c36"
+        "metadata": "sha256:be7140f442a11a4475f1778e8e32e93d3a633d4ad515ed925bf7ecca461d793d"
       }
     },
     {
@@ -47,7 +49,7 @@
       },
       "checksums": {
         "script": "sha256:ef4ac623486eef3adf106a41f2b397ebfc0dc35daedbfb19a247fd495571e9a3",
-        "metadata": "sha256:a06c9f02f8e649fa0151b9bd5506440559fad479ce4bcc56bb358bfd0e4ac6a8"
+        "metadata": "sha256:c6dacdc52577be5460630ab2e534bc2c1da0395b6105bb3efaaae4e39348d4a0"
       }
     },
     {
@@ -61,7 +63,9 @@
         "sourceId": "instagram",
         "displayName": "Instagram",
         "brandDomain": "instagram.com",
-        "aliases": ["meta"],
+        "aliases": [
+          "meta"
+        ],
         "iconKey": "instagram",
         "defaultScope": "instagram.posts"
       },
@@ -71,7 +75,7 @@
       },
       "checksums": {
         "script": "sha256:1a75e0075ba4fb4340ec0833a11b9b210dd04de30edeebfdc05e17523320e90e",
-        "metadata": "sha256:f832e7f12ef05e30ecf5932f8e6931f10613b880c68694f075cb5d159d90e80d"
+        "metadata": "sha256:cafc2a147f64dea779ae8ead2df4547241f8fec90afc08718f253f710a15e0bc"
       }
     },
     {
@@ -94,7 +98,7 @@
       },
       "checksums": {
         "script": "sha256:ef759279f73e52a05b063cf8e6a6bceb63409039f35f529b342bc1af004c972d",
-        "metadata": "sha256:772e67958517a5aab3afd973bcd24ac206c987deb9f5d6cf22f31fe4202379e0"
+        "metadata": "sha256:7403ddd375b61c5b0f5d078bdc90207e85fcf476542bba85b39c49fe3e9c51b2"
       }
     },
     {
@@ -117,7 +121,7 @@
       },
       "checksums": {
         "script": "sha256:351a1a6706903bfbd7055c332f8baa118faa1ccb556cf019005f77cde422480b",
-        "metadata": "sha256:7cabb77ddee01e11f8d51c3f2de1d9cf5545c5dac3629d6cc1d43ce551704ea3"
+        "metadata": "sha256:7e0a1f8ff7d4572a7e09f507011025bbe8c84c59f550628879aacf8900a4624e"
       }
     },
     {
@@ -140,7 +144,7 @@
       },
       "checksums": {
         "script": "sha256:35d879b28c1e3b2bb7c84e97985b8edb4e80dbd61d2dae17c969ad02ff5e3e37",
-        "metadata": "sha256:600fd64a964bf406f0b8cd5759a17bb156b0246e26117fefc8458eb55c03d76d"
+        "metadata": "sha256:1803a12843e4b5bb022d1dfea580c830db9b1267e0d8b75855a5499d6760515b"
       }
     },
     {
@@ -163,7 +167,7 @@
       },
       "checksums": {
         "script": "sha256:41edd09ec113ad7f9d09c9c0de76e40577087ab4600d2c8ccba4ca95c3f919c6",
-        "metadata": "sha256:57c0ee202e7a39db08d32258f5431c163e5837c5afde0e76ab6b7b191602b0ef"
+        "metadata": "sha256:8af6a9623851d2f0db9f86cdce50a3e60f2fee5387c5922f11c064043298ec6f"
       }
     },
     {
@@ -177,7 +181,9 @@
         "sourceId": "shop",
         "displayName": "Shop",
         "brandDomain": "shop.app",
-        "aliases": ["shopify"],
+        "aliases": [
+          "shopify"
+        ],
         "iconKey": "shop",
         "defaultScope": "shop.orders"
       },
@@ -187,7 +193,7 @@
       },
       "checksums": {
         "script": "sha256:d9364d7cbaf95fbf0e3130b9221195099b33afe3bb700f411d336e40a705d37f",
-        "metadata": "sha256:13ed7d2ba551b930a89e02a6ff2a540ca1c4d13f72a653cb9af6af57f9847e31"
+        "metadata": "sha256:5eded7e19e3381743d2935a4f6ee41b3ef77524357bcade27bad754791b5cf4c"
       }
     },
     {
@@ -201,7 +207,9 @@
         "sourceId": "oura",
         "displayName": "Oura Ring",
         "brandDomain": "ouraring.com",
-        "aliases": ["ouraring"],
+        "aliases": [
+          "ouraring"
+        ],
         "iconKey": "oura",
         "defaultScope": "oura.readiness"
       },
@@ -211,7 +219,7 @@
       },
       "checksums": {
         "script": "sha256:8535a104e9892ced48a54a47e5d61a4d2b45fb00dd1109631b5fffa311d9aa02",
-        "metadata": "sha256:f0ec22cc24bfbe0d5b53c4dd73b07ed083e223175a35c3574349139af9b1211f"
+        "metadata": "sha256:59dd8496619999db8d6e11663a70c57189e725199e5ed9e2c70be874575542d2"
       }
     },
     {
@@ -330,7 +338,7 @@
       },
       "checksums": {
         "script": "sha256:5c2db6eb459db477d72e1630ed87697cc06c4699fbe2c909ad8a0f9206ca1e8a",
-        "metadata": "sha256:3a776edf46dd89e80a50d3f9c0b9e6efe2a8ecaa67eb5fc477364db0b932ca24"
+        "metadata": "sha256:4784600faef6354d38c1ff4d3c546d75ab920cd794e56fee76b6301cc860dfdd"
       }
     }
   ]

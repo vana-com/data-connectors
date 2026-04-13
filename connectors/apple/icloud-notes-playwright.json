@@ -11,12 +11,6 @@
   "connect_url": "https://www.icloud.com/notes",
   "connect_selector": "iframe[name='aid-auth-widget-iFrame'], .notes-list, [data-testid='notes-app']",
   "icon": "icons/icloud.svg",
-  "consumer_metadata": {
-    "display_name": "iCloud Notes",
-    "brand_domain": "icloud.com",
-    "icon_key": "icloud_notes",
-    "default_scope": "icloud_notes.notes"
-  },
   "scopes": [
     {
       "scope": "icloud_notes.notes",
@@ -41,5 +35,11 @@
     "keyboard-input",
     "cg-legacy-page-api"
   ],
-  "exportFrequency": "weekly"
+  "exportFrequency": "weekly",
+  "consumer_metadata": {
+    "display_name": "iCloud Notes",
+    "brand_domain": "icloud.com",
+    "icon_key": "icloud_notes",
+    "default_scope": "icloud_notes.notes"
+  }
 }

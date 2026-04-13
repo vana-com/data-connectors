@@ -11,13 +11,6 @@
   "connect_url": "https://www.instagram.com/accounts/login/",
   "connect_selector": "svg[aria-label='Home'], a[href='/direct/inbox/']",
   "icon": "icons/instagram.svg",
-  "consumer_metadata": {
-    "display_name": "Instagram",
-    "brand_domain": "instagram.com",
-    "aliases": ["meta"],
-    "icon_key": "instagram",
-    "default_scope": "instagram.posts"
-  },
   "scopes": [
     {
       "scope": "instagram.profile",
@@ -47,5 +40,14 @@
   "exportFrequency": "daily",
   "vectorize_config": {
     "documents": "caption"
+  },
+  "consumer_metadata": {
+    "display_name": "Instagram",
+    "brand_domain": "instagram.com",
+    "aliases": [
+      "meta"
+    ],
+    "icon_key": "instagram",
+    "default_scope": "instagram.posts"
   }
 }

@@ -44,11 +44,10 @@ See [`skills/vana-connect/`](skills/vana-connect/) for the agent skill: setup, r
 
 | Folder | What's inside | Audience |
 |--------|--------------|----------|
-| **`connectors/`** | All platform connectors (`<company>/<name>-playwright.js` + `.json`) | Everyone |
+| **`connectors/`** | All platform connectors (`<company>/<name>-playwright.js` + `.json` + local assets like `icons/`) | Everyone |
 | **`scripts/`** | Developer tooling: scaffold, test, validate, session capture | Human developers |
 | **`skills/`** | AI agent skill for creating/running connectors (`vana-connect/`) | AI agents (Claude, etc.) |
 | **`schemas/`** | JSON Schema definitions, one per scope (`<platform>.<scope>.json`) | Validation |
-| **`icons/`** | SVG/PNG icons for the DataConnect UI | Frontend |
 | **`types/`** | TypeScript type definitions (`connector.d.ts`) | TypeScript consumers |
 
 ```
@@ -80,10 +79,11 @@ create-connector.sh                # Quick autonomous scaffold script
 
 ### Connectors
 
-Each connector lives in `connectors/<company>/`. A connector consists of two files:
+Each connector lives in `connectors/<company>/`. A connector bundle keeps its runtime assets together inside that directory. A connector usually consists of:
 
 - **`<name>-playwright.js`** -- the connector script (plain JS, runs inside the Playwright runner sidecar)
 - **`<name>-playwright.json`** -- metadata (display name, login URL, selectors, scopes)
+- **`icons/...`** -- canonical local icon assets referenced by the manifest via a path relative to that connector directory
 
 Some connectors also include a README with platform-specific setup instructions (e.g., API keys).
 

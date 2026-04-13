@@ -15,8 +15,8 @@
  * Usage: node scripts/validate-manifests.mjs
  */
 
-import { readFileSync, readdirSync, statSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { join, dirname, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -229,6 +229,41 @@ function validateConsumerMetadata(manifest, errors, path) {
   }
 }
 
+function validateIconPath(filePath, manifest, errors, rel) {
+  if (!manifest.icon) {
+    return;
+  }
+
+  if (typeof manifest.icon !== "string" || manifest.icon.trim() === "") {
+    errors.push(`${rel}: icon must be a non-empty string when present`);
+    return;
+  }
+
+  const iconPath = manifest.icon.trim();
+  if (iconPath.startsWith("/") || iconPath.includes("\\")) {
+    errors.push(
+      `${rel}: icon "${iconPath}" must be a relative POSIX path inside the connector directory`,
+    );
+    return;
+  }
+
+  const normalizedPath = normalize(iconPath);
+  if (normalizedPath.startsWith("..")) {
+    errors.push(
+      `${rel}: icon "${iconPath}" must stay inside the connector directory`,
+    );
+    return;
+  }
+
+  const manifestDir = dirname(filePath);
+  const resolvedIconPath = join(manifestDir, normalizedPath);
+  if (!existsSync(resolvedIconPath) || !statSync(resolvedIconPath).isFile()) {
+    errors.push(
+      `${rel}: icon "${iconPath}" does not exist inside ${manifestDir.replace(repoRoot + "/", "")}/`,
+    );
+  }
+}
+
 function validateManifest(filePath, manifest, seenIds) {
   const errors = [];
   const warnings = [];
@@ -338,6 +373,7 @@ function validateManifest(filePath, manifest, seenIds) {
   }
 
   validateConsumerMetadata(manifest, errors, rel);
+  validateIconPath(filePath, manifest, errors, rel);
 
   // Forbidden shell-overlay fields
   for (const field of FORBIDDEN_SHELL_FIELDS) {

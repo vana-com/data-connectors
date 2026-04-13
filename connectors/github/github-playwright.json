@@ -11,12 +11,6 @@
   "connect_url": "https://github.com/login",
   "connect_selector": "meta[name='user-login'][content], summary[aria-label*='View profile and more']",
   "icon": "icons/github.svg",
-  "consumer_metadata": {
-    "display_name": "GitHub",
-    "brand_domain": "github.com",
-    "icon_key": "github",
-    "default_scope": "github.profile"
-  },
   "scopes": [
     {
       "scope": "github.profile",
@@ -41,5 +35,11 @@
   "exportFrequency": "daily",
   "vectorize_config": {
     "documents": "description"
+  },
+  "consumer_metadata": {
+    "display_name": "GitHub",
+    "brand_domain": "github.com",
+    "icon_key": "github",
+    "default_scope": "github.profile"
   }
 }

@@ -11,12 +11,6 @@
   "connect_url": "https://www.youtube.com/",
   "connect_selector": "button#avatar-btn, ytd-topbar-menu-button-renderer button#avatar-btn",
   "icon": "icons/youtube.svg",
-  "consumer_metadata": {
-    "display_name": "YouTube",
-    "brand_domain": "youtube.com",
-    "icon_key": "youtube",
-    "default_scope": "youtube.profile"
-  },
   "scopes": [
     {
       "scope": "youtube.profile",
@@ -61,5 +55,11 @@
   "exportFrequency": "weekly",
   "vectorize_config": {
     "documents": "history"
+  },
+  "consumer_metadata": {
+    "display_name": "YouTube",
+    "brand_domain": "youtube.com",
+    "icon_key": "youtube",
+    "default_scope": "youtube.profile"
   }
 }

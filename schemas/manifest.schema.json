@@ -72,7 +72,7 @@
     },
     "icon": {
       "type": "string",
-      "description": "Path to the canonical connector icon relative to the repo root."
+      "description": "Path to the canonical connector icon relative to the connector directory (for example \"icons/github.svg\")."
     },
     "scopes": {
       "type": "array",

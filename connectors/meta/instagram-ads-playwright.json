@@ -11,12 +11,6 @@
   "connect_url": "https://accountscenter.instagram.com/ads/",
   "connect_selector": "[role='button'][aria-label*='advertiser' i], [role='list'] [role='listitem']",
   "icon": "icons/instagram.svg",
-  "consumer_metadata": {
-    "display_name": "Instagram Ads",
-    "brand_domain": "instagram.com",
-    "icon_key": "instagram",
-    "default_scope": "instagram.ads"
-  },
   "scopes": [
     {
       "scope": "instagram.ads",
@@ -31,5 +25,11 @@
   "exportFrequency": "daily",
   "vectorize_config": {
     "documents": "name"
+  },
+  "consumer_metadata": {
+    "display_name": "Instagram Ads",
+    "brand_domain": "instagram.com",
+    "icon_key": "instagram",
+    "default_scope": "instagram.ads"
   }
 }

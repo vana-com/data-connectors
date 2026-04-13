@@ -11,12 +11,6 @@
   "connect_url": "https://open.spotify.com/",
   "connect_selector": "button[data-testid='user-widget-link']",
   "icon": "icons/spotify.svg",
-  "consumer_metadata": {
-    "display_name": "Spotify",
-    "brand_domain": "spotify.com",
-    "icon_key": "spotify",
-    "default_scope": "spotify.savedTracks"
-  },
   "scopes": [
     {
       "scope": "spotify.profile",
@@ -41,5 +35,11 @@
   "exportFrequency": "daily",
   "vectorize_config": {
     "documents": "savedTracks"
+  },
+  "consumer_metadata": {
+    "display_name": "Spotify",
+    "brand_domain": "spotify.com",
+    "icon_key": "spotify",
+    "default_scope": "spotify.savedTracks"
   }
 }

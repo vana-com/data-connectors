@@ -11,12 +11,6 @@
   "connect_url": "https://www.linkedin.com/login",
   "connect_selector": "a[href*='/feed/'], .feed-identity-module, .global-nav__me",
   "icon": "icons/linkedin.svg",
-  "consumer_metadata": {
-    "display_name": "LinkedIn",
-    "brand_domain": "linkedin.com",
-    "icon_key": "linkedin",
-    "default_scope": "linkedin.profile"
-  },
   "scopes": [
     {
       "scope": "linkedin.profile",
@@ -56,5 +50,11 @@
   "exportFrequency": "weekly",
   "vectorize_config": {
     "documents": "connections"
+  },
+  "consumer_metadata": {
+    "display_name": "LinkedIn",
+    "brand_domain": "linkedin.com",
+    "icon_key": "linkedin",
+    "default_scope": "linkedin.profile"
   }
 }
