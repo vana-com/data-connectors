@@ -1,25 +1,25 @@
 /**
- * Oura Ring Connector (Playwright) — Two-Phase Architecture
+ * Oura Ring Connector
  *
- * Phase 1 (Browser, visible if login needed):
- *   - Detects login via persistent browser session (headless)
- *   - If not logged in, shows browser for user to log in
+ * Ported from Context Gateway's production oura.js (the proven-working
+ * version) with CG-only API calls converted to the canonical page API:
+ *   getInput({title, schema, uiSchema, submitLabel})
+ *     → requestInput({message, schema})
+ *   promptUser → guarded with showBrowser().headed check
  *
- * Phase 2 (Browser, headless — invisible to user):
- *   - Fetches data via Oura's internal cloud API (cloud.ouraring.com/api/...)
- *   - Authentication is automatic via httpOnly session cookies
- *   - Reports structured progress to the UI
+ * Uses email + OTP code authentication (the only option for Oura
+ * accounts created without a password).
+ *
+ * Data is fetched via Oura's internal cloud API using session cookies.
+ * 90-day lookback window, chunked into 30-day batches.
  */
 
-// State management
 const state = {
   isComplete: false,
 };
 
-// Resilience helpers. See connectors/meta/instagram-playwright.js for
-// the rationale — canonical scripts can't import shared modules, so
-// these helpers are inlined per connector until the proxy layer exposes
-// them natively.
+// ── Resilience helpers ──────────────────────────────────────────────
+
 const withTimeout = async (promise, ms, label) => {
   let timeoutId = null;
   try {
@@ -60,7 +60,7 @@ const safeGoto = async (url, options = {}) => {
   return false;
 };
 
-// ─── Browser-Phase Helpers ───────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────────────────
 
 const checkLoginStatus = async () => {
   try {
@@ -81,14 +81,11 @@ const checkLoginStatus = async () => {
       })()
     `);
     return result || false;
-  } catch (err) {
+  } catch {
     return false;
   }
 };
 
-// ─── Internal API Helpers ────────────────────────────────────────────
-
-// Fetch from Oura's internal cloud API (same-origin, cookie auth)
 const fetchCloudApi = async (path) => {
   const result = await page.evaluate(`
     (async () => {
@@ -115,7 +112,6 @@ const fetchCloudApi = async (path) => {
   return result;
 };
 
-// Fetch daily-data in date chunks (Oura cloud API may limit range)
 const fetchDailyDataChunked = async (startDate, endDate, chunkDays) => {
   const allData = {};
   const start = new Date(startDate);
@@ -123,6 +119,7 @@ const fetchDailyDataChunked = async (startDate, endDate, chunkDays) => {
 
   let chunkStart = new Date(start);
   let chunkIndex = 0;
+  const totalChunks = Math.ceil(90 / chunkDays);
 
   while (chunkStart < end) {
     const chunkEnd = new Date(chunkStart);
@@ -133,11 +130,7 @@ const fetchDailyDataChunked = async (startDate, endDate, chunkDays) => {
     const endStr = chunkEnd.toISOString().split('T')[0];
 
     chunkIndex++;
-    await page.setProgress({
-      phase: { step: chunkIndex, total: Math.ceil(90 / chunkDays), label: 'Fetching data' },
-      message: `Downloading ${startStr} to ${endStr}...`,
-      count: chunkIndex,
-    });
+    await page.setData('status', `Downloading data: ${startStr} to ${endStr} (chunk ${chunkIndex}/${totalChunks})...`);
 
     const result = await fetchCloudApi(`/api/account/daily-data?start=${startStr}&end=${endStr}`);
 
@@ -159,328 +152,270 @@ const fetchDailyDataChunked = async (startDate, endDate, chunkDays) => {
   return allData;
 };
 
-// ─── Main Export Flow ────────────────────────────────────────────────
+// ── Login Flow ───────────────────────────────────────────────────────
 
-(async () => {
-  // ═══ PHASE 1: Browser — Login ═══
+await page.setData('status', 'Checking Oura login status...');
+const dashboardReachable = await safeGoto('https://cloud.ouraring.com/');
+if (!dashboardReachable) {
+  return {
+    success: false,
+    error: 'Could not reach Oura dashboard after multiple attempts.',
+  };
+}
+await page.sleep(3000);
 
-  await page.setData('status', 'Checking login status...');
-  const dashboardReachable = await safeGoto('https://cloud.ouraring.com/');
-  if (!dashboardReachable) {
+let isLoggedIn = await checkLoginStatus();
+
+if (!isLoggedIn) {
+  await page.sleep(2000);
+  isLoggedIn = await checkLoginStatus();
+}
+
+if (!isLoggedIn) {
+  // Oura uses email + OTP code auth: enter email → send code → enter 6-digit code
+  const signInReachable = await safeGoto('https://cloud.ouraring.com/user/sign-in');
+  if (!signInReachable) {
     return {
       success: false,
-      error: 'Could not reach Oura dashboard after multiple attempts.',
+      error: 'Could not reach Oura sign-in page after multiple attempts.',
     };
   }
   await page.sleep(3000);
 
-  let isLoggedIn = await checkLoginStatus();
+  // Step 1: Ask for email
+  const emailInput = await page.requestInput({
+    message: 'Log in to Oura. A verification code will be sent to your email.',
+    schema: {
+      type: 'object',
+      required: ['email'],
+      properties: {
+        email: { type: 'string', description: 'Oura account email' },
+      },
+    },
+  });
+
+  await page.setData('status', 'Entering email...');
+
+  // Fill the email field and click Continue
+  try {
+    const emailSelector = 'input#username, input[type="email"]';
+    await page.waitForSelector(emailSelector, { timeout: 10000 });
+    await page.fill(emailSelector, emailInput.email);
+    await page.sleep(500);
+    await page.click('button#submit-button, button[type="submit"]', { timeout: 5000 });
+  } catch (e) {
+    return { success: false, error: `Could not fill email form: ${e.message || String(e)}` };
+  }
+
+  await page.sleep(3000);
+
+  // Step 2: Click "Send code" button
+  await page.setData('status', 'Requesting verification code...');
+  try {
+    await page.waitForSelector('button[name="selectedId"], button#submit-button', { timeout: 10000 });
+    await page.click('button[name="selectedId"], button#submit-button', { timeout: 5000 });
+  } catch (e) {
+    // May have skipped the send-code screen
+  }
+
+  await page.sleep(3000);
+  await page.setData('status', 'Verification code sent! Check your email.');
+
+  // Step 3: Ask user for the 6-digit OTP code
+  const codeInput = await page.requestInput({
+    message: 'Check your email for a 6-digit code from Oura and enter it below.',
+    schema: {
+      type: 'object',
+      required: ['code'],
+      properties: {
+        code: {
+          type: 'string',
+          description: '6-digit verification code',
+          minLength: 6,
+          maxLength: 6,
+        },
+      },
+    },
+  });
+
+  // Step 4: Submit the OTP code
+  await page.setData('status', 'Submitting verification code...');
+  try {
+    const otpSelector = 'input#otp-code, input[name="otp"]';
+    await page.waitForSelector(otpSelector, { timeout: 10000 });
+    await page.fill(otpSelector, codeInput.code);
+    await page.sleep(500);
+    await page.click('button#submit-button, button[type="submit"]', { timeout: 5000 });
+  } catch (e) {
+    return { success: false, error: `Could not submit verification code: ${e.message || String(e)}` };
+  }
+
+  await page.sleep(5000);
+
+  // Check if we landed on the dashboard
+  isLoggedIn = await checkLoginStatus();
 
   if (!isLoggedIn) {
-    await page.sleep(2000);
+    // May still be on moi.ouraring.com, navigate to cloud
+    await safeGoto('https://cloud.ouraring.com/');
+    await page.sleep(3000);
     isLoggedIn = await checkLoginStatus();
   }
 
+  // Also check by trying the API directly
   if (!isLoggedIn) {
-    const signInReachable = await safeGoto(
-      'https://cloud.ouraring.com/user/sign-in',
-    );
-    if (!signInReachable) {
-      return {
-        success: false,
-        error: 'Could not reach Oura sign-in page after multiple attempts.',
-      };
+    const meCheck = await fetchCloudApi('/api/me');
+    if (meCheck?.success) {
+      isLoggedIn = true;
     }
-    await page.sleep(2000);
+  }
 
-    // Oura has two login variants:
-    //   1. Email + Password (accounts created with a password)
-    //   2. Email + OTP code  (passwordless accounts — email only, then a
-    //      6-digit code is sent to the email address)
-    //
-    // Detect which variant by checking for a password field. If present,
-    // ask for email+password. If absent, do the OTP flow.
-    const emailSelector = 'input#username, input[type="email"], input[name="email"]';
-    const passwordSelector = 'input[type="password"], input[name="password"]';
-
-    try {
-      await page.waitForSelector(emailSelector, { timeout: 10000 });
-    } catch {
-      return {
-        success: false,
-        error: 'Could not find email field on Oura sign-in page.',
-      };
-    }
-
-    const hasPasswordField = await page.evaluate(`
-      !!document.querySelector('${passwordSelector}')
-    `);
-
-    if (hasPasswordField) {
-      // ── Variant 1: Email + Password ──────────────────────────────
-      const { email, password } = await page.requestInput({
-        message: 'Log in to your Oura account',
-        schema: {
-          type: 'object',
-          properties: {
-            email: { type: 'string', description: 'Oura account email' },
-            password: { type: 'string', format: 'password' },
-          },
-          required: ['email', 'password'],
-        },
-      });
-
-      await page.setData('status', 'Signing in...');
-      await page.fill(emailSelector, email);
-      await page.sleep(300);
-      await page.fill(passwordSelector, password);
-      await page.sleep(300);
-      await page.click('button[type="submit"], button#submit-button', {
-        timeout: 5000,
-      });
-      await page.sleep(5000);
-    } else {
-      // ── Variant 2: Email + OTP code ──────────────────────────────
-      const { email } = await page.requestInput({
-        message:
-          'Log in to your Oura account. A verification code will be sent to your email.',
-        schema: {
-          type: 'object',
-          properties: {
-            email: { type: 'string', description: 'Oura account email' },
-          },
-          required: ['email'],
-        },
-      });
-
-      await page.setData('status', 'Entering email...');
-      await page.fill(emailSelector, email);
-      await page.sleep(500);
-      await page.click('button#submit-button, button[type="submit"]', {
-        timeout: 5000,
-      });
-      await page.sleep(3000);
-
-      // Oura may show a "Send code" interstitial before the OTP input.
-      await page.setData('status', 'Requesting verification code...');
+  // Fallback: manual login via browser takeover — only if the runtime
+  // can surface a headed browser to the user.
+  if (!isLoggedIn) {
+    let canShowHeaded = false;
+    if (typeof page.showBrowser === 'function') {
       try {
-        await page.waitForSelector(
-          'button[name="selectedId"], button#submit-button',
-          { timeout: 10000 },
-        );
-        await page.click(
-          'button[name="selectedId"], button#submit-button',
-          { timeout: 5000 },
-        );
+        const result = await page.showBrowser('https://cloud.ouraring.com/user/sign-in');
+        canShowHeaded = !!(result && result.headed);
       } catch {
-        // May have skipped the send-code screen — continue.
+        canShowHeaded = false;
       }
-      await page.sleep(3000);
-
-      await page.setData('status', 'Verification code sent! Check your email.');
-
-      const { code } = await page.requestInput({
-        message:
-          'Check your email for a 6-digit code from Oura and enter it below.',
-        schema: {
-          type: 'object',
-          properties: {
-            code: {
-              type: 'string',
-              description: '6-digit verification code',
-              minLength: 6,
-              maxLength: 6,
-            },
-          },
-          required: ['code'],
-        },
-      });
-
-      await page.setData('status', 'Submitting verification code...');
-      const otpSelector = 'input#otp-code, input[name="otp"], input[type="text"]';
-      try {
-        await page.waitForSelector(otpSelector, { timeout: 10000 });
-        await page.fill(otpSelector, code);
-        await page.sleep(500);
-        await page.click('button#submit-button, button[type="submit"]', {
-          timeout: 5000,
-        });
-      } catch (e) {
-        return {
-          success: false,
-          error: `Could not submit verification code: ${e?.message || String(e)}`,
-        };
-      }
-      await page.sleep(5000);
     }
 
-    isLoggedIn = await checkLoginStatus();
-
-    // Post-login: Oura may redirect to moi.ouraring.com; navigate back.
-    if (!isLoggedIn) {
-      await safeGoto('https://cloud.ouraring.com/');
-      await page.sleep(3000);
+    if (canShowHeaded) {
+      await page.setData('status', 'Please complete sign-in manually in the browser below.');
+      await page.promptUser(
+        'Automatic sign-in did not complete. Please finish signing in manually.',
+        async () => await checkLoginStatus(),
+        5000
+      );
       isLoggedIn = await checkLoginStatus();
+    } else {
+      return {
+        success: false,
+        error: 'Automatic Oura sign-in failed and this runtime cannot surface a manual sign-in browser.',
+      };
     }
-
-    // Fallback to headed browser if programmatic login still failed.
-    if (!isLoggedIn) {
-      let canShowHeaded = false;
-      if (typeof page.showBrowser === 'function') {
-        try {
-          const result = await page.showBrowser(
-            'https://cloud.ouraring.com/user/sign-in',
-          );
-          canShowHeaded = !!(result && result.headed);
-        } catch {
-          canShowHeaded = false;
-        }
-      }
-
-      if (canShowHeaded) {
-        await page.setData(
-          'status',
-          'Please complete sign-in manually in the browser below.',
-        );
-        await page.promptUser(
-          'Automatic sign-in did not complete. Please finish signing in manually.',
-          async () => await checkLoginStatus(),
-          2000,
-        );
-        await page.goHeadless();
-        isLoggedIn = await checkLoginStatus();
-      } else {
-        return {
-          success: false,
-          error:
-            'Automatic Oura sign-in failed and this runtime cannot surface a manual sign-in browser.',
-        };
-      }
-    }
-
-    await page.setData('status', 'Login completed');
-    await page.sleep(2000);
-  } else {
-    await page.setData('status', 'Session restored from previous login');
   }
+}
 
-  // ═══ Verify API access ═══
-  await page.setData('status', 'Verifying API access...');
-  const meResult = await fetchCloudApi('/api/me');
+if (!isLoggedIn) {
+  return { success: false, error: 'Oura login could not be confirmed.' };
+}
 
-  if (!meResult?.success) {
-    await page.setData('error',
-      'Could not access Oura cloud API. Try disconnecting and reconnecting to refresh your session.'
-    );
-    return;
-  }
+await page.setData('status', 'Login confirmed. Verifying API access...');
 
-  await page.setData('status', 'Switching to background mode...');
+// ── Verify API Access ────────────────────────────────────────────────
 
-  // ═══ Switch to headless ═══
-  await page.goHeadless();
-
-  // ═══ PHASE 2: Headless — Data Collection ═══
-
-  const endDate = new Date().toISOString().split('T')[0];
-  const startDateObj = new Date();
-  startDateObj.setDate(startDateObj.getDate() - 90);
-  const startDate = startDateObj.toISOString().split('T')[0];
-
-  // Fetch all data via internal API in 30-day chunks
-  const rawData = await fetchDailyDataChunked(startDate, endDate, 30);
-
-  // Map internal API field names to our schema
-  const sleepPeriods = rawData.sleeps || [];
-  const dailySleep = rawData.daily_sleeps || [];
-  const readiness = rawData.daily_readinesses || [];
-  const activity = rawData.daily_activities || [];
-
-  // ═══ Build Result ═══
-
-  const result = {
-    'oura.readiness': {
-      days: readiness.map(d => ({
-        id: d.id,
-        day: d.day,
-        score: d.score,
-        timestamp: d.timestamp,
-        temperatureDeviation: d.temperature_deviation,
-        temperatureTrendDeviation: d.temperature_trend_deviation,
-        contributors: d.contributors || {},
-      })),
-    },
-
-    'oura.sleep': {
-      dailyScores: dailySleep.map(d => ({
-        id: d.id,
-        day: d.day,
-        score: d.score,
-        timestamp: d.timestamp,
-        contributors: d.contributors || {},
-      })),
-      sleepPeriods: sleepPeriods.map(d => ({
-        id: d.id,
-        day: d.day,
-        type: d.type,
-        bedtimeStart: d.bedtime_start,
-        bedtimeEnd: d.bedtime_end,
-        totalSleepDuration: d.total_sleep_duration,
-        timeInBed: d.time_in_bed,
-        deepSleepDuration: d.deep_sleep_duration,
-        lightSleepDuration: d.light_sleep_duration,
-        remSleepDuration: d.rem_sleep_duration,
-        awakeTime: d.awake_time,
-        efficiency: d.efficiency,
-        latency: d.latency,
-        averageHeartRate: d.average_heart_rate,
-        averageHrv: d.average_hrv,
-        lowestHeartRate: d.lowest_heart_rate,
-        averageBreath: d.average_breath,
-        restlessPeriods: d.restless_periods,
-      })),
-    },
-
-    'oura.activity': {
-      days: activity.map(d => ({
-        id: d.id,
-        day: d.day,
-        score: d.score,
-        timestamp: d.timestamp,
-        activeCalories: d.active_calories,
-        totalCalories: d.total_calories,
-        steps: d.steps,
-        equivalentWalkingDistance: d.equivalent_walking_distance,
-        highActivityTime: d.high_activity_time,
-        mediumActivityTime: d.medium_activity_time,
-        lowActivityTime: d.low_activity_time,
-        sedentaryTime: d.sedentary_time,
-        restingTime: d.resting_time,
-        inactivityAlerts: d.inactivity_alerts,
-        contributors: d.contributors || {},
-      })),
-    },
-
-    exportSummary: {
-      count: readiness.length + sleepPeriods.length + activity.length,
-      label: 'days of Oura data',
-      details: [
-        readiness.length + ' readiness scores',
-        dailySleep.length + ' sleep scores',
-        sleepPeriods.length + ' sleep periods',
-        activity.length + ' activity days',
-      ].join(', '),
-    },
-    timestamp: new Date().toISOString(),
-    version: '1.0.0-playwright',
-    platform: 'oura',
+const meResult = await fetchCloudApi('/api/me');
+if (!meResult?.success) {
+  return {
+    success: false,
+    error: 'Could not access Oura cloud API. Try disconnecting and reconnecting to refresh your session.'
   };
+}
 
-  state.isComplete = true;
-  await page.setData('result', result);
-  await page.setData('status',
-    `Complete! ${readiness.length} readiness, ${sleepPeriods.length} sleep periods, ${activity.length} activity days collected.`
-  );
+// ── Data Collection ──────────────────────────────────────────────────
 
-  return { success: true, data: result };
-})();
+await page.setData('status', 'Fetching health data...');
+
+const endDate = new Date().toISOString().split('T')[0];
+const startDateObj = new Date();
+startDateObj.setDate(startDateObj.getDate() - 90);
+const startDate = startDateObj.toISOString().split('T')[0];
+
+const rawData = await fetchDailyDataChunked(startDate, endDate, 30);
+
+const sleepPeriods = rawData.sleeps || [];
+const dailySleep = rawData.daily_sleeps || [];
+const readiness = rawData.daily_readinesses || [];
+const activity = rawData.daily_activities || [];
+
+// ── Build Result ─────────────────────────────────────────────────────
+
+const result = {
+  'oura.readiness': {
+    days: readiness.map(d => ({
+      id: d.id,
+      day: d.day,
+      score: d.score,
+      timestamp: d.timestamp,
+      temperatureDeviation: d.temperature_deviation,
+      temperatureTrendDeviation: d.temperature_trend_deviation,
+      contributors: d.contributors || {},
+    })),
+  },
+
+  'oura.sleep': {
+    dailyScores: dailySleep.map(d => ({
+      id: d.id,
+      day: d.day,
+      score: d.score,
+      timestamp: d.timestamp,
+      contributors: d.contributors || {},
+    })),
+    sleepPeriods: sleepPeriods.map(d => ({
+      id: d.id,
+      day: d.day,
+      type: d.type,
+      bedtimeStart: d.bedtime_start,
+      bedtimeEnd: d.bedtime_end,
+      totalSleepDuration: d.total_sleep_duration,
+      timeInBed: d.time_in_bed,
+      deepSleepDuration: d.deep_sleep_duration,
+      lightSleepDuration: d.light_sleep_duration,
+      remSleepDuration: d.rem_sleep_duration,
+      awakeTime: d.awake_time,
+      efficiency: d.efficiency,
+      latency: d.latency,
+      averageHeartRate: d.average_heart_rate,
+      averageHrv: d.average_hrv,
+      lowestHeartRate: d.lowest_heart_rate,
+      averageBreath: d.average_breath,
+      restlessPeriods: d.restless_periods,
+    })),
+  },
+
+  'oura.activity': {
+    days: activity.map(d => ({
+      id: d.id,
+      day: d.day,
+      score: d.score,
+      timestamp: d.timestamp,
+      activeCalories: d.active_calories,
+      totalCalories: d.total_calories,
+      steps: d.steps,
+      equivalentWalkingDistance: d.equivalent_walking_distance,
+      highActivityTime: d.high_activity_time,
+      mediumActivityTime: d.medium_activity_time,
+      lowActivityTime: d.low_activity_time,
+      sedentaryTime: d.sedentary_time,
+      restingTime: d.resting_time,
+      inactivityAlerts: d.inactivity_alerts,
+      contributors: d.contributors || {},
+    })),
+  },
+
+  exportSummary: {
+    count: readiness.length + sleepPeriods.length + activity.length,
+    label: 'days of Oura data',
+    details: [
+      readiness.length + ' readiness scores',
+      dailySleep.length + ' sleep scores',
+      sleepPeriods.length + ' sleep periods',
+      activity.length + ' activity days',
+    ].join(', '),
+  },
+  timestamp: new Date().toISOString(),
+  version: '1.0.0',
+  platform: 'oura',
+};
+
+state.isComplete = true;
+await page.setData('result', result);
+await page.setData('status',
+  `Complete! ${readiness.length} readiness, ${sleepPeriods.length} sleep periods, ${activity.length} activity days collected.`
+);
+
+return { success: true, data: result };
