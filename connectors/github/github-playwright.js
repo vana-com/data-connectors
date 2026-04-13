@@ -92,257 +92,52 @@ const toInt = (raw) => {
 };
 `;
 
-// Poll for a logged-in signal for up to `timeoutMs` ms. Returns true as
-// soon as any positive signal matches. Handles the common race where
-// GitHub is mid-navigation to the authenticated dashboard and the next
-// few selectors aren't mounted yet. Explicitly short-circuits to false
-// on /login or /session paths.
-const checkLoggedIn = async (options = {}) => {
-  const { timeoutMs = 10000, pollIntervalMs = 1000 } = options;
-  const deadline = Date.now() + timeoutMs;
-  let lastSnapshot = '';
-  while (Date.now() < deadline) {
-    try {
-      const result = await page.evaluate(`
-        (() => {
-          const path = window.location.pathname || '';
-          const url = window.location.href || '';
-
-          // Explicit sign-in pages — immediate no.
-          if (
-            path === '/login' ||
-            path.startsWith('/session') ||
-            path.startsWith('/sessions/')
-          ) {
-            return { loggedIn: false, why: 'on-login-page', url };
-          }
-
-          // Positive: authenticated user-login meta.
-          const userMeta = document.querySelector("meta[name='user-login']");
-          const username = (userMeta?.getAttribute('content') || '').trim();
-          if (username) return { loggedIn: true, why: 'user-login-meta:' + username, url };
-
-          // Positive: profile menu button in the header.
-          if (document.querySelector('summary[aria-label*="View profile and more"]')) {
-            return { loggedIn: true, why: 'profile-menu', url };
-          }
-
-          // Positive: header avatar image.
-          if (document.querySelector('header img.avatar-user')) {
-            return { loggedIn: true, why: 'header-avatar', url };
-          }
-
-          // Positive: any avatar-user image on an unambiguously
-          // authenticated path (e.g. anything under /username/...).
-          if (
-            document.querySelector('img.avatar-user') &&
-            !path.startsWith('/login') &&
-            !path.startsWith('/session')
-          ) {
-            return { loggedIn: true, why: 'avatar-anywhere', url };
-          }
-
-          // Positive: dashboard-specific content (Home page widget,
-          // "Top repositories" + "Dashboard" heading combo).
-          const bodyText = (document.body?.innerText || '').toLowerCase();
-          if (
-            bodyText.includes('top repositories') &&
-            bodyText.includes('dashboard')
-          ) {
-            return { loggedIn: true, why: 'dashboard-text', url };
-          }
-
-          // Positive: "Home" header that's only on the authenticated
-          // dashboard.
-          if (
-            document.querySelector('h1, h2') &&
-            /your work/i.test(document.body?.innerText || '')
-          ) {
-            return { loggedIn: true, why: 'your-work-heading', url };
-          }
-
-          return { loggedIn: false, why: 'no-positive-signal', url };
-        })()
-      `);
-
-      if (result && result.loggedIn) {
-        console.log('[github] checkLoggedIn -> true:', result.why);
-        return true;
-      }
-
-      lastSnapshot = result ? `${result.why} (${result.url})` : '(no result)';
-
-      // If we're on the login page, no amount of waiting will help.
-      if (result && result.why === 'on-login-page') {
-        return false;
-      }
-    } catch (e) {
-      lastSnapshot = `error: ${e?.message || String(e)}`;
-    }
-
-    await page.sleep(pollIntervalMs);
+// Restored from CG prod — only checks meta[name="user-login"] and the
+// avatar menu summary, both of which are authenticated-only signals.
+// Do NOT add heuristic text matching (body text, og:title, etc.) —
+// those match the logged-out homepage and cause false positives.
+const checkLoggedIn = async () => {
+  try {
+    return await page.evaluate(`
+      (() => {
+        const userMeta = document.querySelector("meta[name='user-login']");
+        const username = userMeta?.getAttribute("content")?.trim() || "";
+        const signedOut = !!document.querySelector('a[href="/login"], form[action="/session"]');
+        const hasAvatarMenu = !!document.querySelector('summary[aria-label*="View profile and more"]');
+        return Boolean(username) || (!signedOut && hasAvatarMenu);
+      })()
+    `);
+  } catch {
+    return false;
   }
-
-  console.log(`[github] checkLoggedIn -> false after ${timeoutMs}ms, last: ${lastSnapshot}`);
-  return false;
 };
 
-// Poll for a username across several signals. The meta tag is the
-// canonical source but doesn't always render immediately after login;
-// fall back to header avatar alt text, profile links, and the
-// /username URL on /settings/profile redirects.
-const readLoggedInUsername = async (options = {}) => {
-  const { timeoutMs = 5000, pollIntervalMs = 500 } = options;
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    try {
-      const username = await page.evaluate(`
-        (() => {
-          // Canonical: meta[name="user-login"]
-          const userMeta = document.querySelector("meta[name='user-login']");
-          const fromMeta = (userMeta?.getAttribute('content') || '').trim();
-          if (fromMeta) return fromMeta;
-
-          // Header avatar alt text (usually "@username")
-          const avatar =
-            document.querySelector('header img.avatar-user[alt]') ||
-            document.querySelector('img.avatar-user[alt]');
-          if (avatar) {
-            const alt = (avatar.getAttribute('alt') || '').trim();
-            // Strip leading @ if present.
-            const stripped = alt.replace(/^@+/, '');
-            if (stripped && /^[a-zA-Z0-9-]+$/.test(stripped)) {
-              return stripped;
-            }
-          }
-
-          // Profile link in the header (href="/username")
-          const profileLink = document.querySelector(
-            'header a[href^="/"][data-hovercard-type="user"]'
-          );
-          if (profileLink) {
-            const href = profileLink.getAttribute('href') || '';
-            const match = href.match(/^\\/([a-zA-Z0-9-]+)$/);
-            if (match) return match[1];
-          }
-
-          // Fallback: if the current URL is /settings/profile, we can't
-          // derive the username from the path. Check any "View profile"
-          // link the header might expose.
-          const viewProfile = document.querySelector(
-            'a[href^="/"][aria-label*="Signed in as"], a[aria-label*="Signed in"]'
-          );
-          if (viewProfile) {
-            const label = viewProfile.getAttribute('aria-label') || '';
-            const match = label.match(/Signed in as ([a-zA-Z0-9-]+)/i);
-            if (match) return match[1];
-          }
-
-          return null;
-        })()
-      `);
-
-      if (username && /^[a-zA-Z0-9-]+$/.test(username)) {
-        return username;
-      }
-    } catch {
-      // Ignore and retry.
-    }
-    await page.sleep(pollIntervalMs);
+// Restored from CG prod — only reads meta[name="user-login"].
+const readLoggedInUsername = async () => {
+  try {
+    return await page.evaluate(`
+      (() => {
+        const userMeta = document.querySelector("meta[name='user-login']");
+        const username = userMeta?.getAttribute("content")?.trim() || "";
+        return username || null;
+      })()
+    `);
+  } catch {
+    return null;
   }
-  return null;
 };
 
+// Restored from CG prod with safeGoto wrapping.
 const resolveUsername = async () => {
-  // First try wherever we are now — the dashboard usually has the user
-  // meta tag / avatar once it's hydrated.
-  const current = await readLoggedInUsername({ timeoutMs: 5000 });
+  const current = await readLoggedInUsername();
   if (isValidGitHubUsername(current)) return current;
 
-  // Fallback 1: navigate to /settings/profile which always has the
-  // user-login meta and also renders a <input#user_profile_name>
-  // field containing the username as its value/placeholder.
   const reachable = await safeGoto("https://github.com/settings/profile");
   if (!reachable) return null;
-  await page.sleep(2000);
+  await page.sleep(1500);
 
-  const fromSettings = await readLoggedInUsername({ timeoutMs: 8000 });
-  if (isValidGitHubUsername(fromSettings)) return fromSettings;
-
-  // Fallback 2: scrape the username directly from the /settings/profile
-  // DOM. GitHub renders an <a> link to the profile page (href="/{username}")
-  // and the "Signed in as" header. Try a bunch of selectors.
-  try {
-    const fromDom = await page.evaluate(`
-      (() => {
-        // Profile link in account switcher: a[href^="/"][class*="UnderlineNav"]
-        const links = Array.from(document.querySelectorAll('a[href^="/"]'));
-        for (const link of links) {
-          const href = link.getAttribute('href') || '';
-          const match = href.match(/^\\/([a-zA-Z0-9-]+)$/);
-          if (!match) continue;
-          const candidate = match[1];
-          // Filter out common top-level paths.
-          const blocked = new Set([
-            'login', 'signup', 'join', 'logout', 'session', 'settings',
-            'notifications', 'explore', 'marketplace', 'pricing',
-            'enterprise', 'about', 'features', 'contact', 'security',
-            'pulls', 'issues', 'dashboard', 'new', 'home', 'sponsors',
-            'codespaces', 'discussions', 'topics', 'trending',
-            'collections', 'copilot', 'search',
-          ]);
-          if (blocked.has(candidate)) continue;
-          return candidate;
-        }
-
-        // "Signed in as {username}" text in header user menu
-        const signedInSpan = Array.from(document.querySelectorAll('span, div'))
-          .find((el) => {
-            const t = (el.textContent || '').trim();
-            return t.startsWith('Signed in as ') && t.length < 80;
-          });
-        if (signedInSpan) {
-          const m = signedInSpan.textContent.match(/Signed in as ([a-zA-Z0-9-]+)/);
-          if (m) return m[1];
-        }
-
-        // Page title — /settings/profile has title like "Your Profile"
-        // but the OG meta sometimes contains the username.
-        const og = document.querySelector('meta[property="og:title"]');
-        if (og) {
-          const content = (og.getAttribute('content') || '').trim();
-          const m = content.match(/^([a-zA-Z0-9-]+)\\b/);
-          if (m) return m[1];
-        }
-
-        return null;
-      })()
-    `);
-    if (isValidGitHubUsername(fromDom)) return fromDom;
-  } catch {}
-
-  // Last resort: capture page state so we can see what's actually on
-  // /settings/profile and fail with actionable info. Stash in state
-  // so the caller can surface it in the returned error.
-  try {
-    const debug = await page.evaluate(`
-      (() => {
-        const title = document.title || '';
-        const url = window.location.href || '';
-        const bodyText = (document.body?.innerText || '').replace(/\\s+/g, ' ').trim().slice(0, 300);
-        const metas = Array.from(document.querySelectorAll('meta[name]'))
-          .map((m) => \`\${m.getAttribute('name')}=\${(m.getAttribute('content') || '').slice(0, 60)}\`)
-          .slice(0, 10);
-        return \`title="\${title}" url="\${url}" metas=[\${metas.join(' | ')}] body="\${bodyText}"\`;
-      })()
-    `);
-    console.error('[github] resolveUsername failed, page state:', debug);
-    state.resolveUsernameDebug = debug;
-  } catch (e) {
-    state.resolveUsernameDebug = `(could not capture page state: ${e?.message || String(e)})`;
-  }
-
-  return null;
+  const fromSettings = await readLoggedInUsername();
+  return isValidGitHubUsername(fromSettings) ? fromSettings : null;
 };
 
 const extractProfile = async (username) => {
@@ -613,7 +408,7 @@ await page.sleep(1500);
 
 // Initial check after landing on /. Give GitHub's dashboard a short
 // budget to render before deciding the user isn't logged in.
-let loggedIn = await checkLoggedIn({ timeoutMs: 5000 });
+let loggedIn = await checkLoggedIn();
 
 if (!loggedIn) {
   const loginReachable = await safeGoto('https://github.com/login');
@@ -877,12 +672,9 @@ await page.setData('status', 'Login confirmed. Resolving account...');
 
 const username = await resolveUsername();
 if (!isValidGitHubUsername(username)) {
-  const debugSuffix = state.resolveUsernameDebug
-    ? ` | ${state.resolveUsernameDebug}`
-    : '';
   return {
     success: false,
-    error: `Could not resolve a valid GitHub username after login.${debugSuffix}`,
+    error: 'Could not resolve a valid GitHub username after login.',
   };
 }
 state.username = username;
