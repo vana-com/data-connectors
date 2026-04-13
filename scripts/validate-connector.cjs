@@ -282,9 +282,11 @@ function validateScript(scriptPath, check) {
 
 // ─── Schema Validation ──────────────────────────────────────
 
-function validateSchemas(metadata, connectorDir, check) {
-  const schemasDir = path.resolve(connectorDir, '..', '..', 'schemas');
+function resolveSchemaPath(connectorDir, scopeName) {
+  return path.join(connectorDir, 'schemas', `${scopeName}.json`);
+}
 
+function validateSchemas(metadata, connectorDir, check) {
   if (!metadata?.scopes || !Array.isArray(metadata.scopes)) {
     check('schemas_declared', false,
       'No scopes array in metadata — cannot validate schemas. Add scopes to metadata or create schemas manually.',
@@ -296,12 +298,12 @@ function validateSchemas(metadata, connectorDir, check) {
     const scopeName = scope.scope || scope.name;
     if (!scopeName) continue;
 
-    const schemaPath = path.join(schemasDir, `${scopeName}.json`);
+    const schemaPath = resolveSchemaPath(connectorDir, scopeName);
     check(`schema_exists_${scopeName}`,
       fs.existsSync(schemaPath),
       fs.existsSync(schemaPath)
-        ? `Schema found: schemas/${scopeName}.json`
-        : `Schema missing: schemas/${scopeName}.json`);
+        ? `Schema found: ${path.relative(process.cwd(), schemaPath)}`
+        : `Schema missing: ${path.relative(process.cwd(), schemaPath)}`);
 
     if (fs.existsSync(schemaPath)) {
       try {
@@ -391,9 +393,8 @@ function validateOutput(resultPath, metadata, connectorDir, check) {
     result.platform ? `platform: ${result.platform}` : 'Missing platform');
 
   // Schema compliance for each scope
-  const schemasDir = path.resolve(connectorDir, '..', '..', 'schemas');
   for (const key of scopedKeys) {
-    const schemaPath = path.join(schemasDir, `${key}.json`);
+    const schemaPath = resolveSchemaPath(connectorDir, key);
     if (!fs.existsSync(schemaPath)) continue;
 
     try {

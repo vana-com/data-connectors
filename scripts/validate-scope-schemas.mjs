@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Validate that every scope declared in a manifest has a matching
-// schema file under schemas/ (or under connectors/<platform>/schemas/).
+// connector-local schema file under that manifest's schemas/ directory.
 //
 // Acceptance target:
 //   HC-RESULT-CONTRACT-001 — every public scope has a declared JSON schema.
@@ -29,31 +29,12 @@ function findManifests(dir) {
   return out;
 }
 
-function findSchemaFiles() {
-  const out = new Map();
-  function walk(d) {
-    if (!existsSync(d)) return;
-    for (const entry of readdirSync(d)) {
-      if (entry.startsWith(".")) continue;
-      const full = join(d, entry);
-      const st = statSync(full);
-      if (st.isDirectory()) {
-        walk(full);
-      } else if (entry.endsWith(".json") && entry !== "manifest.schema.json") {
-        try {
-          const parsed = JSON.parse(readFileSync(full, "utf8"));
-          if (parsed && typeof parsed.scope === "string") {
-            out.set(parsed.scope, full);
-          }
-        } catch {
-          // ignore non-schema json
-        }
-      }
-    }
-  }
-  walk(join(repoRoot, "schemas"));
-  walk(join(repoRoot, "connectors"));
-  return out;
+function listConnectorSchemaPaths(manifestPath, manifest) {
+  const manifestDir = dirname(manifestPath);
+  return extractScopes(manifest).map((scope) => ({
+    scope,
+    path: join(manifestDir, "schemas", `${scope}.json`),
+  }));
 }
 
 function extractScopes(manifest) {
@@ -77,7 +58,6 @@ function loadRegistryConnectorIds() {
 
 function main() {
   const manifests = findManifests(join(repoRoot, "connectors"));
-  const schemasByScope = findSchemaFiles();
   // Only enforce coverage for connectors that are distributed via registry.json.
   // Unregistered/experimental connectors in the tree are not held to the
   // public-contract bar until they ship.
@@ -93,9 +73,11 @@ function main() {
       continue;
     }
     checked++;
-    for (const scope of extractScopes(parsed)) {
-      if (!schemasByScope.has(scope)) {
-        errors.push(`${rel}: declares scope "${scope}" but no schema file exists`);
+    for (const schema of listConnectorSchemaPaths(path, parsed)) {
+      if (!existsSync(schema.path)) {
+        errors.push(
+          `${rel}: declares scope "${schema.scope}" but connector-local schema file ${schema.path.replace(repoRoot + "/", "")} does not exist`,
+        );
       }
     }
   }
@@ -107,7 +89,7 @@ function main() {
   }
 
   console.log(
-    `Scope coverage OK: ${checked} registered manifest(s) against ${schemasByScope.size} schema(s).`,
+    `Scope coverage OK: ${checked} registered manifest(s) with connector-local schema files present.`,
   );
 }
 

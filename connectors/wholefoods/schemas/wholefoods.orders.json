@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "scope": "wholefoods.orders",
   "dialect": "json",
-  "definitionUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main/schemas/wholefoods.orders.json",
+  "definitionUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main/connectors/wholefoods/schemas/wholefoods.orders.json",
   "description": "Whole Foods Market delivery and pickup order history with item details",
   "schema": {
     "type": "object",

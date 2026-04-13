@@ -27,6 +27,9 @@ jobs:
       - name: Validate scope-schema coverage (HC-RESULT-CONTRACT-001)
         run: node scripts/validate-scope-schemas.mjs
 
+      - name: Check connector index and artifacts
+        run: node scripts/generate-connector-index.mjs --check
+
       - name: Check page API additive-only (HC-PHASE4-PAGE-API-ADDITIVE-001)
         env:
           BASE_REF: origin/${{ github.base_ref || 'main' }}

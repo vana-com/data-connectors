@@ -14,7 +14,7 @@
 //   node scripts/check-additive-schemas.mjs
 //   BASE_REF=origin/main node scripts/check-additive-schemas.mjs
 
-import { readFileSync, readdirSync, existsSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -23,11 +23,35 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(__dirname, "..");
 
 function listSchemas() {
-  const dir = join(repoRoot, "schemas");
-  if (!existsSync(dir)) return [];
-  return readdirSync(dir)
-    .filter((f) => f.endsWith(".json") && f !== "manifest.schema.json")
-    .map((f) => join(dir, f));
+  const registryPath = join(repoRoot, "registry.json");
+  if (!existsSync(registryPath)) {
+    return [];
+  }
+
+  const registry = JSON.parse(readFileSync(registryPath, "utf8"));
+  const schemaFiles = [];
+
+  for (const connector of registry.connectors ?? []) {
+    const metadataPath = join(repoRoot, "connectors", connector.files.metadata);
+    if (!existsSync(metadataPath)) {
+      continue;
+    }
+
+    const metadata = JSON.parse(readFileSync(metadataPath, "utf8"));
+    const manifestDir = dirname(metadataPath);
+    for (const entry of metadata.scopes ?? []) {
+      const scope = typeof entry === "string" ? entry : entry?.scope;
+      if (!scope) {
+        continue;
+      }
+      const schemaPath = join(manifestDir, "schemas", `${scope}.json`);
+      if (existsSync(schemaPath)) {
+        schemaFiles.push(schemaPath);
+      }
+    }
+  }
+
+  return schemaFiles;
 }
 
 function getFileAtRef(ref, relPath) {

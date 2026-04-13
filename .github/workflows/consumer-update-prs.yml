@@ -1,0 +1,118 @@
+name: Consumer Update PRs
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "connector-index.json"
+      - "artifacts/**"
+      - "packages/connector-installer-core/**"
+      - "package.json"
+
+permissions:
+  contents: read
+
+jobs:
+  update-context-gateway:
+    if: ${{ secrets.CONSUMER_PR_TOKEN != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: data-connectors
+
+      - uses: actions/checkout@v4
+        with:
+          repository: vana-com/context-gateway
+          token: ${{ secrets.CONSUMER_PR_TOKEN }}
+          ref: staging
+          path: context-gateway
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install context-gateway deps
+        working-directory: context-gateway
+        run: npm install
+
+      - name: Install local shared installer package
+        working-directory: context-gateway
+        run: npm install --no-save ../data-connectors
+
+      - name: Resolve connectors and regenerate catalog
+        working-directory: context-gateway
+        run: |
+          node scripts/resolve-connectors.mjs --from-local ../data-connectors
+          node scripts/generate-connector-catalog.mjs
+          node scripts/validate-connector-overlay.mjs
+
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.CONSUMER_PR_TOKEN }}
+          path: context-gateway
+          branch: automation/update-data-connectors
+          delete-branch: true
+          commit-message: "chore: refresh connector snapshot"
+          title: "chore: refresh connector snapshot"
+          body: |
+            Automated update from `vana-com/data-connectors`.
+
+            Changes:
+            - refreshed `config/data-connectors-snapshot/`
+            - refreshed generated connector catalog
+
+  update-data-connect:
+    if: ${{ secrets.CONSUMER_PR_TOKEN != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: data-connectors
+
+      - uses: actions/checkout@v4
+        with:
+          repository: vana-com/data-connect
+          token: ${{ secrets.CONSUMER_PR_TOKEN }}
+          ref: main
+          path: data-connect
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install data-connect deps
+        working-directory: data-connect
+        run: npm install
+
+      - name: Install local shared installer package
+        working-directory: data-connect
+        run: npm install --no-save ../data-connectors
+
+      - name: Resolve connectors and regenerate platform registry
+        working-directory: data-connect
+        run: |
+          node scripts/resolve-connectors.js --from-local ../data-connectors
+          node scripts/generate-platform-registry.js
+
+      - name: Run tests
+        working-directory: data-connect
+        run: npm test
+
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.CONSUMER_PR_TOKEN }}
+          path: data-connect
+          branch: automation/update-data-connectors
+          delete-branch: true
+          commit-message: "chore: refresh bundled connectors"
+          title: "chore: refresh bundled connectors"
+          body: |
+            Automated update from `vana-com/data-connectors`.
+
+            Changes:
+            - refreshed bundled connectors under `connectors/`
+            - refreshed generated platform registry

@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "scope": "wholefoods.profile",
   "dialect": "json",
-  "definitionUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main/schemas/wholefoods.profile.json",
+  "definitionUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main/connectors/wholefoods/schemas/wholefoods.profile.json",
   "description": "Amazon account information associated with Whole Foods Market orders",
   "schema": {
     "type": "object",

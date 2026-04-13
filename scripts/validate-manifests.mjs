@@ -112,6 +112,27 @@ function validateScopes(scopes, sourceId, errors, path) {
   }
 }
 
+function validateConnectorSchemas(filePath, manifest, errors, rel) {
+  if (!Array.isArray(manifest.scopes) || manifest.scopes.length === 0) {
+    return;
+  }
+
+  const manifestDir = dirname(filePath);
+  for (const [idx, entry] of manifest.scopes.entries()) {
+    const scopeId = typeof entry === "string" ? entry : entry?.scope;
+    if (!scopeId) {
+      continue;
+    }
+
+    const schemaPath = join(manifestDir, "schemas", `${scopeId}.json`);
+    if (!existsSync(schemaPath) || !statSync(schemaPath).isFile()) {
+      errors.push(
+        `${rel}: scopes[${idx}] "${scopeId}" is missing connector-local schema file schemas/${scopeId}.json`,
+      );
+    }
+  }
+}
+
 function validateConsumerMetadata(manifest, errors, path) {
   const { consumer_metadata: metadata } = manifest;
   if (metadata == null) {
@@ -372,6 +393,7 @@ function validateManifest(filePath, manifest, seenIds) {
     validateScopes(manifest.scopes, manifest.source_id, errors, rel);
   }
 
+  validateConnectorSchemas(filePath, manifest, errors, rel);
   validateConsumerMetadata(manifest, errors, rel);
   validateIconPath(filePath, manifest, errors, rel);
 

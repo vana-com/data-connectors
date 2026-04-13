@@ -1,0 +1,16 @@
+{
+  "name": "@opendatalabs/data-connectors-tools",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "files": [
+    "packages/connector-installer-core/index.mjs"
+  ],
+  "exports": {
+    "./installer-core": "./packages/connector-installer-core/index.mjs"
+  },
+  "scripts": {
+    "connector-index:generate": "node ./scripts/generate-connector-index.mjs",
+    "connector-index:check": "node ./scripts/generate-connector-index.mjs --check"
+  }
+}

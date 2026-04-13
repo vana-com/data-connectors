@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "scope": "wholefoods.nutrition",
   "dialect": "json",
-  "definitionUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main/schemas/wholefoods.nutrition.json",
+  "definitionUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main/connectors/wholefoods/schemas/wholefoods.nutrition.json",
   "description": "Nutrition facts per unique product ordered from Whole Foods Market, aligned to Schema.org NutritionInformation",
   "schema": {
     "type": "object",
