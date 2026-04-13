@@ -193,75 +193,169 @@ const fetchDailyDataChunked = async (startDate, endDate, chunkDays) => {
     }
     await page.sleep(2000);
 
-    // Check if login form is present
-    const hasLoginForm = await page.evaluate(`
-      !!document.querySelector('input[type="email"], input[name="email"]') &&
-      !!document.querySelector('input[type="password"], input[name="password"]')
+    // Oura has two login variants:
+    //   1. Email + Password (accounts created with a password)
+    //   2. Email + OTP code  (passwordless accounts — email only, then a
+    //      6-digit code is sent to the email address)
+    //
+    // Detect which variant by checking for a password field. If present,
+    // ask for email+password. If absent, do the OTP flow.
+    const emailSelector = 'input#username, input[type="email"], input[name="email"]';
+    const passwordSelector = 'input[type="password"], input[name="password"]';
+
+    try {
+      await page.waitForSelector(emailSelector, { timeout: 10000 });
+    } catch {
+      return {
+        success: false,
+        error: 'Could not find email field on Oura sign-in page.',
+      };
+    }
+
+    const hasPasswordField = await page.evaluate(`
+      !!document.querySelector('${passwordSelector}')
     `);
 
-    const supportsRequestInput = typeof page.requestInput === 'function';
-
-    if (supportsRequestInput && hasLoginForm) {
+    if (hasPasswordField) {
+      // ── Variant 1: Email + Password ──────────────────────────────
       const { email, password } = await page.requestInput({
-        message: "Log in to your Oura account",
+        message: 'Log in to your Oura account',
         schema: {
-          type: "object",
+          type: 'object',
           properties: {
-            email: { type: "string", description: "Oura account email" },
-            password: { type: "string", format: "password" },
+            email: { type: 'string', description: 'Oura account email' },
+            password: { type: 'string', format: 'password' },
           },
-          required: ["email", "password"],
+          required: ['email', 'password'],
         },
       });
 
-      await page.evaluate(`
-        (() => {
-          const emailInput = document.querySelector('input[type="email"], input[name="email"]');
-          if (emailInput) {
-            emailInput.value = ${JSON.stringify(email)};
-            emailInput.dispatchEvent(new Event('input', {bubbles:true}));
-            emailInput.dispatchEvent(new Event('change', {bubbles:true}));
-          }
-        })()
-      `);
-      await page.evaluate(`
-        (() => {
-          const passwordInput = document.querySelector('input[type="password"], input[name="password"]');
-          if (passwordInput) {
-            passwordInput.value = ${JSON.stringify(password)};
-            passwordInput.dispatchEvent(new Event('input', {bubbles:true}));
-            passwordInput.dispatchEvent(new Event('change', {bubbles:true}));
-          }
-        })()
-      `);
-      await page.sleep(500);
-      await page.evaluate(`
-        (() => {
-          const btn = document.querySelector('button[type="submit"]');
-          if (btn) btn.click();
-        })()
-      `);
+      await page.setData('status', 'Signing in...');
+      await page.fill(emailSelector, email);
+      await page.sleep(300);
+      await page.fill(passwordSelector, password);
+      await page.sleep(300);
+      await page.click('button[type="submit"], button#submit-button', {
+        timeout: 5000,
+      });
       await page.sleep(5000);
+    } else {
+      // ── Variant 2: Email + OTP code ──────────────────────────────
+      const { email } = await page.requestInput({
+        message:
+          'Log in to your Oura account. A verification code will be sent to your email.',
+        schema: {
+          type: 'object',
+          properties: {
+            email: { type: 'string', description: 'Oura account email' },
+          },
+          required: ['email'],
+        },
+      });
 
+      await page.setData('status', 'Entering email...');
+      await page.fill(emailSelector, email);
+      await page.sleep(500);
+      await page.click('button#submit-button, button[type="submit"]', {
+        timeout: 5000,
+      });
+      await page.sleep(3000);
+
+      // Oura may show a "Send code" interstitial before the OTP input.
+      await page.setData('status', 'Requesting verification code...');
+      try {
+        await page.waitForSelector(
+          'button[name="selectedId"], button#submit-button',
+          { timeout: 10000 },
+        );
+        await page.click(
+          'button[name="selectedId"], button#submit-button',
+          { timeout: 5000 },
+        );
+      } catch {
+        // May have skipped the send-code screen — continue.
+      }
+      await page.sleep(3000);
+
+      await page.setData('status', 'Verification code sent! Check your email.');
+
+      const { code } = await page.requestInput({
+        message:
+          'Check your email for a 6-digit code from Oura and enter it below.',
+        schema: {
+          type: 'object',
+          properties: {
+            code: {
+              type: 'string',
+              description: '6-digit verification code',
+              minLength: 6,
+              maxLength: 6,
+            },
+          },
+          required: ['code'],
+        },
+      });
+
+      await page.setData('status', 'Submitting verification code...');
+      const otpSelector = 'input#otp-code, input[name="otp"], input[type="text"]';
+      try {
+        await page.waitForSelector(otpSelector, { timeout: 10000 });
+        await page.fill(otpSelector, code);
+        await page.sleep(500);
+        await page.click('button#submit-button, button[type="submit"]', {
+          timeout: 5000,
+        });
+      } catch (e) {
+        return {
+          success: false,
+          error: `Could not submit verification code: ${e?.message || String(e)}`,
+        };
+      }
+      await page.sleep(5000);
+    }
+
+    isLoggedIn = await checkLoginStatus();
+
+    // Post-login: Oura may redirect to moi.ouraring.com; navigate back.
+    if (!isLoggedIn) {
+      await safeGoto('https://cloud.ouraring.com/');
+      await page.sleep(3000);
       isLoggedIn = await checkLoginStatus();
     }
 
-    // Fallback to headed browser if programmatic login failed
+    // Fallback to headed browser if programmatic login still failed.
     if (!isLoggedIn) {
-      const { headed } = await page.showBrowser('https://cloud.ouraring.com/user/sign-in');
-      if (headed) {
-        await page.setData('status', 'Please complete login in the browser...');
+      let canShowHeaded = false;
+      if (typeof page.showBrowser === 'function') {
+        try {
+          const result = await page.showBrowser(
+            'https://cloud.ouraring.com/user/sign-in',
+          );
+          canShowHeaded = !!(result && result.headed);
+        } catch {
+          canShowHeaded = false;
+        }
+      }
+
+      if (canShowHeaded) {
+        await page.setData(
+          'status',
+          'Please complete sign-in manually in the browser below.',
+        );
         await page.promptUser(
-          'Complete any remaining verification, then click "Done".',
+          'Automatic sign-in did not complete. Please finish signing in manually.',
           async () => await checkLoginStatus(),
           2000,
         );
         await page.goHeadless();
+        isLoggedIn = await checkLoginStatus();
       } else {
-        await page.setData('error', 'Oura login failed.');
-        return;
+        return {
+          success: false,
+          error:
+            'Automatic Oura sign-in failed and this runtime cannot surface a manual sign-in browser.',
+        };
       }
-      isLoggedIn = await checkLoginStatus();
     }
 
     await page.setData('status', 'Login completed');
