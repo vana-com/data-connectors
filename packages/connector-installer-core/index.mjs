@@ -226,10 +226,11 @@ export async function loadConnectorIndex({
   indexUrl = null,
   defaultLocalSource = null,
   defaultIndexUrl = null,
+  preferDefaultLocal = false,
 }) {
   const resolvedLocal = fromLocal
     ? resolvePath(fromLocal)
-    : defaultLocalSource
+    : preferDefaultLocal && defaultLocalSource
       ? resolvePath(defaultLocalSource)
       : null;
 
