@@ -287,6 +287,22 @@
       }
     },
     {
+      "id": "doordash-playwright",
+      "company": "doordash",
+      "version": "1.0.0",
+      "name": "DoorDash",
+      "status": "beta",
+      "description": "Exports your DoorDash order history including restaurant names, items ordered, dates, totals, and delivery status.",
+      "files": {
+        "script": "doordash/doordash-playwright.js",
+        "metadata": "doordash/doordash-playwright.json"
+      },
+      "checksums": {
+        "script": "sha256:a880b496f9d68076879fdbcbe874a627b55ea0e4433b7db8332aa72f51d0c889",
+        "metadata": "sha256:eb57a0b0855acf40ba246d778fbb28a15442690957bdef0df23b332db640c413"
+      }
+    },
+    {
       "id": "uber-playwright",
       "company": "uber",
       "version": "1.0.0",
