@@ -109,7 +109,13 @@ const checkLoginStatus = async () => {
       2000
     );
     await page.goHeadless();
-    isLoggedIn = true;
+    // Re-verify login completed — promptUser resolves on poll-predicate truth OR timeout,
+    // so the user may have closed the window without logging in. Don't trust the prompt alone.
+    isLoggedIn = await checkLoginStatus();
+    if (!isLoggedIn) {
+      await page.setData('error', 'Instagram login was not completed.');
+      return { error: 'Instagram login was not completed' };
+    }
   } else {
     await page.setData('status', 'Session active');
   }
