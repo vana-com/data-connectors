@@ -22,7 +22,8 @@ const repoRoot = join(__dirname, "..");
 const registryPath = join(repoRoot, "registry.json");
 const indexPath = join(repoRoot, "connector-index.json");
 const artifactsDir = join(repoRoot, "artifacts");
-function resolveGitRef() {
+
+function resolveHeadGitRef() {
   const explicitRef = process.env.CONNECTOR_ARTIFACT_REF?.trim();
   if (explicitRef) {
     return explicitRef;
@@ -35,6 +36,30 @@ function resolveGitRef() {
 
 function readJson(path) {
   return JSON.parse(readFileSync(path, "utf8"));
+}
+
+function resolveCommittedArtifactRef(existingIndex) {
+  if (!existingIndex?.connectors) {
+    return null;
+  }
+
+  const refs = new Set();
+  for (const versions of Object.values(existingIndex.connectors)) {
+    if (!Array.isArray(versions) || versions.length === 0) {
+      continue;
+    }
+
+    const latest = versions.at(-1);
+    if (latest?.gitRef) {
+      refs.add(latest.gitRef);
+    }
+  }
+
+  if (refs.size === 1) {
+    return [...refs][0];
+  }
+
+  return null;
 }
 
 function sha256Buffer(buffer) {
@@ -158,7 +183,10 @@ function main() {
   const checkMode = process.argv.includes("--check");
   const registry = readJson(registryPath);
   const existingIndex = existsSync(indexPath) ? readJson(indexPath) : null;
-  const gitRef = resolveGitRef();
+  const gitRef =
+    process.env.CONNECTOR_ARTIFACT_REF?.trim() ||
+    (checkMode && resolveCommittedArtifactRef(existingIndex)) ||
+    resolveHeadGitRef();
   const repoBaseUrl = `https://raw.githubusercontent.com/vana-com/data-connectors/${gitRef}`;
   const nextIndex = {
     indexVersion: "1.0",
