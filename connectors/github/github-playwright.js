@@ -509,11 +509,15 @@ if (!loggedIn) {
       await page.sleep(5000);
     }
 
-    // Check for login errors
+    // Check for login errors — only match visible flash elements.
+    // GitHub's base template includes a hidden #ajax-error-message with
+    // class flash-error and non-empty text on every page. Matching hidden
+    // elements causes false positives on the authenticated dashboard.
     const errorMsg = await page.evaluate(`
       (() => {
         const flash = document.querySelector('.flash-error, .js-flash-alert');
-        return flash ? flash.textContent.trim() : null;
+        if (!flash || flash.hidden || flash.offsetParent === null) return null;
+        return flash.textContent.trim() || null;
       })()
     `);
 
