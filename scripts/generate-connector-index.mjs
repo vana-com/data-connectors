@@ -253,7 +253,15 @@ function main() {
       pageApiVersion: metadata.page_api_version,
       manifestSha256: sha256Buffer(manifestBuffer),
       scriptSha256: sha256Buffer(scriptBuffer),
-      artifactSha256: sha256Buffer(artifactBuffer),
+      // In check mode, reuse the committed artifact checksum instead of
+      // recomputing it. Tarball bytes are not reproducible across Node/tar
+      // versions even with --sort=name --mtime=@0 flags, so recomputing
+      // causes spurious drift detection in CI.
+      artifactSha256: checkMode
+        ? (existingIndex?.connectors?.[entry.id]?.find(
+            (v) => v.version === entry.version
+          )?.artifactSha256 ?? sha256Buffer(artifactBuffer))
+        : sha256Buffer(artifactBuffer),
       artifactPath: artifactPath.slice(repoRoot.length + 1),
       artifactUrl: `${repoBaseUrl}/${artifactPath.slice(repoRoot.length + 1)}`,
       scopes: (metadata.scopes ?? []).map((scopeEntry) =>
