@@ -1,0 +1,49 @@
+{
+  "manifest_version": "1.0",
+  "connector_id": "instagram-api-playwright",
+  "source_id": "instagram",
+  "version": "1.0.0",
+  "name": "Instagram (API)",
+  "company": "Meta",
+  "description": "Exports your Instagram profile, posts, followers, following, and ad interests using API-first network replay (no DOM scraping for data).",
+  "runtime": "playwright",
+  "page_api_version": 1,
+  "connect_url": "https://www.instagram.com/accounts/login/",
+  "connect_selector": "svg[aria-label='Home'], a[href='/direct/inbox/']",
+  "icon": "icons/instagram.svg",
+  "scopes": [
+    {
+      "scope": "instagram.profile",
+      "label": "Your Instagram profile",
+      "description": "Profile information including bio, follower counts, business details, and viewer relationship state"
+    },
+    {
+      "scope": "instagram.posts",
+      "label": "Your Instagram posts",
+      "description": "Published posts from your feed with media URLs, captions, and engagement counts"
+    },
+    {
+      "scope": "instagram.followers",
+      "label": "Your followers",
+      "description": "Users who follow your account, with verification and privacy flags"
+    },
+    {
+      "scope": "instagram.following",
+      "label": "Accounts you follow",
+      "description": "Users your account follows, with verification and privacy flags"
+    },
+    {
+      "scope": "instagram.ads",
+      "label": "Your ad interests",
+      "description": "Advertisers, ad topics, and targeting categories from Meta Accounts Center"
+    }
+  ],
+  "id": "instagram-api-playwright",
+  "connectURL": "https://www.instagram.com/accounts/login/",
+  "connectSelector": "svg[aria-label='Home'], a[href='/direct/inbox/']",
+  "iconURL": "icons/instagram.svg",
+  "exportFrequency": "daily",
+  "vectorize_config": {
+    "documents": "caption"
+  }
+}
