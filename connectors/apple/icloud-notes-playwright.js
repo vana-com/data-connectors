@@ -488,6 +488,7 @@ if (!isLoggedIn) {
         },
         5000,
       );
+      await page.goHeadless();
       isLoggedIn = !!config;
     } else {
       return {

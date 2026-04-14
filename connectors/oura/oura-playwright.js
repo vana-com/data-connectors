@@ -282,6 +282,7 @@ if (!isLoggedIn) {
         async () => await checkLoginStatus(),
         5000
       );
+      await page.goHeadless();
       isLoggedIn = await checkLoginStatus();
     } else {
       return {
