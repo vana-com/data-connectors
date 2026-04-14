@@ -13,18 +13,7 @@ const state = {
   repositories: [],
   starred: [],
   isComplete: false,
-  resolveUsernameDebug: null,
 };
-
-// ── Resilience helpers ───────────────────────────────────────────────
-//
-// Wrap page.goto in a timeout + retry loop so transient HTTP blips
-// don't kill the whole run. Returns true on success and false if every
-// attempt failed. See connectors/meta/instagram-playwright.js for the
-// rationale — both runtimes (CG client VM and data-connect playwright-
-// runner) execute canonical scripts as raw source, so shared helpers
-// have to be inlined per connector until the proxy layer exposes them
-// natively (tracked as a followup in the contract plan).
 
 const withTimeout = async (promise, ms, label) => {
   let timeoutId = null;
@@ -93,239 +82,51 @@ const toInt = (raw) => {
 };
 `;
 
-// Keep the logged-in signals strict: only authenticated-only DOM affordances,
-// no body-text or og:title heuristics. Poll briefly because GitHub's post-login
-// dashboard can lag a few seconds before these selectors mount.
-const checkLoggedIn = async (options = {}) => {
-  const { timeoutMs = 10000, pollIntervalMs = 1000 } = options;
-  const deadline = Date.now() + timeoutMs;
-  let lastSnapshot = "";
-
-  while (Date.now() < deadline) {
-    try {
-      const result = await page.evaluate(`
-        (() => {
-          const path = window.location.pathname || "";
-          const url = window.location.href || "";
-          const userMeta = document.querySelector("meta[name='user-login']");
-          const username = userMeta?.getAttribute("content")?.trim() || "";
-          const signedOut = !!document.querySelector('a[href="/login"], form[action="/session"]');
-          const hasAvatarMenu = !!document.querySelector('summary[aria-label*="View profile and more"]');
-          const hasHeaderAvatar = !!document.querySelector("header img.avatar-user");
-          const hasAvatarAwayFromLogin =
-            !!document.querySelector("img.avatar-user") &&
-            path !== "/login" &&
-            !path.startsWith("/session");
-          const loggedIn =
-            Boolean(username) ||
-            (!signedOut && hasAvatarMenu) ||
-            hasHeaderAvatar ||
-            hasAvatarAwayFromLogin;
-
-          return {
-            loggedIn,
-            why: username
-              ? "user-login-meta"
-              : hasAvatarMenu
-                ? "profile-menu"
-                : hasHeaderAvatar
-                  ? "header-avatar"
-                  : hasAvatarAwayFromLogin
-                    ? "avatar-anywhere"
-                    : signedOut
-                      ? "signed-out-markers"
-                      : "no-positive-signal",
-            url,
-            path,
-          };
-        })()
-      `);
-
-      if (result?.loggedIn) {
-        console.log("[github] checkLoggedIn -> true:", result.why);
-        return true;
-      }
-
-      lastSnapshot = result
-        ? `${result.why} (${result.url})`
-        : "(no result)";
-
-      if (
-        result &&
-        (result.path === "/login" || result.path.startsWith("/session"))
-      ) {
-        return false;
-      }
-    } catch (error) {
-      lastSnapshot = `error: ${error?.message || String(error)}`;
-    }
-
-    await page.sleep(pollIntervalMs);
+const checkLoggedIn = async () => {
+  try {
+    return await page.evaluate(`
+      (() => {
+        const userMeta = document.querySelector("meta[name='user-login']");
+        const username = userMeta?.getAttribute("content")?.trim() || "";
+        const signedOut = !!document.querySelector('a[href="/login"], form[action="/session"]');
+        const hasAvatarMenu = !!document.querySelector('summary[aria-label*="View profile and more"]');
+        return Boolean(username) || (!signedOut && hasAvatarMenu);
+      })()
+    `);
+  } catch {
+    return false;
   }
-
-  console.log(
-    `[github] checkLoggedIn -> false after ${timeoutMs}ms, last: ${lastSnapshot}`,
-  );
-  return false;
 };
 
-// Poll for a username across several authenticated-only signals. The meta tag
-// remains canonical, but GitHub doesn't always render it immediately after
-// login/2FA.
-const readLoggedInUsername = async (options = {}) => {
-  const { timeoutMs = 5000, pollIntervalMs = 500 } = options;
-  const deadline = Date.now() + timeoutMs;
-
-  while (Date.now() < deadline) {
-    try {
-      const username = await page.evaluate(`
-        (() => {
-          const userMeta = document.querySelector("meta[name='user-login']");
-          const fromMeta = (userMeta?.getAttribute("content") || "").trim();
-          if (fromMeta) return fromMeta;
-
-          const avatar =
-            document.querySelector("header img.avatar-user[alt]") ||
-            document.querySelector("img.avatar-user[alt]");
-          if (avatar) {
-            const alt = (avatar.getAttribute("alt") || "").trim();
-            const stripped = alt.replace(/^@+/, "");
-            if (stripped && /^[a-zA-Z0-9-]+$/.test(stripped)) {
-              return stripped;
-            }
-          }
-
-          const profileLink = document.querySelector(
-            'header a[href^="/"][data-hovercard-type="user"]'
-          );
-          if (profileLink) {
-            const href = profileLink.getAttribute("href") || "";
-            const match = href.match(/^\\/([a-zA-Z0-9-]+)$/);
-            if (match) return match[1];
-          }
-
-          const viewProfile = document.querySelector(
-            'a[href^="/"][aria-label*="Signed in as"], a[aria-label*="Signed in"]'
-          );
-          if (viewProfile) {
-            const label = viewProfile.getAttribute("aria-label") || "";
-            const match = label.match(/Signed in as ([a-zA-Z0-9-]+)/i);
-            if (match) return match[1];
-          }
-
-          return null;
-        })()
-      `);
-
-      if (username && /^[a-zA-Z0-9-]+$/.test(username)) {
-        return username;
-      }
-    } catch {
-      // Ignore and retry.
-    }
-
-    await page.sleep(pollIntervalMs);
+const readLoggedInUsername = async () => {
+  try {
+    return await page.evaluate(`
+      (() => {
+        const userMeta = document.querySelector("meta[name='user-login']");
+        const username = userMeta?.getAttribute("content")?.trim() || "";
+        return username || null;
+      })()
+    `);
+  } catch {
+    return null;
   }
-
-  return null;
 };
 
 const resolveUsername = async () => {
-  const current = await readLoggedInUsername({ timeoutMs: 5000 });
+  const current = await readLoggedInUsername();
   if (isValidGitHubUsername(current)) return current;
 
-  const reachable = await safeGoto("https://github.com/settings/profile");
-  if (!reachable) return null;
-  await page.sleep(2000);
+  if (!(await safeGoto("https://github.com/settings/profile"))) return null;
+  await page.sleep(1500);
 
-  const fromSettings = await readLoggedInUsername({ timeoutMs: 8000 });
-  if (isValidGitHubUsername(fromSettings)) return fromSettings;
-
-  try {
-    const fromDom = await page.evaluate(`
-      (() => {
-        const links = Array.from(document.querySelectorAll('a[href^="/"]'));
-        for (const link of links) {
-          const href = link.getAttribute("href") || "";
-          const match = href.match(/^\\/([a-zA-Z0-9-]+)$/);
-          if (!match) continue;
-
-          const candidate = match[1];
-          const blocked = new Set([
-            "login", "signup", "join", "logout", "session", "settings",
-            "notifications", "explore", "marketplace", "pricing",
-            "enterprise", "about", "features", "contact", "security",
-            "pulls", "issues", "dashboard", "new", "home", "sponsors",
-            "codespaces", "discussions", "topics", "trending",
-            "collections", "copilot", "search",
-          ]);
-          if (blocked.has(candidate)) continue;
-          return candidate;
-        }
-
-        const signedInNode = Array.from(
-          document.querySelectorAll("span, div")
-        ).find((el) => {
-          const text = (el.textContent || "").trim();
-          return text.startsWith("Signed in as ") && text.length < 80;
-        });
-
-        if (signedInNode) {
-          const match = signedInNode.textContent.match(
-            /Signed in as ([a-zA-Z0-9-]+)/
-          );
-          if (match) return match[1];
-        }
-
-        return null;
-      })()
-    `);
-    if (isValidGitHubUsername(fromDom)) return fromDom;
-  } catch {}
-
-  try {
-    const debug = await page.evaluate(`
-      (() => {
-        const title = document.title || "";
-        const url = window.location.href || "";
-        const bodyText = (document.body?.innerText || "")
-          .replace(/\\s+/g, " ")
-          .trim()
-          .slice(0, 300);
-        const metas = Array.from(document.querySelectorAll("meta[name]"))
-          .map((m) => \`\${m.getAttribute("name")}=\${(m.getAttribute("content") || "").slice(0, 60)}\`)
-          .slice(0, 10);
-        return \`title="\${title}" url="\${url}" metas=[\${metas.join(" | ")}] body="\${bodyText}"\`;
-      })()
-    `);
-    console.error("[github] resolveUsername failed, page state:", debug);
-    state.resolveUsernameDebug = debug;
-  } catch {}
-
-  return null;
-};
-
-const confirmLoggedIn = async () => {
-  if (await checkLoggedIn({ timeoutMs: 10000, pollIntervalMs: 1000 })) {
-    return { loggedIn: true, username: null };
-  }
-
-  const username = await resolveUsername();
-  if (isValidGitHubUsername(username)) {
-    console.log(
-      `[github] confirmLoggedIn -> true via settings/profile meta: ${username}`,
-    );
-    return { loggedIn: true, username };
-  }
-
-  return { loggedIn: false, username: null };
+  const fromSettings = await readLoggedInUsername();
+  return isValidGitHubUsername(fromSettings) ? fromSettings : null;
 };
 
 const extractProfile = async (username) => {
   if (!isValidGitHubUsername(username)) return null;
 
-  const reachable = await safeGoto(`https://github.com/${username}`);
-  if (!reachable) return null;
+  if (!(await safeGoto(`https://github.com/${username}`))) return null;
   await page.sleep(1500);
 
   try {
@@ -373,10 +174,7 @@ const extractRepositories = async (username) => {
   const maxPages = 60;
 
   for (let pageIndex = 1; pageIndex <= maxPages; pageIndex++) {
-    const reachable = await safeGoto(
-      `https://github.com/${username}?page=${pageIndex}&tab=repositories`,
-    );
-    if (!reachable) break;
+    if (!(await safeGoto(`https://github.com/${username}?page=${pageIndex}&tab=repositories`))) break;
     await page.sleep(1000);
 
     try {
@@ -453,8 +251,7 @@ const extractStarred = async (username) => {
 
     try {
       for (const pageUrl of pageUrls) {
-        const reachable = await safeGoto(pageUrl);
-        if (!reachable) continue;
+        if (!(await safeGoto(pageUrl))) continue;
         await page.sleep(1500);
 
         const candidate = await page.evaluate(`
@@ -578,26 +375,16 @@ const extractStarred = async (username) => {
 // ── Main Flow ────────────────────────────────────────────────────────
 
 await page.setData('status', 'Checking GitHub login...');
-const homeReachable = await safeGoto('https://github.com/');
-if (!homeReachable) {
-  return {
-    success: false,
-    error: 'Could not reach GitHub after multiple attempts.',
-  };
+if (!(await safeGoto('https://github.com/'))) {
+  return { success: false, error: 'Could not reach GitHub after multiple attempts.' };
 }
 await page.sleep(1500);
 
-// Initial check after landing on /. Give GitHub's dashboard a short
-// budget to render before deciding the user isn't logged in.
 let loggedIn = await checkLoggedIn();
 
 if (!loggedIn) {
-  const loginReachable = await safeGoto('https://github.com/login');
-  if (!loginReachable) {
-    return {
-      success: false,
-      error: 'Could not reach GitHub login page after multiple attempts.',
-    };
+  if (!(await safeGoto('https://github.com/login'))) {
+    return { success: false, error: 'Could not reach GitHub login page after multiple attempts.' };
   }
   await page.sleep(2000);
 
@@ -609,59 +396,14 @@ if (!loggedIn) {
   while (!loggedIn && attempts < maxAttempts) {
     attempts++;
 
-    // Wait for the login form to attach. A plain querySelector check can
-    // race against the login page's hydration — the goto promise resolves
-    // when the browser fires "load", but React takes a beat longer to
-    // mount the form inputs. Use the canonical waitForSelector with a
-    // 10s budget so we give GitHub time to paint the form before
-    // declaring "not found".
-    let hasLoginForm = false;
-    try {
-      await page.waitForSelector(
-        '#login_field, input[name="login"]',
-        { timeout: 10000 },
-      );
-      // Also verify the password field is there — if GitHub served a
-      // CAPTCHA challenge or device-verify interstitial, the username
-      // field alone might be present but the password field wouldn't be.
-      hasLoginForm = await page.evaluate(`
-        !!document.querySelector('#login_field, input[name="login"]') &&
-        !!document.querySelector('#password, input[name="password"]')
-      `);
-    } catch (waitErr) {
-      hasLoginForm = false;
-    }
+    const hasLoginForm = await page.evaluate(`
+      !!document.querySelector('#login_field') && !!document.querySelector('#password')
+    `);
 
     if (!hasLoginForm) {
-      // Capture observability: what DID GitHub serve? Include page title,
-      // URL, the first visible h1, and a body text snippet in the
-      // lastError so a downstream failure message tells us whether we
-      // hit a CAPTCHA, rate-limit page, device-verify interstitial, or
-      // something else entirely.
-      let debugInfo = '';
-      try {
-        debugInfo = await page.evaluate(`
-          (() => {
-            const title = document.title || '';
-            const url = window.location.href || '';
-            const h1 = (document.querySelector('h1')?.textContent || '').trim();
-            const h2 = (document.querySelector('h2')?.textContent || '').trim();
-            const bodyText = (document.body?.innerText || '')
-              .replace(/\\s+/g, ' ')
-              .trim()
-              .slice(0, 400);
-            return \`title="\${title}" url="\${url}" h1="\${h1}" h2="\${h2}" body="\${bodyText}"\`;
-          })()
-        `);
-      } catch (e) {
-        debugInfo = `(could not capture page state: ${e?.message || String(e)})`;
-      }
-      lastError = `Login form not found on attempt ${attempts}/${maxAttempts}. ${debugInfo}`;
-      console.error(`[github] ${lastError}`);
-      if (attempts < maxAttempts) {
-        await safeGoto('https://github.com/login');
-        await page.sleep(2000);
-      }
+      lastError = 'Login form not found. Retrying...';
+      await safeGoto('https://github.com/login');
+      await page.sleep(2000);
       continue;
     }
 
@@ -724,18 +466,12 @@ if (!loggedIn) {
     if (needsDeviceVerify) {
       await page.setData('status', 'Device verification required — check your email');
       const deviceResult = await page.requestInput({
-        message:
-          'GitHub sent a 6-digit verification code to your email. Enter it below.',
+        message: 'GitHub sent a 6-digit verification code to your email. Enter it below.',
         schema: {
           type: 'object',
           required: ['code'],
           properties: {
-            code: {
-              type: 'string',
-              description: 'Verification code from email',
-              minLength: 6,
-              maxLength: 6,
-            },
+            code: { type: 'string', description: 'Verification code from email', minLength: 6, maxLength: 6 },
           },
         },
       });
@@ -744,9 +480,7 @@ if (!loggedIn) {
       try {
         await page.fill(deviceSelector, deviceResult.code);
         await page.sleep(500);
-        await page.click('button:has-text("Verify"), button[type="submit"]', {
-          timeout: 5000,
-        });
+        await page.click('button:has-text("Verify"), button[type="submit"]', { timeout: 5000 });
       } catch (e) {
         await page.press(deviceSelector, 'Enter');
       }
@@ -759,25 +493,16 @@ if (!loggedIn) {
           type: 'object',
           required: ['code'],
           properties: {
-            code: {
-              type: 'string',
-              description: '6-digit authenticator code',
-              minLength: 6,
-              maxLength: 8,
-            },
+            code: { type: 'string', description: '6-digit authenticator code', minLength: 6, maxLength: 8 },
           },
         },
       });
 
-      // GitHub's TOTP input may have various selectors depending on the page
       const otpSelector = '#app_totp, #sms_totp, [name="otp"], input[type="text"]';
       try {
         await page.fill(otpSelector, otpResult.code);
         await page.sleep(500);
-        // Click the Verify button
-        await page.click('button:has-text("Verify"), button[type="submit"]', {
-          timeout: 5000,
-        });
+        await page.click('button:has-text("Verify"), button[type="submit"]', { timeout: 5000 });
       } catch (e) {
         await page.press(otpSelector, 'Enter');
       }
@@ -799,22 +524,14 @@ if (!loggedIn) {
       continue;
     }
 
-    const loginConfirmation = await confirmLoggedIn();
-    loggedIn = loginConfirmation.loggedIn;
-    if (loginConfirmation.username) {
-      state.username = loginConfirmation.username;
-    }
+    loggedIn = await checkLoggedIn();
     if (!loggedIn) {
       lastError = 'Login failed. Please check your credentials.';
     }
   }
 
   // Fallback: manual login via browser takeover — only if the runtime
-  // can actually surface a headed browser to the user. In runtimes like
-  // Context Gateway where the remote browser is not surfaced to the end
-  // user at all, showBrowser returns { headed: false } and calling
-  // promptUser here would hang indefinitely waiting for a login the user
-  // can't perform. In that case, return a clean error instead.
+  // can surface a headed browser to the user.
   if (!loggedIn) {
     let canShowHeaded = false;
     if (typeof page.showBrowser === 'function') {
@@ -833,20 +550,11 @@ if (!loggedIn) {
         async () => await checkLoggedIn(),
         5000
       );
-      const loginConfirmation = await confirmLoggedIn();
-      loggedIn = loginConfirmation.loggedIn;
-      if (loginConfirmation.username) {
-        state.username = loginConfirmation.username;
-      }
+      loggedIn = await checkLoggedIn();
     } else {
-      await page.setData(
-        'status',
-        'Automatic sign-in failed and this runtime cannot surface a manual sign-in browser.'
-      );
       return {
         success: false,
-        error:
-          'Automatic GitHub sign-in failed. ' +
+        error: 'Automatic GitHub sign-in failed. ' +
           (lastError || 'Please check your credentials and try again.'),
       };
     }
@@ -859,15 +567,9 @@ if (!loggedIn) {
 
 await page.setData('status', 'Login confirmed. Resolving account...');
 
-const username = state.username || (await resolveUsername());
+const username = await resolveUsername();
 if (!isValidGitHubUsername(username)) {
-  const debugSuffix = state.resolveUsernameDebug
-    ? ` | ${state.resolveUsernameDebug}`
-    : "";
-  return {
-    success: false,
-    error: `Could not resolve a valid GitHub username after login.${debugSuffix}`,
-  };
+  return { success: false, error: 'Could not resolve a valid GitHub username after login.' };
 }
 state.username = username;
 
@@ -894,7 +596,7 @@ const result = {
     details: `${state.repositories.length} repositories, ${state.starred.length} starred`,
   },
   timestamp: new Date().toISOString(),
-  version: '1.1.4',
+  version: '1.1.3',
   platform: 'github',
 };
 
