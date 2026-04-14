@@ -77,6 +77,11 @@ const LOGIN_URL = 'https://www.instagram.com/api/v1/web/accounts/login/ajax/';
 const TWO_FACTOR_URL = 'https://www.instagram.com/api/v1/web/accounts/login/ajax/two_factor/';
 const IG_PWD_PREFIX = '#PWD_INSTAGRAM_BROWSER:0:';
 
+// Instagram is an SPA with long-polling XHR; the default page.goto `waitUntil: 'load'`
+// regularly times out because `load` never fires. `domcontentloaded` is enough for
+// connector replay (cookies + first-paint fetches) and is what opensteer uses.
+const safeGoto = (url) => page.goto(url, { waitUntil: 'domcontentloaded' });
+
 const readCsrfToken = async () => {
   try {
     return await page.evaluate(`
@@ -231,6 +236,93 @@ const dismissInterstitials = async () => {
   }
 };
 
+const readDsUserId = async () => {
+  return await page.evaluate(`
+    (() => {
+      const m = document.cookie.match(/ds_user_id=([^;]+)/);
+      return m ? m[1] : null;
+    })()
+  `);
+};
+
+const handleAuthPlatformChallenge = async (challengeUrl) => {
+  await page.setData('status', 'Navigating Instagram auth challenge...');
+  const fullUrl = challengeUrl.startsWith('http')
+    ? challengeUrl
+    : 'https://www.instagram.com' + challengeUrl;
+  await safeGoto(fullUrl);
+  await page.sleep(2000);
+
+  const html = await page.evaluate(`document.documentElement.outerHTML`);
+  if (!/Enter the code|authentication|Check your/i.test(html || '')) {
+    throw new Error(
+      'Expected auth_platform code entry page; got unexpected content: ' +
+        String(html || '').slice(0, 200)
+    );
+  }
+
+  const headingMatch = String(html).match(
+    />([^<]*(?:Check your|Enter (?:the|a) code|Confirm)[^<]*)</i
+  );
+  const bodyMatch = String(html).match(
+    />([^<]*(?:we sent|authenticator|SMS|email)[^<]*)</i
+  );
+  const heading = headingMatch && headingMatch[1] && headingMatch[1].trim();
+  const body = bodyMatch && bodyMatch[1] && bodyMatch[1].trim();
+
+  const { code } = await page.requestInput({
+    message: heading || 'Enter your Instagram verification code',
+    description: body || 'Instagram sent a code to your email or authenticator app.',
+    schema: {
+      type: 'object',
+      properties: {
+        code: { type: 'string', title: '6-digit verification code' },
+      },
+      required: ['code'],
+    },
+  });
+  const trimmedCode = String(code || '').trim();
+  if (!/^\d{4,8}$/.test(trimmedCode)) {
+    throw new Error('Invalid challenge code supplied: "' + code + '"');
+  }
+
+  await page.setData('status', 'Submitting challenge code...');
+  const submitResult = await page.evaluate(`
+    (() => {
+      const input = document.querySelector('input[type="text"]');
+      if (!input) return { ok: false, reason: 'no text input found' };
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+      setter.call(input, ${JSON.stringify(trimmedCode)});
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      const buttons = Array.from(document.querySelectorAll('[role="button"], button'));
+      const cont = buttons.find(b => (b.textContent || '').trim().toLowerCase() === 'continue');
+      if (!cont) return { ok: false, reason: 'no Continue button found' };
+      cont.click();
+      return { ok: true };
+    })()
+  `);
+  if (!submitResult || submitResult.ok !== true) {
+    throw new Error(
+      'Failed to submit challenge code: ' +
+        ((submitResult && submitResult.reason) || 'unknown')
+    );
+  }
+
+  await page.setData('status', 'Waiting for session cookie...');
+  for (let attempt = 0; attempt < 15; attempt++) {
+    await page.sleep(1000);
+    const ds = await readDsUserId();
+    if (ds) {
+      await page.setData('status', 'Challenge cleared');
+      return;
+    }
+  }
+  throw new Error(
+    'Challenge code submitted but ds_user_id cookie never appeared — code may have been rejected'
+  );
+};
+
 const performLogin = async () => {
   const csrftoken = await readCsrfToken();
   if (!csrftoken) {
@@ -243,11 +335,6 @@ const performLogin = async () => {
       schema: {
         type: 'object',
         properties: {
-          method: {
-            type: 'string',
-            title: 'Login method',
-            description: 'Username/email/phone + password (Facebook SSO not supported here)',
-          },
           username: { type: 'string', title: 'Instagram username, email, or phone' },
           password: { type: 'string', format: 'password', title: 'Password' },
         },
@@ -295,10 +382,15 @@ const performLogin = async () => {
     return;
   }
 
-  if (result.kind === 'auth_platform' || result.kind === 'checkpoint') {
+  if (result.kind === 'auth_platform') {
+    await handleAuthPlatformChallenge(result.url);
+    return;
+  }
+
+  if (result.kind === 'checkpoint') {
     await page.setData(
       'status',
-      'Login API returned ' + result.kind + ' challenge — falling back to headed login',
+      'Login API returned checkpoint challenge — falling back to headed login',
     );
     return;
   }
@@ -313,7 +405,7 @@ const checkLoginStatus = async () => {
 
 const ensureLoggedIn = async () => {
   await page.setData('status', 'Checking login status...');
-  await page.goto('https://www.instagram.com/');
+  await safeGoto('https://www.instagram.com/');
   await page.sleep(2000);
 
   let info = await fetchWebInfo();
@@ -621,7 +713,7 @@ const isTopicsNodeData = (d) => {
 };
 
 const fetchAccountsCenterHtml = async (path) => {
-  await page.goto('https://accountscenter.instagram.com' + path);
+  await safeGoto('https://accountscenter.instagram.com' + path);
   await page.sleep(1500);
   const html = await page.evaluate(`document.documentElement.outerHTML`);
   if (typeof html !== 'string' || html.length === 0) {
@@ -757,7 +849,7 @@ const readCapturedGraphql = async () => {
 };
 
 const discoverAdCategoriesQuery = async () => {
-  await page.goto('https://accountscenter.instagram.com/ads/');
+  await safeGoto('https://accountscenter.instagram.com/ads/');
   await page.sleep(2500);
   await installGraphqlInterceptor();
 
@@ -920,7 +1012,7 @@ const buildResult = (state) => {
   }
   await page.setData('status', 'Logged in as @' + username);
 
-  await page.goto('https://www.instagram.com/');
+  await safeGoto('https://www.instagram.com/');
   await page.sleep(1500);
 
   const state = { identity };
