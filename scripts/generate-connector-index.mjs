@@ -28,6 +28,18 @@ function resolveHeadGitRef() {
   if (explicitRef) {
     return explicitRef;
   }
+  // Use the branch name instead of a commit hash. Commit hashes create a
+  // circular dependency: the index embeds the hash in artifact URLs, but
+  // the index itself is part of the commit, so the hash changes after
+  // committing. Branch names are stable across commits.
+  const branch = execFileSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+  }).trim();
+  if (branch && branch !== "HEAD") {
+    return branch;
+  }
+  // Detached HEAD fallback — use the commit hash.
   return execFileSync("git", ["rev-parse", "HEAD"], {
     cwd: repoRoot,
     encoding: "utf8",
