@@ -172,118 +172,110 @@ if (!isLoggedIn) {
 }
 
 if (!isLoggedIn) {
-  // Oura uses email + OTP code auth: enter email → send code → enter 6-digit code
-  const signInReachable = await safeGoto('https://cloud.ouraring.com/user/sign-in');
-  if (!signInReachable) {
-    return {
-      success: false,
-      error: 'Could not reach Oura sign-in page after multiple attempts.',
-    };
-  }
-  await page.sleep(3000);
+  if (typeof page.requestInput === 'function') {
+    // Oura uses email + OTP code auth: enter email → send code → enter 6-digit code
+    const signInReachable = await safeGoto('https://cloud.ouraring.com/user/sign-in');
+    if (!signInReachable) {
+      return {
+        success: false,
+        error: 'Could not reach Oura sign-in page after multiple attempts.',
+      };
+    }
+    await page.sleep(3000);
 
-  // Step 1: Ask for email
-  const emailInput = await page.requestInput({
-    message: 'Log in to Oura. A verification code will be sent to your email.',
-    schema: {
-      type: 'object',
-      required: ['email'],
-      properties: {
-        email: { type: 'string', description: 'Oura account email' },
-      },
-    },
-  });
-
-  await page.setData('status', 'Entering email...');
-
-  // Fill the email field and click Continue
-  try {
-    const emailSelector = 'input#username, input[type="email"]';
-    await page.waitForSelector(emailSelector, { timeout: 10000 });
-    await page.fill(emailSelector, emailInput.email);
-    await page.sleep(500);
-    await page.click('button#submit-button, button[type="submit"]', { timeout: 5000 });
-  } catch (e) {
-    return { success: false, error: `Could not fill email form: ${e.message || String(e)}` };
-  }
-
-  await page.sleep(3000);
-
-  // Step 2: Click "Send code" button
-  await page.setData('status', 'Requesting verification code...');
-  try {
-    await page.waitForSelector('button[name="selectedId"], button#submit-button', { timeout: 10000 });
-    await page.click('button[name="selectedId"], button#submit-button', { timeout: 5000 });
-  } catch (e) {
-    // May have skipped the send-code screen
-  }
-
-  await page.sleep(3000);
-  await page.setData('status', 'Verification code sent! Check your email.');
-
-  // Step 3: Ask user for the 6-digit OTP code
-  const codeInput = await page.requestInput({
-    message: 'Check your email for a 6-digit code from Oura and enter it below.',
-    schema: {
-      type: 'object',
-      required: ['code'],
-      properties: {
-        code: {
-          type: 'string',
-          description: '6-digit verification code',
-          minLength: 6,
-          maxLength: 6,
+    // Step 1: Ask for email
+    const emailInput = await page.requestInput({
+      message: 'Log in to Oura. A verification code will be sent to your email.',
+      schema: {
+        type: 'object',
+        required: ['email'],
+        properties: {
+          email: { type: 'string', description: 'Oura account email' },
         },
       },
-    },
-  });
+    });
 
-  // Step 4: Submit the OTP code
-  await page.setData('status', 'Submitting verification code...');
-  try {
-    const otpSelector = 'input#otp-code, input[name="otp"]';
-    await page.waitForSelector(otpSelector, { timeout: 10000 });
-    await page.fill(otpSelector, codeInput.code);
-    await page.sleep(500);
-    await page.click('button#submit-button, button[type="submit"]', { timeout: 5000 });
-  } catch (e) {
-    return { success: false, error: `Could not submit verification code: ${e.message || String(e)}` };
-  }
+    await page.setData('status', 'Entering email...');
 
-  await page.sleep(5000);
-
-  // Check if we landed on the dashboard
-  isLoggedIn = await checkLoginStatus();
-
-  if (!isLoggedIn) {
-    // May still be on moi.ouraring.com, navigate to cloud
-    await safeGoto('https://cloud.ouraring.com/');
-    await page.sleep(3000);
-    isLoggedIn = await checkLoginStatus();
-  }
-
-  // Also check by trying the API directly
-  if (!isLoggedIn) {
-    const meCheck = await fetchCloudApi('/api/me');
-    if (meCheck?.success) {
-      isLoggedIn = true;
+    // Fill the email field and click Continue
+    try {
+      const emailSelector = 'input#username, input[type="email"]';
+      await page.waitForSelector(emailSelector, { timeout: 10000 });
+      await page.fill(emailSelector, emailInput.email);
+      await page.sleep(500);
+      await page.click('button#submit-button, button[type="submit"]', { timeout: 5000 });
+    } catch (e) {
+      return { success: false, error: `Could not fill email form: ${e.message || String(e)}` };
     }
-  }
 
-  // Fallback: manual login via browser takeover — only if the runtime
-  // can surface a headed browser to the user.
-  if (!isLoggedIn) {
-    let canShowHeaded = false;
-    if (typeof page.showBrowser === 'function') {
-      try {
-        const result = await page.showBrowser('https://cloud.ouraring.com/user/sign-in');
-        canShowHeaded = !!(result && result.headed);
-      } catch {
-        canShowHeaded = false;
+    await page.sleep(3000);
+
+    // Step 2: Click "Send code" button
+    await page.setData('status', 'Requesting verification code...');
+    try {
+      await page.waitForSelector('button[name="selectedId"], button#submit-button', { timeout: 10000 });
+      await page.click('button[name="selectedId"], button#submit-button', { timeout: 5000 });
+    } catch (e) {
+      // May have skipped the send-code screen
+    }
+
+    await page.sleep(3000);
+    await page.setData('status', 'Verification code sent! Check your email.');
+
+    // Step 3: Ask user for the 6-digit OTP code
+    const codeInput = await page.requestInput({
+      message: 'Check your email for a 6-digit code from Oura and enter it below.',
+      schema: {
+        type: 'object',
+        required: ['code'],
+        properties: {
+          code: {
+            type: 'string',
+            description: '6-digit verification code',
+            minLength: 6,
+            maxLength: 6,
+          },
+        },
+      },
+    });
+
+    // Step 4: Submit the OTP code
+    await page.setData('status', 'Submitting verification code...');
+    try {
+      const otpSelector = 'input#otp-code, input[name="otp"]';
+      await page.waitForSelector(otpSelector, { timeout: 10000 });
+      await page.fill(otpSelector, codeInput.code);
+      await page.sleep(500);
+      await page.click('button#submit-button, button[type="submit"]', { timeout: 5000 });
+    } catch (e) {
+      return { success: false, error: `Could not submit verification code: ${e.message || String(e)}` };
+    }
+
+    await page.sleep(5000);
+
+    // Check if we landed on the dashboard
+    isLoggedIn = await checkLoginStatus();
+
+    if (!isLoggedIn) {
+      // May still be on moi.ouraring.com, navigate to cloud
+      await safeGoto('https://cloud.ouraring.com/');
+      await page.sleep(3000);
+      isLoggedIn = await checkLoginStatus();
+    }
+
+    // Also check by trying the API directly
+    if (!isLoggedIn) {
+      const meCheck = await fetchCloudApi('/api/me');
+      if (meCheck?.success) {
+        isLoggedIn = true;
       }
     }
+  }
 
-    if (canShowHeaded) {
+  // Fallback: manual login via browser takeover
+  if (!isLoggedIn) {
+    const { headed } = await page.showBrowser('https://cloud.ouraring.com/user/sign-in');
+    if (headed) {
       await page.setData('status', 'Please complete sign-in manually in the browser below.');
       await page.promptUser(
         'Automatic sign-in did not complete. Please finish signing in manually.',
@@ -294,7 +286,7 @@ if (!isLoggedIn) {
     } else {
       return {
         success: false,
-        error: 'Automatic Oura sign-in failed and this runtime cannot surface a manual sign-in browser.',
+        error: 'Login requires a headed browser or requestInput support.',
       };
     }
   }

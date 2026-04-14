@@ -427,8 +427,7 @@ const fetchWebInfo = async () => {
         );
         await page.goHeadless();
       } else {
-        await page.setData('error', 'Instagram login failed.');
-        return { error: 'Instagram login failed' };
+        return { success: false, error: 'Login requires a headed browser or requestInput support.' };
       }
 
       // Dismiss any remaining interstitials after headed browser login

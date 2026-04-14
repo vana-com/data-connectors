@@ -247,7 +247,7 @@ if (!isLoggedIn) {
   let lastError = null;
   let loginAttempts = 0;
 
-  while (hasAuthFrame && !isLoggedIn && loginAttempts < 3) {
+  while (hasAuthFrame && !isLoggedIn && loginAttempts < 3 && typeof page.getInput === 'function') {
     loginAttempts++;
 
     if (!credentials || lastError) {
@@ -490,15 +490,9 @@ if (!isLoggedIn) {
       );
       isLoggedIn = !!config;
     } else {
-      await page.setData(
-        "status",
-        "Automatic sign-in failed and this runtime cannot surface a manual sign-in browser.",
-      );
       return {
         success: false,
-        error:
-          "Automatic iCloud sign-in failed. " +
-          (lastError || "Please check your credentials and try again."),
+        error: 'Login requires a headed browser or requestInput support.',
       };
     }
   }

@@ -388,166 +388,159 @@ if (!loggedIn) {
   }
   await page.sleep(2000);
 
-  let attempts = 0;
-  const maxAttempts = 3;
-  let lastError = null;
-  let credentials = null;
+  if (typeof page.requestInput === 'function') {
+    let attempts = 0;
+    const maxAttempts = 3;
+    let lastError = null;
+    let credentials = null;
 
-  while (!loggedIn && attempts < maxAttempts) {
-    attempts++;
+    while (!loggedIn && attempts < maxAttempts) {
+      attempts++;
 
-    const hasLoginForm = await page.evaluate(`
-      !!document.querySelector('#login_field') && !!document.querySelector('#password')
-    `);
+      const hasLoginForm = await page.evaluate(`
+        !!document.querySelector('#login_field') && !!document.querySelector('#password')
+      `);
 
-    if (!hasLoginForm) {
-      lastError = 'Login form not found. Retrying...';
-      await safeGoto('https://github.com/login');
-      await page.sleep(2000);
-      continue;
-    }
-
-    if (!credentials || lastError) {
-      credentials = await page.requestInput({
-        message: lastError
-          ? `Log in to GitHub — ${lastError}`
-          : 'Log in to GitHub',
-        schema: {
-          type: 'object',
-          required: ['username', 'password'],
-          properties: {
-            username: { type: 'string', description: 'GitHub username or email' },
-            password: { type: 'string', format: 'password' },
-          },
-        },
-      });
-    }
-
-    await page.setData('status', 'Signing in...');
-
-    try {
-      await page.fill('#login_field', credentials.username);
-      await page.sleep(300);
-      await page.fill('#password', credentials.password);
-      await page.sleep(300);
-      await page.press('#password', 'Enter');
-    } catch (e) {
-      lastError = 'Login form error. Retrying...';
-      continue;
-    }
-
-    await page.sleep(5000);
-
-    // Handle 2FA — GitHub may show a passkey/webauthn page first, or go
-    // directly to the authenticator app page. Not all accounts have 2FA.
-    // Some accounts get a "device verification" email code instead.
-    const currentUrl = await page.url();
-    const onPasskeyPage = currentUrl.includes('/sessions/two-factor/webauthn');
-    const onDeviceVerify = currentUrl.includes('/sessions/verified-device');
-
-    if (onPasskeyPage) {
-      // Click "Authenticator app" link to skip passkeys
-      await page.setData('status', 'Navigating to authenticator app...');
-      try {
-        await page.click('a[href*="/sessions/two-factor/app"]', { timeout: 5000 });
+      if (!hasLoginForm) {
+        lastError = 'Login form not found. Retrying...';
+        await safeGoto('https://github.com/login');
         await page.sleep(2000);
+        continue;
+      }
+
+      if (!credentials || lastError) {
+        credentials = await page.requestInput({
+          message: lastError
+            ? `Log in to GitHub — ${lastError}`
+            : 'Log in to GitHub',
+          schema: {
+            type: 'object',
+            required: ['username', 'password'],
+            properties: {
+              username: { type: 'string', description: 'GitHub username or email' },
+              password: { type: 'string', format: 'password' },
+            },
+          },
+        });
+      }
+
+      await page.setData('status', 'Signing in...');
+
+      try {
+        await page.fill('#login_field', credentials.username);
+        await page.sleep(300);
+        await page.fill('#password', credentials.password);
+        await page.sleep(300);
+        await page.press('#password', 'Enter');
       } catch (e) {
-        // Fallback: navigate directly
-        await safeGoto('https://github.com/sessions/two-factor/app');
+        lastError = 'Login form error. Retrying...';
+        continue;
+      }
+
+      await page.sleep(5000);
+
+      // Handle 2FA — GitHub may show a passkey/webauthn page first, or go
+      // directly to the authenticator app page. Not all accounts have 2FA.
+      // Some accounts get a "device verification" email code instead.
+      const currentUrl = await page.url();
+      const onPasskeyPage = currentUrl.includes('/sessions/two-factor/webauthn');
+      const onDeviceVerify = currentUrl.includes('/sessions/verified-device');
+
+      if (onPasskeyPage) {
+        // Click "Authenticator app" link to skip passkeys
+        await page.setData('status', 'Navigating to authenticator app...');
+        try {
+          await page.click('a[href*="/sessions/two-factor/app"]', { timeout: 5000 });
+          await page.sleep(2000);
+        } catch (e) {
+          // Fallback: navigate directly
+          await safeGoto('https://github.com/sessions/two-factor/app');
+          await page.sleep(2000);
+        }
+      }
+
+      // Check if we're now on any 2FA or device verification page
+      const urlAfterNav = await page.url();
+      const needs2fa = urlAfterNav.includes('/sessions/two-factor');
+      const needsDeviceVerify = onDeviceVerify || urlAfterNav.includes('/sessions/verified-device');
+
+      if (needsDeviceVerify) {
+        await page.setData('status', 'Device verification required — check your email');
+        const deviceResult = await page.requestInput({
+          message: 'GitHub sent a 6-digit verification code to your email. Enter it below.',
+          schema: {
+            type: 'object',
+            required: ['code'],
+            properties: {
+              code: { type: 'string', description: 'Verification code from email', minLength: 6, maxLength: 6 },
+            },
+          },
+        });
+
+        const deviceSelector = 'input[placeholder="XXXXXX"], input[type="text"]';
+        try {
+          await page.fill(deviceSelector, deviceResult.code);
+          await page.sleep(500);
+          await page.click('button:has-text("Verify"), button[type="submit"]', { timeout: 5000 });
+        } catch (e) {
+          await page.press(deviceSelector, 'Enter');
+        }
+        await page.sleep(5000);
+      } else if (needs2fa) {
+        await page.setData('status', 'Two-factor authentication required');
+        const otpResult = await page.requestInput({
+          message: 'Enter the 6-digit code from your authenticator app',
+          schema: {
+            type: 'object',
+            required: ['code'],
+            properties: {
+              code: { type: 'string', description: '6-digit authenticator code', minLength: 6, maxLength: 8 },
+            },
+          },
+        });
+
+        const otpSelector = '#app_totp, #sms_totp, [name="otp"], input[type="text"]';
+        try {
+          await page.fill(otpSelector, otpResult.code);
+          await page.sleep(500);
+          await page.click('button:has-text("Verify"), button[type="submit"]', { timeout: 5000 });
+        } catch (e) {
+          await page.press(otpSelector, 'Enter');
+        }
+        await page.sleep(5000);
+      }
+
+      // Check for login errors — only match visible flash elements.
+      // GitHub's base template includes a hidden #ajax-error-message with
+      // class flash-error and non-empty text on every page. Matching hidden
+      // elements causes false positives on the authenticated dashboard.
+      const errorMsg = await page.evaluate(`
+        (() => {
+          const flash = document.querySelector('.flash-error, .js-flash-alert');
+          if (!flash || flash.hidden || flash.offsetParent === null) return null;
+          return flash.textContent.trim() || null;
+        })()
+      `);
+
+      if (errorMsg) {
+        lastError = `Login failed: ${errorMsg}`;
+        await safeGoto('https://github.com/login');
         await page.sleep(2000);
+        continue;
       }
-    }
 
-    // Check if we're now on any 2FA or device verification page
-    const urlAfterNav = await page.url();
-    const needs2fa = urlAfterNav.includes('/sessions/two-factor');
-    const needsDeviceVerify = onDeviceVerify || urlAfterNav.includes('/sessions/verified-device');
-
-    if (needsDeviceVerify) {
-      await page.setData('status', 'Device verification required — check your email');
-      const deviceResult = await page.requestInput({
-        message: 'GitHub sent a 6-digit verification code to your email. Enter it below.',
-        schema: {
-          type: 'object',
-          required: ['code'],
-          properties: {
-            code: { type: 'string', description: 'Verification code from email', minLength: 6, maxLength: 6 },
-          },
-        },
-      });
-
-      const deviceSelector = 'input[placeholder="XXXXXX"], input[type="text"]';
-      try {
-        await page.fill(deviceSelector, deviceResult.code);
-        await page.sleep(500);
-        await page.click('button:has-text("Verify"), button[type="submit"]', { timeout: 5000 });
-      } catch (e) {
-        await page.press(deviceSelector, 'Enter');
+      loggedIn = await checkLoggedIn();
+      if (!loggedIn) {
+        lastError = 'Login failed. Please check your credentials.';
       }
-      await page.sleep(5000);
-    } else if (needs2fa) {
-      await page.setData('status', 'Two-factor authentication required');
-      const otpResult = await page.requestInput({
-        message: 'Enter the 6-digit code from your authenticator app',
-        schema: {
-          type: 'object',
-          required: ['code'],
-          properties: {
-            code: { type: 'string', description: '6-digit authenticator code', minLength: 6, maxLength: 8 },
-          },
-        },
-      });
-
-      const otpSelector = '#app_totp, #sms_totp, [name="otp"], input[type="text"]';
-      try {
-        await page.fill(otpSelector, otpResult.code);
-        await page.sleep(500);
-        await page.click('button:has-text("Verify"), button[type="submit"]', { timeout: 5000 });
-      } catch (e) {
-        await page.press(otpSelector, 'Enter');
-      }
-      await page.sleep(5000);
-    }
-
-    // Check for login errors — only match visible flash elements.
-    // GitHub's base template includes a hidden #ajax-error-message with
-    // class flash-error and non-empty text on every page. Matching hidden
-    // elements causes false positives on the authenticated dashboard.
-    const errorMsg = await page.evaluate(`
-      (() => {
-        const flash = document.querySelector('.flash-error, .js-flash-alert');
-        if (!flash || flash.hidden || flash.offsetParent === null) return null;
-        return flash.textContent.trim() || null;
-      })()
-    `);
-
-    if (errorMsg) {
-      lastError = `Login failed: ${errorMsg}`;
-      await safeGoto('https://github.com/login');
-      await page.sleep(2000);
-      continue;
-    }
-
-    loggedIn = await checkLoggedIn();
-    if (!loggedIn) {
-      lastError = 'Login failed. Please check your credentials.';
     }
   }
 
   // Fallback: manual login via browser takeover — only if the runtime
   // can surface a headed browser to the user.
   if (!loggedIn) {
-    let canShowHeaded = false;
-    if (typeof page.showBrowser === 'function') {
-      try {
-        const result = await page.showBrowser('https://github.com/login');
-        canShowHeaded = !!(result && result.headed);
-      } catch {
-        canShowHeaded = false;
-      }
-    }
-
-    if (canShowHeaded) {
+    const { headed } = await page.showBrowser('https://github.com/login');
+    if (headed) {
       await page.setData('status', 'Please sign in manually in the browser below.');
       await page.promptUser(
         'Automatic sign-in failed. Please sign in to GitHub manually, including any 2FA. The process will continue automatically once you are signed in.',
@@ -558,8 +551,7 @@ if (!loggedIn) {
     } else {
       return {
         success: false,
-        error: 'Automatic GitHub sign-in failed. ' +
-          (lastError || 'Please check your credentials and try again.'),
+        error: 'Login requires a headed browser or requestInput support.',
       };
     }
   }
