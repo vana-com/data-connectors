@@ -7,6 +7,24 @@
   "schema": {
     "type": "object",
     "properties": {
+      "accounts": {
+        "type": "array",
+        "description": "Legacy alias for the list of accounts the user follows; present for backward compatibility with the pre-API connector",
+        "items": {
+          "type": "object",
+          "properties": {
+            "username": { "type": "string", "description": "Followed account's Instagram handle" },
+            "full_name": { "type": "string", "description": "Followed account's display name" },
+            "pk": { "type": "string", "description": "Followed account's Instagram primary key" },
+            "is_private": { "type": "boolean", "description": "True if the followed account is private" },
+            "is_verified": { "type": "boolean", "description": "True if the followed account has the verified badge" },
+            "profile_pic_url": { "type": ["string", "null"], "description": "URL of the followed account's profile picture" }
+          },
+          "required": ["username"],
+          "additionalProperties": true
+        }
+      },
+      "total": { "type": "number", "description": "Legacy total count of followed accounts" },
       "following": {
         "type": "array",
         "description": "Full list of accounts this user follows, ordered as returned by Instagram's friendships endpoint",
@@ -27,7 +45,6 @@
         }
       }
     },
-    "required": ["following"],
     "additionalProperties": true
   }
 }
