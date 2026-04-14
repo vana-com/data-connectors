@@ -348,13 +348,14 @@ shasum -a 256 connectors/<company>/<name>-playwright.json | awk '{print "sha256:
 
 ---
 
-## How the registry works
+## How consumers get connectors
 
-DataConnect fetches `registry.json` from this repo on app startup and during `npm postinstall`. For each connector listed:
+Both [Context Gateway](https://github.com/vana-com/context-gateway) and [DataConnect](https://github.com/vana-com/data-connect) consume connectors from this repo as pinned dependencies.
 
-1. Check if local files exist with matching checksums
-2. If not, download from `baseUrl/<file_path>` (this repo's raw GitHub URL)
-3. Verify SHA-256 checksums match
-4. Write to local `connectors/` directory
+Each consumer declares version constraints in a `connector-dependencies.json` file and resolves them with:
 
-This enables OTA connector updates without a full app release.
+```bash
+npm run connectors:resolve
+```
+
+This fetches matching versions from `connector-index.json` on `main`, verifies checksums, and writes the scripts + manifests to a local snapshot directory. It's analogous to `npm install`.
