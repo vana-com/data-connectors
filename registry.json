@@ -32,7 +32,7 @@
     {
       "id": "github-playwright",
       "company": "github",
-      "version": "1.1.3",
+      "version": "1.1.4",
       "name": "GitHub",
       "status": "stable",
       "description": "Exports your GitHub profile, repositories, and starred repositories.",
@@ -48,8 +48,8 @@
         "metadata": "github/github-playwright.json"
       },
       "checksums": {
-        "script": "sha256:5458714f0d4aa1f621e1a18a2db26d59f673320b93b122a68652796f45c1e5df",
-        "metadata": "sha256:c6dacdc52577be5460630ab2e534bc2c1da0395b6105bb3efaaae4e39348d4a0"
+        "script": "sha256:f16f3296557bacf7ac8f0147e61253a03833e4d112936997757704801e866f8b",
+        "metadata": "sha256:72521c9a991f0587134214c835679de737d313a19e88478bc4ef40cf9e3fc89f"
       }
     },
     {
