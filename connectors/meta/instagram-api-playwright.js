@@ -253,26 +253,8 @@ const handleAuthPlatformChallenge = async (challengeUrl) => {
   await safeGoto(fullUrl);
   await page.sleep(2000);
 
-  const html = await page.evaluate(`document.documentElement.outerHTML`);
-  if (!/Enter the code|authentication|Check your/i.test(html || '')) {
-    throw new Error(
-      'Expected auth_platform code entry page; got unexpected content: ' +
-        String(html || '').slice(0, 200)
-    );
-  }
-
-  const headingMatch = String(html).match(
-    />([^<]*(?:Check your|Enter (?:the|a) code|Confirm)[^<]*)</i
-  );
-  const bodyMatch = String(html).match(
-    />([^<]*(?:we sent|authenticator|SMS|email)[^<]*)</i
-  );
-  const heading = headingMatch && headingMatch[1] && headingMatch[1].trim();
-  const body = bodyMatch && bodyMatch[1] && bodyMatch[1].trim();
-
   const { code } = await page.requestInput({
-    message: heading || 'Enter your Instagram verification code',
-    description: body || 'Instagram sent a code to your email or authenticator app.',
+    message: 'Enter Instagram 2FA code',
     schema: {
       type: 'object',
       properties: {
