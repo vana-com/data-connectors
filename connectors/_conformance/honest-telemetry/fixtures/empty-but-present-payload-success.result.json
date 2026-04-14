@@ -1,0 +1,14 @@
+{
+  "requestedScopes": [
+    "conformance.archive"
+  ],
+  "timestamp": "2026-04-14T12:30:00.000Z",
+  "version": "1.0.0",
+  "platform": "conformance",
+  "exportSummary": {
+    "count": 0,
+    "label": "0 archived items exported"
+  },
+  "errors": [],
+  "conformance.archive": {}
+}

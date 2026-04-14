@@ -1,0 +1,34 @@
+{
+  "requestedScopes": [
+    "conformance.profile",
+    "conformance.activity"
+  ],
+  "timestamp": "2026-04-14T12:10:00.000Z",
+  "version": "1.0.0",
+  "platform": "conformance",
+  "exportSummary": {
+    "count": 2,
+    "label": "2 records exported"
+  },
+  "errors": [
+    {
+      "errorClass": "upstream_error",
+      "reason": "The activity endpoint stopped paginating, so the payload is incomplete.",
+      "disposition": "degraded",
+      "scope": "conformance.activity",
+      "phase": "collect"
+    }
+  ],
+  "conformance.profile": {
+    "id": "user-1",
+    "displayName": "Ada Lovelace"
+  },
+  "conformance.activity": {
+    "items": [
+      {
+        "id": "activity-1"
+      }
+    ],
+    "partial": true
+  }
+}
