@@ -1,0 +1,30 @@
+{
+  "name": "tinder matches",
+  "version": "1.0.0",
+  "scope": "tinder.matches",
+  "dialect": "json",
+  "description": "Tinder match list with high-level profile and activity details.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "matches": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "personName": { "type": "string", "description": "Match display name." },
+            "personBio": { "type": "string", "description": "Match biography text." },
+            "matchDate": { "type": "string", "description": "When the match was created." },
+            "lastActivity": { "type": "string", "description": "Most recent activity timestamp." },
+            "messageCount": { "type": "integer", "description": "Number of messages in the conversation." },
+            "isSuperLike": { "type": ["boolean", "null"], "description": "Whether the match originated from a super like." }
+          },
+          "required": ["personName", "messageCount"],
+          "additionalProperties": true
+        }
+      }
+    },
+    "required": ["matches"],
+    "additionalProperties": true
+  }
+}

@@ -1,14 +1,16 @@
 {
-  "id": "tinder-playwright",
+  "manifest_version": "1.0",
+  "connector_id": "tinder-playwright",
+  "source_id": "tinder",
   "version": "1.0.0",
   "name": "Tinder",
   "company": "Tinder",
-  "iconURL": "icons/tinder.svg",
-  "description": "Exports your Tinder profile, matches, and messages using Playwright browser automation.",
-  "connectURL": "https://tinder.com",
-  "connectSelector": "[data-testid='profileCard'], a[href*='/app/'], a[href*='/app/recs']",
-  "exportFrequency": "weekly",
+  "description": "Exports your Tinder profile, matches, and messages.",
   "runtime": "playwright",
+  "page_api_version": 1,
+  "connect_url": "https://tinder.com",
+  "connect_selector": "[data-testid='profileCard'], a[href*='/app/'], a[href*='/app/recs']",
+  "icon": "icons/tinder.svg",
   "scopes": [
     {
       "scope": "tinder.profile",
@@ -26,6 +28,11 @@
       "description": "Conversation history with your matches."
     }
   ],
+  "id": "tinder-playwright",
+  "connectURL": "https://tinder.com",
+  "connectSelector": "[data-testid='profileCard'], a[href*='/app/'], a[href*='/app/recs']",
+  "iconURL": "icons/tinder.svg",
+  "exportFrequency": "weekly",
   "vectorize_config": {
     "documents": "messages"
   }

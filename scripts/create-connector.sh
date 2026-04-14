@@ -244,7 +244,7 @@ ${AUTH_INFO}
 
 IMPORTANT: You are running from the scripts/ directory. Connector files go in the connectors/ directory at repo root:
 - Connector: ../connectors/${PLATFORM}/${PLATFORM}-playwright.js and ../connectors/${PLATFORM}/${PLATFORM}-playwright.json
-- Schemas: ../schemas/${PLATFORM}.<scope>.json
+- Schemas: ../connectors/${PLATFORM}/schemas/${PLATFORM}.<scope>.json
 - Registry: ../registry.json
 Do NOT create files inside scripts/. Use ../connectors/ paths for all connector output.
 

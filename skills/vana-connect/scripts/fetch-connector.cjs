@@ -4,8 +4,9 @@
  *
  * Usage: node scripts/fetch-connector.cjs <platform>
  *
- * Searches the registry for the platform, downloads the connector script
- * and metadata to ~/.dataconnect/connectors/. Prints the local path on success.
+ * Searches the registry for the platform, downloads the connector script,
+ * metadata, and connector-local schemas to ~/.dataconnect/connectors/.
+ * Prints the local path on success.
  *
  * Exit codes: 0 = found and downloaded, 1 = not found or error.
  */
@@ -68,9 +69,14 @@ async function main() {
   }
 
   // Download connector files
-  const scriptPath = match.scriptPath || match.script_path;
-  const metadataPath = scriptPath.replace(/\.js$/, '.json');
-  const company = path.dirname(scriptPath).replace(/^connectors\//, '');
+  const scriptPath = match.files?.script
+    ? `connectors/${match.files.script}`
+    : match.scriptPath || match.script_path;
+  const metadataPath = match.files?.metadata
+    ? `connectors/${match.files.metadata}`
+    : scriptPath.replace(/\.js$/, '.json');
+  const metadataDir = path.dirname(metadataPath);
+  const company = metadataDir.replace(/^connectors\//, '');
 
   const localDir = path.join(CONNECTORS_DIR, company);
   fs.mkdirSync(localDir, { recursive: true });
@@ -104,7 +110,7 @@ async function main() {
           const scopeName = scope.scope || scope.name;
           if (!scopeName) continue;
           try {
-            const schemaContent = await fetch(`${BASE_URL}/${company}/schemas/${scopeName}.json`);
+            const schemaContent = await fetch(`${BASE_URL}/${metadataDir}/schemas/${scopeName}.json`);
             fs.writeFileSync(path.join(schemasDir, `${scopeName}.json`), schemaContent);
             downloaded.push(path.join(schemasDir, `${scopeName}.json`));
           } catch {} // Schema might not exist yet

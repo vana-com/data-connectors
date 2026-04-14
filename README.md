@@ -44,18 +44,20 @@ See [`skills/vana-connect/`](skills/vana-connect/) for the agent skill: setup, r
 
 | Folder | What's inside | Audience |
 |--------|--------------|----------|
-| **`connectors/`** | All platform connectors (`<company>/<name>-playwright.js` + `.json`) | Everyone |
+| **`connectors/`** | All platform connectors (`<company>/<name>-playwright.js` + `.json` + connector-local `schemas/` + local assets like `icons/`) | Everyone |
 | **`scripts/`** | Developer tooling: scaffold, test, validate, session capture | Human developers |
 | **`skills/`** | AI agent skill for creating/running connectors (`vana-connect/`) | AI agents (Claude, etc.) |
-| **`schemas/`** | JSON Schema definitions, one per scope (`<platform>.<scope>.json`) | Validation |
-| **`icons/`** | SVG/PNG icons for the DataConnect UI | Frontend |
+| **`schemas/`** | Shared meta-schemas such as `manifest.schema.json` | Validation |
 | **`types/`** | TypeScript type definitions (`connector.d.ts`) | TypeScript consumers |
 
 ```
 connectors/                        # All platform connectors
 ├── <company>/
 │   ├── <name>-playwright.js       #   Connector script (plain JS)
-│   └── <name>-playwright.json     #   Metadata (login URL, selectors, scopes)
+│   ├── <name>-playwright.json     #   Metadata (login URL, selectors, scopes)
+│   ├── schemas/
+│   │   └── <platform>.<scope>.json
+│   └── icons/
 │
 scripts/                           # Developer tooling (human-driven)
 ├── create-connector.sh            #   End-to-end connector scaffold + test
@@ -69,8 +71,8 @@ skills/vana-connect/               # Agent skill (AI-agent-driven)
 ├── CREATE.md                      #   Full walkthrough for building connectors
 └── scripts/                       #   Agent-facing scripts (runner, validator, etc.)
 │
-schemas/                           # JSON Schema definitions (one per scope)
-├── <platform>.<scope>.json
+schemas/                           # Shared meta-schemas
+├── manifest.schema.json
 │
 registry.json                      # Central registry (checksums, versions, OTA)
 run-connector.cjs                  # Symlink → skills/vana-connect/scripts/run-connector.cjs
@@ -80,10 +82,12 @@ create-connector.sh                # Quick autonomous scaffold script
 
 ### Connectors
 
-Each connector lives in `connectors/<company>/`. A connector consists of two files:
+Each connector lives in `connectors/<company>/`. A connector bundle keeps its runtime assets together inside that directory. A connector usually consists of:
 
 - **`<name>-playwright.js`** -- the connector script (plain JS, runs inside the Playwright runner sidecar)
 - **`<name>-playwright.json`** -- metadata (display name, login URL, selectors, scopes)
+- **`schemas/<platform>.<scope>.json`** -- connector-owned JSON Schemas for every declared scope
+- **`icons/...`** -- canonical local icon assets referenced by the manifest via a path relative to that connector directory
 
 Some connectors also include a README with platform-specific setup instructions (e.g., API keys).
 
@@ -152,7 +156,7 @@ Metadata keys (`exportSummary`, `timestamp`, `version`, `platform`) are not trea
 
 See [`skills/vana-connect/CREATE.md`](skills/vana-connect/CREATE.md) for the full walkthrough. Summary:
 
-1. **Scaffold:** `node skills/vana-connect/scripts/scaffold.cjs <platform> [company]` -- generates script, metadata, and stub schema
+1. **Scaffold:** `node skills/vana-connect/scripts/scaffold.cjs <platform> [company]` -- generates script, metadata, and connector-local stub schema
 2. **Implement:** Write login + data collection logic (see CREATE.md for auth patterns, extraction strategies, and reference connectors)
 3. **Validate structure:** `node scripts/validate-connector.cjs connectors/<company>/<name>-playwright.js`
 4. **Test:** `node run-connector.cjs connectors/<company>/<name>-playwright.js --inputs '{"username":"x","password":"y"}'`
@@ -308,7 +312,7 @@ The runner reads the connector's sibling `.json` metadata to resolve the `connec
 3. Add your files in `connectors/<company>/`:
    - `connectors/<company>/<name>-playwright.js` -- connector script
    - `connectors/<company>/<name>-playwright.json` -- metadata
-   - `schemas/<platform>.<scope>.json` -- data schema (optional but encouraged)
+   - `connectors/<company>/schemas/<platform>.<scope>.json` -- data schema (required for shipped connectors)
 4. Test locally using the instructions above
 5. Update `registry.json` with your connector entry and checksums
 6. Open a pull request

@@ -20,7 +20,10 @@ function loadMetadata(connectorId) {
   const entry = REGISTRY.connectors.find(c => c.id === connectorId);
   if (!entry) throw new Error(`Connector not in registry: ${connectorId}`);
   const metadataPath = path.join(ROOT, 'connectors', entry.files.metadata);
-  return JSON.parse(fs.readFileSync(metadataPath, 'utf-8'));
+  return {
+    metadataPath,
+    metadata: JSON.parse(fs.readFileSync(metadataPath, 'utf-8')),
+  };
 }
 
 // Helper: load cached result by ID (may not exist)
@@ -32,7 +35,14 @@ function loadCachedResult(connectorId) {
 
 // Helper: load schema file by scope
 function loadSchema(scope) {
-  const schemaPath = path.join(ROOT, 'schemas', `${scope}.json`);
+  const entry = REGISTRY.connectors.find((connector) => {
+    const metadataPath = path.join(ROOT, 'connectors', connector.files.metadata);
+    const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf-8'));
+    return (metadata.scopes || []).some((scopeEntry) => (scopeEntry.scope || scopeEntry) === scope);
+  });
+  if (!entry) return null;
+  const metadataPath = path.join(ROOT, 'connectors', entry.files.metadata);
+  const schemaPath = path.join(path.dirname(metadataPath), 'schemas', `${scope}.json`);
   if (!fs.existsSync(schemaPath)) return null;
   return JSON.parse(fs.readFileSync(schemaPath, 'utf-8'));
 }
@@ -140,11 +150,19 @@ describe('connector metadata', () => {
 // ─── Every schema file is valid JSON with correct structure ─
 
 describe('schema files', () => {
-  const schemaFiles = fs.readdirSync(path.join(ROOT, 'schemas')).filter(f => f.endsWith('.json'));
+  const schemaFiles = REGISTRY.connectors.flatMap((entry) => {
+    const metadataPath = path.join(ROOT, 'connectors', entry.files.metadata);
+    const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf-8'));
+    return (metadata.scopes || []).map((scopeEntry) => {
+      const scope = scopeEntry.scope || scopeEntry;
+      return path.join(path.dirname(metadataPath), 'schemas', `${scope}.json`);
+    });
+  });
 
-  for (const file of schemaFiles) {
+  for (const schemaPath of schemaFiles) {
+    const file = path.relative(ROOT, schemaPath);
     it(`${file}: valid JSON with scope and schema fields`, () => {
-      const schemaDoc = JSON.parse(fs.readFileSync(path.join(ROOT, 'schemas', file), 'utf-8'));
+      const schemaDoc = JSON.parse(fs.readFileSync(schemaPath, 'utf-8'));
       assert.ok(schemaDoc.scope, `${file}: missing .scope`);
       assert.ok(schemaDoc.schema, `${file}: missing .schema`);
       assert.ok(schemaDoc.schema.type, `${file}: .schema missing .type`);
@@ -174,7 +192,7 @@ describe('validateResult against real cached data', { skip: !RUN_CACHED && 'set 
     for (const entry of stableConnectors) {
       it(`${entry.id}: all declared scopes present in cached result`, () => {
         const cached = loadCachedResult(entry.id);
-        const metadata = loadMetadata(entry.id);
+        const { metadata } = loadMetadata(entry.id);
         const result = validateResult(cached, metadata);
         assert.ok(
           result.status === 'pass' || result.status === 'warn',
@@ -199,7 +217,7 @@ describe('validateSchema against real cached data', { skip: !RUN_CACHED && 'set 
   } else {
     for (const entry of stableConnectors) {
       const cached = loadCachedResult(entry.id);
-      const metadata = loadMetadata(entry.id);
+      const { metadata } = loadMetadata(entry.id);
 
       for (const scopeDef of metadata.scopes) {
         const schemaDoc = loadSchema(scopeDef.scope);

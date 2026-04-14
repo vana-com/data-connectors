@@ -1,14 +1,16 @@
 {
-  "id": "goodreads-playwright",
+  "manifest_version": "1.0",
+  "connector_id": "goodreads-playwright",
+  "source_id": "goodreads",
   "version": "1.0.0",
   "name": "Goodreads",
   "company": "Amazon",
-  "iconURL": "icons/goodreads.svg",
-  "description": "Exports your Goodreads library, shelves, ratings, and reviews using Playwright browser automation.",
-  "connectURL": "https://www.goodreads.com/user/sign_in",
-  "connectSelector": "a[href*='/user/show/']",
-  "exportFrequency": "weekly",
+  "description": "Exports your Goodreads library, shelves, ratings, and reviews.",
   "runtime": "playwright",
+  "page_api_version": 1,
+  "connect_url": "https://www.goodreads.com/user/sign_in",
+  "connect_selector": "a[href*='/user/show/']",
+  "icon": "icons/goodreads.svg",
   "scopes": [
     {
       "scope": "goodreads.profile",
@@ -21,6 +23,11 @@
       "description": "Complete library with titles, authors, ratings, reviews, shelves, and reading dates"
     }
   ],
+  "id": "goodreads-playwright",
+  "connectURL": "https://www.goodreads.com/user/sign_in",
+  "connectSelector": "a[href*='/user/show/']",
+  "iconURL": "icons/goodreads.svg",
+  "exportFrequency": "weekly",
   "vectorize_config": {
     "documents": ""
   }

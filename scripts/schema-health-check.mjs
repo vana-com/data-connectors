@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { readFile, readdir } from "fs/promises";
-import { join } from "path";
+import { dirname, join } from "path";
 import { execSync } from "child_process";
 
 // ---------------------------------------------------------------------------
@@ -41,6 +41,68 @@ const REPO_ROOT = join(import.meta.dirname, "..");
 async function readJson(filePath) {
   const raw = await readFile(filePath, "utf-8");
   return JSON.parse(raw);
+}
+
+function extractScopeId(scopeEntry) {
+  return typeof scopeEntry === "string" ? scopeEntry : scopeEntry?.scope;
+}
+
+async function listConnectorLocalSchemas(manifestPath, metadata) {
+  const manifestDir = dirname(manifestPath);
+  const results = new Map();
+  for (const entry of metadata.scopes ?? []) {
+    const scope = extractScopeId(entry);
+    if (!scope) continue;
+    const schemaPath = join(manifestDir, "schemas", `${scope}.json`);
+    try {
+      const schema = await readJson(schemaPath);
+      results.set(scope, { schema, path: schemaPath });
+    } catch {
+      results.set(scope, { schema: null, path: schemaPath });
+    }
+  }
+  return results;
+}
+
+async function walkJsonFiles(dir, out = []) {
+  let entries;
+  try {
+    entries = await readdir(dir, { withFileTypes: true });
+  } catch {
+    return out;
+  }
+
+  for (const entry of entries) {
+    if (entry.name.startsWith(".")) continue;
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      await walkJsonFiles(full, out);
+    } else if (entry.isFile() && entry.name.endsWith(".json")) {
+      out.push(full);
+    }
+  }
+
+  return out;
+}
+
+async function listAllManifestScopes() {
+  const manifestFiles = await walkJsonFiles(join(REPO_ROOT, "connectors"));
+  const scopes = new Set();
+
+  for (const filePath of manifestFiles) {
+    if (!filePath.endsWith("-playwright.json")) continue;
+    try {
+      const manifest = await readJson(filePath);
+      for (const entry of manifest.scopes ?? []) {
+        const scope = extractScopeId(entry);
+        if (scope) scopes.add(scope);
+      }
+    } catch {
+      // Ignore invalid manifest JSON here.
+    }
+  }
+
+  return scopes;
 }
 
 function readGitJson(ref, relativePath) {
@@ -95,7 +157,8 @@ if (baseRegistry?.connectors) {
     const metadata = readGitJson(baseRef, `connectors/${connector.files.metadata}`);
     if (metadata?.scopes) {
       for (const entry of metadata.scopes) {
-        baseScopeSet.add(entry.scope);
+        const scope = extractScopeId(entry);
+        if (scope) baseScopeSet.add(scope);
       }
     }
   }
@@ -128,25 +191,86 @@ for (const connector of connectors) {
   if (!Array.isArray(metadata.scopes)) continue;
 
   for (const entry of metadata.scopes) {
-    if (!scopeToConnector.has(entry.scope)) {
-      scopeToConnector.set(entry.scope, connector.id);
+    const scope = extractScopeId(entry);
+    if (scope && !scopeToConnector.has(scope)) {
+      scopeToConnector.set(scope, connector.id);
     }
   }
 }
 
-// 5. Scan schemas/ directory for orphaned schema detection
-const schemaDir = join(REPO_ROOT, "schemas");
-let schemaFiles;
+// Scopes declared by CI-only fixtures under connectors/_conformance/.
+// These are not shipped connectors — they don't belong in registry.json
+// or in the Gateway — but their schemas are legitimately used by the
+// cross-runtime conformance harness, so the orphan check should not
+// flag them.
+const fixtureScopes = new Set();
 try {
-  schemaFiles = (await readdir(schemaDir))
-    .filter((f) => f.endsWith(".json"))
-    .map((f) => f.replace(/\.json$/, ""));
+  const conformanceDir = join(REPO_ROOT, "connectors", "_conformance");
+  const entries = await readdir(conformanceDir);
+  for (const entry of entries) {
+    if (!entry.endsWith(".json")) continue;
+    try {
+      const metadata = await readJson(join(conformanceDir, entry));
+      if (Array.isArray(metadata.scopes)) {
+        for (const s of metadata.scopes) {
+          const scope = extractScopeId(s);
+          if (scope) fixtureScopes.add(scope);
+        }
+      }
+    } catch {
+      // Ignore unreadable fixture manifests.
+    }
+  }
 } catch {
-  schemaFiles = [];
+  // No _conformance directory — fine.
+}
+
+// 5. Collect connector-local schema files from registered connectors only.
+const localSchemasByScope = new Map();
+for (const connector of connectors) {
+  const metadataPath = join(REPO_ROOT, "connectors", connector.files.metadata);
+  try {
+    const metadata = await readJson(metadataPath);
+    const schemaEntries = await listConnectorLocalSchemas(metadataPath, metadata);
+    for (const [scope, value] of schemaEntries) {
+      localSchemasByScope.set(scope, value);
+    }
+  } catch {
+    // Missing manifest/schema will be reported elsewhere.
+  }
 }
 
 const declaredScopes = new Set(scopeToConnector.keys());
-const orphanedSchemas = schemaFiles.filter((s) => !declaredScopes.has(s));
+const allManifestScopes = await listAllManifestScopes();
+const orphanedSchemas = [];
+const seenSchemaPaths = new Set();
+for (const value of localSchemasByScope.values()) {
+  if (value?.path) {
+    seenSchemaPaths.add(value.path);
+  }
+}
+
+const connectorSchemaFiles = await walkJsonFiles(join(REPO_ROOT, "connectors"));
+for (const schemaPath of connectorSchemaFiles) {
+  if (!schemaPath.includes("/schemas/")) continue;
+  if (schemaPath.endsWith("/manifest.schema.json")) continue;
+  if (seenSchemaPaths.has(schemaPath)) continue;
+
+  try {
+    const schemaDoc = await readJson(schemaPath);
+    const scope = schemaDoc?.scope;
+    if (!scope) continue;
+    if (
+      !declaredScopes.has(scope) &&
+      !allManifestScopes.has(scope) &&
+      !fixtureScopes.has(scope)
+    ) {
+      orphanedSchemas.push(schemaPath.replace(`${REPO_ROOT}/`, ""));
+    }
+  } catch {
+    // Ignore invalid JSON here; schema presence/validity is covered elsewhere.
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Three-way checks
@@ -155,7 +279,8 @@ const orphanedSchemas = schemaFiles.filter((s) => !declaredScopes.has(s));
 const scopeResults = [];
 
 for (const [scope, connectorId] of scopeToConnector) {
-  const schemaFileExists = schemaFiles.includes(scope);
+  const localSchemaEntry = localSchemasByScope.get(scope);
+  const schemaFileExists = Boolean(localSchemaEntry?.schema);
   const isNew = !baseScopeSet.has(scope);
 
   let gatewayStatus = "skipped";
@@ -183,7 +308,7 @@ for (const [scope, connectorId] of scopeToConnector) {
         // Compare against local schema file metadata if it exists
         if (schemaFileExists) {
           try {
-            const localSchema = await readJson(join(schemaDir, `${scope}.json`));
+            const localSchema = localSchemaEntry?.schema;
             const localName = localSchema.name || null;
             const gwName = gwData.name || null;
             if (localName !== gwName) {
@@ -333,7 +458,7 @@ if (issueCount === 0) {
       "Orphaned schema files (no connector declares this scope):\n"
     );
     for (const s of orphanedSchemas) {
-      process.stderr.write(`  - schemas/${s}.json\n`);
+      process.stderr.write(`  - ${s}\n`);
     }
     process.stderr.write("\n");
   }

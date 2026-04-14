@@ -1,5 +1,5 @@
 /**
- * GitHub Connector (Playwright)
+ * GitHub Connector
  *
  * Exports:
  * - Profile
@@ -13,6 +13,46 @@ const state = {
   repositories: [],
   starred: [],
   isComplete: false,
+};
+
+const withTimeout = async (promise, ms, label) => {
+  let timeoutId = null;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timeoutId = setTimeout(
+          () => reject(new Error(`${label} timed out after ${ms}ms`)),
+          ms,
+        );
+      }),
+    ]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+};
+
+const safeGoto = async (url, options = {}) => {
+  const { attempts = 3, timeout = 15000, betweenMs = 2000 } = options;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      await withTimeout(
+        page.goto(url, { timeout }),
+        timeout + 5000,
+        `goto ${url}`,
+      );
+      return true;
+    } catch (error) {
+      const message = error?.message || String(error);
+      console.error(
+        `[github] Navigation attempt ${attempt}/${attempts} failed for ${url}: ${message}`,
+      );
+      if (attempt < attempts) {
+        await page.sleep(betweenMs);
+      }
+    }
+  }
+  return false;
 };
 
 const GITHUB_USERNAME_REGEX = /^[a-zA-Z0-9-]+$/;
@@ -42,7 +82,7 @@ const toInt = (raw) => {
 };
 `;
 
-const isLoggedIn = async () => {
+const checkLoggedIn = async () => {
   try {
     return await page.evaluate(`
       (() => {
@@ -76,7 +116,7 @@ const resolveUsername = async () => {
   const current = await readLoggedInUsername();
   if (isValidGitHubUsername(current)) return current;
 
-  await page.goto("https://github.com/settings/profile");
+  if (!(await safeGoto("https://github.com/settings/profile"))) return null;
   await page.sleep(1500);
 
   const fromSettings = await readLoggedInUsername();
@@ -86,7 +126,7 @@ const resolveUsername = async () => {
 const extractProfile = async (username) => {
   if (!isValidGitHubUsername(username)) return null;
 
-  await page.goto(`https://github.com/${username}`);
+  if (!(await safeGoto(`https://github.com/${username}`))) return null;
   await page.sleep(1500);
 
   try {
@@ -134,7 +174,7 @@ const extractRepositories = async (username) => {
   const maxPages = 60;
 
   for (let pageIndex = 1; pageIndex <= maxPages; pageIndex++) {
-    await page.goto(`https://github.com/${username}?page=${pageIndex}&tab=repositories`);
+    if (!(await safeGoto(`https://github.com/${username}?page=${pageIndex}&tab=repositories`))) break;
     await page.sleep(1000);
 
     try {
@@ -182,11 +222,7 @@ const extractRepositories = async (username) => {
         all.push(repo);
       }
 
-      await page.setProgress({
-        phase: { step: 2, total: 3, label: "Repositories" },
-        message: `Fetched ${all.length} repositories${pageResult?.hasNext ? "..." : ""}`,
-        count: all.length,
-      });
+      await page.setData('status', `Fetching repositories... (${all.length} found${pageResult?.hasNext ? ', loading more' : ''})`);
 
       if (!pageResult?.hasNext || pageItems.length === 0) {
         break;
@@ -215,7 +251,7 @@ const extractStarred = async (username) => {
 
     try {
       for (const pageUrl of pageUrls) {
-        await page.goto(pageUrl);
+        if (!(await safeGoto(pageUrl))) continue;
         await page.sleep(1500);
 
         const candidate = await page.evaluate(`
@@ -228,19 +264,9 @@ const extractStarred = async (username) => {
                 const parts = url.pathname.split('/').filter(Boolean);
                 if (parts.length !== 2) return null;
                 const blocked = new Set([
-                  "features",
-                  "topics",
-                  "collections",
-                  "organizations",
-                  "orgs",
-                  "users",
-                  "marketplace",
-                  "settings",
-                  "login",
-                  "logout",
-                  "notifications",
-                  "explore",
-                  "stars"
+                  "features", "topics", "collections", "organizations", "orgs",
+                  "users", "marketplace", "settings", "login", "logout",
+                  "notifications", "explore", "stars"
                 ]);
                 if (blocked.has(parts[0].toLowerCase())) return null;
                 return { owner: parts[0], repo: parts[1] };
@@ -333,11 +359,7 @@ const extractStarred = async (username) => {
         all.push(repo);
       }
 
-      await page.setProgress({
-        phase: { step: 3, total: 3, label: "Starred" },
-        message: `Fetched ${all.length} starred repositories${pageResult?.hasNext ? "..." : ""}`,
-        count: all.length,
-      });
+      await page.setData('status', `Fetching starred repos... (${all.length} found${pageResult?.hasNext ? ', loading more' : ''})`);
 
       if (!pageResult?.hasNext || pageItems.length === 0) {
         break;
@@ -350,155 +372,235 @@ const extractStarred = async (username) => {
   return all;
 };
 
-(async () => {
-  await page.setData("status", "Checking GitHub login...");
-  await page.goto("https://github.com/");
-  await page.sleep(1500);
+// ── Main Flow ────────────────────────────────────────────────────────
 
-  let loggedIn = await isLoggedIn();
+await page.setData('status', 'Checking GitHub login...');
+if (!(await safeGoto('https://github.com/'))) {
+  return { success: false, error: 'Could not reach GitHub after multiple attempts.' };
+}
+await page.sleep(1500);
 
-  if (!loggedIn) {
-    await page.goto("https://github.com/login");
-    await page.sleep(2000);
+let loggedIn = await checkLoggedIn();
 
-    // Only attempt programmatic login if the form is present
-    const hasLoginForm = await page.evaluate(`
-      !!document.querySelector('#login_field') && !!document.querySelector('#password')
-    `);
+if (!loggedIn) {
+  if (!(await safeGoto('https://github.com/login'))) {
+    return { success: false, error: 'Could not reach GitHub login page after multiple attempts.' };
+  }
+  await page.sleep(2000);
 
-    const supportsRequestInput = typeof page.requestInput === 'function';
+  if (typeof page.requestInput === 'function') {
+    let attempts = 0;
+    const maxAttempts = 3;
+    let lastError = null;
+    let credentials = null;
 
-    if (supportsRequestInput && hasLoginForm) {
-      const { username: loginUser, password } = await page.requestInput({
-        message: "Log in to GitHub",
-        schema: {
-          type: "object",
-          properties: {
-            username: { type: "string", description: "GitHub username or email" },
-            password: { type: "string", format: "password" },
-          },
-          required: ["username", "password"],
-        },
-      });
+    while (!loggedIn && attempts < maxAttempts) {
+      attempts++;
 
-      await page.evaluate(`document.querySelector('#login_field').value = ${JSON.stringify(loginUser)}`);
-      await page.evaluate(`document.querySelector('#login_field').dispatchEvent(new Event('input', {bubbles:true}))`);
-      await page.evaluate(`document.querySelector('#password').value = ${JSON.stringify(password)}`);
-      await page.evaluate(`document.querySelector('#password').dispatchEvent(new Event('input', {bubbles:true}))`);
-      await page.evaluate(`document.querySelector('input[type="submit"], button[type="submit"]').click()`);
-      await page.sleep(3000);
+      const hasLoginForm = await page.evaluate(`
+        !!document.querySelector('#login_field') && !!document.querySelector('#password')
+      `);
 
-      // Handle 2FA if present
-      const needs2fa = await page.evaluate(`!!document.querySelector('#app_totp, #sms_totp, [name="otp"]')`);
-      if (needs2fa) {
-        const { code } = await page.requestInput({
-          message: "Enter your GitHub 2FA code",
+      if (!hasLoginForm) {
+        lastError = 'Login form not found. Retrying...';
+        await safeGoto('https://github.com/login');
+        await page.sleep(2000);
+        continue;
+      }
+
+      if (!credentials || lastError) {
+        credentials = await page.requestInput({
+          message: lastError
+            ? `Log in to GitHub — ${lastError}`
+            : 'Log in to GitHub',
           schema: {
-            type: "object",
-            properties: { code: { type: "string" } },
-            required: ["code"],
+            type: 'object',
+            required: ['username', 'password'],
+            properties: {
+              username: { type: 'string', description: 'GitHub username or email' },
+              password: { type: 'string', format: 'password' },
+            },
           },
         });
-        await page.evaluate(`
-          (() => {
-            const input = document.querySelector('#app_totp, #sms_totp, [name="otp"]');
-            if (input) {
-              input.value = ${JSON.stringify(code)};
-              input.dispatchEvent(new Event('input', {bubbles:true}));
-            }
-          })()
-        `);
-        await page.evaluate(`document.querySelector('button[type="submit"]')?.click()`);
-        await page.sleep(3000);
       }
 
-      loggedIn = await isLoggedIn();
-    }
+      await page.setData('status', 'Signing in...');
 
-    // If programmatic login failed or form wasn't found, fall back to headed
-    if (!loggedIn) {
-      const { headed } = await page.showBrowser("https://github.com/login");
-      if (headed) {
-        await page.setData("status", "Please complete login in the browser...");
-        await page.promptUser(
-          "Complete any remaining verification, then click 'Done'.",
-          async () => await isLoggedIn(),
-          2000,
-        );
-        await page.goHeadless();
-      } else {
-        await page.setData("error", "GitHub login failed. Login form not found or credentials incorrect.");
-        return;
+      try {
+        await page.fill('#login_field', credentials.username);
+        await page.sleep(300);
+        await page.fill('#password', credentials.password);
+        await page.sleep(300);
+        await page.press('#password', 'Enter');
+      } catch (e) {
+        lastError = 'Login form error. Retrying...';
+        continue;
+      }
+
+      await page.sleep(5000);
+
+      // Handle 2FA — GitHub may show a passkey/webauthn page first, or go
+      // directly to the authenticator app page. Not all accounts have 2FA.
+      // Some accounts get a "device verification" email code instead.
+      const currentUrl = await page.url();
+      const onPasskeyPage = currentUrl.includes('/sessions/two-factor/webauthn');
+      const onDeviceVerify = currentUrl.includes('/sessions/verified-device');
+
+      if (onPasskeyPage) {
+        // Click "Authenticator app" link to skip passkeys
+        await page.setData('status', 'Navigating to authenticator app...');
+        try {
+          await page.click('a[href*="/sessions/two-factor/app"]', { timeout: 5000 });
+          await page.sleep(2000);
+        } catch (e) {
+          // Fallback: navigate directly
+          await safeGoto('https://github.com/sessions/two-factor/app');
+          await page.sleep(2000);
+        }
+      }
+
+      // Check if we're now on any 2FA or device verification page
+      const urlAfterNav = await page.url();
+      const needs2fa = urlAfterNav.includes('/sessions/two-factor');
+      const needsDeviceVerify = onDeviceVerify || urlAfterNav.includes('/sessions/verified-device');
+
+      if (needsDeviceVerify) {
+        await page.setData('status', 'Device verification required — check your email');
+        const deviceResult = await page.requestInput({
+          message: 'GitHub sent a 6-digit verification code to your email. Enter it below.',
+          schema: {
+            type: 'object',
+            required: ['code'],
+            properties: {
+              code: { type: 'string', description: 'Verification code from email', minLength: 6, maxLength: 6 },
+            },
+          },
+        });
+
+        const deviceSelector = 'input[placeholder="XXXXXX"], input[type="text"]';
+        try {
+          await page.fill(deviceSelector, deviceResult.code);
+          await page.sleep(500);
+          await page.click('button:has-text("Verify"), button[type="submit"]', { timeout: 5000 });
+        } catch (e) {
+          await page.press(deviceSelector, 'Enter');
+        }
+        await page.sleep(5000);
+      } else if (needs2fa) {
+        await page.setData('status', 'Two-factor authentication required');
+        const otpResult = await page.requestInput({
+          message: 'Enter the 6-digit code from your authenticator app',
+          schema: {
+            type: 'object',
+            required: ['code'],
+            properties: {
+              code: { type: 'string', description: '6-digit authenticator code', minLength: 6, maxLength: 8 },
+            },
+          },
+        });
+
+        const otpSelector = '#app_totp, #sms_totp, [name="otp"], input[type="text"]';
+        try {
+          await page.fill(otpSelector, otpResult.code);
+          await page.sleep(500);
+          await page.click('button:has-text("Verify"), button[type="submit"]', { timeout: 5000 });
+        } catch (e) {
+          await page.press(otpSelector, 'Enter');
+        }
+        await page.sleep(5000);
+      }
+
+      // Check for login errors — only match visible flash elements.
+      // GitHub's base template includes a hidden #ajax-error-message with
+      // class flash-error and non-empty text on every page. Matching hidden
+      // elements causes false positives on the authenticated dashboard.
+      const errorMsg = await page.evaluate(`
+        (() => {
+          const flash = document.querySelector('.flash-error, .js-flash-alert');
+          if (!flash || flash.hidden || flash.offsetParent === null) return null;
+          return flash.textContent.trim() || null;
+        })()
+      `);
+
+      if (errorMsg) {
+        lastError = `Login failed: ${errorMsg}`;
+        await safeGoto('https://github.com/login');
+        await page.sleep(2000);
+        continue;
+      }
+
+      loggedIn = await checkLoggedIn();
+      if (!loggedIn) {
+        lastError = 'Login failed. Please check your credentials.';
       }
     }
-
-    loggedIn = await isLoggedIn();
   }
 
+  // Fallback: manual login via browser takeover — only if the runtime
+  // can surface a headed browser to the user.
   if (!loggedIn) {
-    await page.setData("error", "GitHub login could not be confirmed.");
-    return;
+    const { headed } = await page.showBrowser('https://github.com/login');
+    if (headed) {
+      await page.setData('status', 'Please sign in manually in the browser below.');
+      await page.promptUser(
+        'Automatic sign-in failed. Please sign in to GitHub manually, including any 2FA. The process will continue automatically once you are signed in.',
+        async () => await checkLoggedIn(),
+        5000
+      );
+      await page.goHeadless();
+      loggedIn = await checkLoggedIn();
+    } else {
+      return {
+        success: false,
+        error: 'Login requires a headed browser or requestInput support.',
+      };
+    }
   }
+}
 
-  await page.setData("status", "Login confirmed. Collecting data in background...");
+if (!loggedIn) {
+  return { success: false, error: 'GitHub login could not be confirmed.' };
+}
 
-  await page.setProgress({
-    phase: { step: 1, total: 3, label: "Profile" },
-    message: "Resolving account...",
-  });
+await page.setData('status', 'Login confirmed. Resolving account...');
 
-  const username = await resolveUsername();
-  if (!isValidGitHubUsername(username)) {
-    await page.setData("error", "Could not resolve a valid GitHub username after login.");
-    return;
-  }
-  state.username = username;
+const username = await resolveUsername();
+if (!isValidGitHubUsername(username)) {
+  return { success: false, error: 'Could not resolve a valid GitHub username after login.' };
+}
+state.username = username;
 
-  await page.setProgress({
-    phase: { step: 1, total: 3, label: "Profile" },
-    message: "Fetching profile...",
-  });
+await page.setData('status', `Fetching profile for @${username}...`);
+state.profile = await extractProfile(username);
 
-  state.profile = await extractProfile(username);
+await page.setData('status', 'Fetching repositories...');
+state.repositories = await extractRepositories(username);
+if (state.profile) {
+  state.profile.repositoryCount = state.repositories.length;
+}
 
-  await page.setProgress({
-    phase: { step: 2, total: 3, label: "Repositories" },
-    message: "Fetching repositories...",
-  });
+await page.setData('status', 'Fetching starred repositories...');
+state.starred = await extractStarred(username);
 
-  state.repositories = await extractRepositories(username);
-  if (state.profile) {
-    state.profile.repositoryCount = state.repositories.length;
-  }
+const totalItems = state.repositories.length + state.starred.length;
+const result = {
+  'github.profile': state.profile,
+  'github.repositories': { repositories: state.repositories },
+  'github.starred': { starred: state.starred },
+  exportSummary: {
+    count: totalItems,
+    label: totalItems === 1 ? 'item' : 'items',
+    details: `${state.repositories.length} repositories, ${state.starred.length} starred`,
+  },
+  timestamp: new Date().toISOString(),
+  version: '1.1.3',
+  platform: 'github',
+};
 
-  await page.setProgress({
-    phase: { step: 3, total: 3, label: "Starred" },
-    message: "Fetching starred repositories...",
-  });
+state.isComplete = true;
+await page.setData('result', result);
+await page.setData('status',
+  `Complete! ${state.repositories.length} repositories and ${state.starred.length} starred repos collected.`
+);
 
-  state.starred = await extractStarred(username);
-
-  const totalItems = state.repositories.length + state.starred.length;
-  const result = {
-    'github.profile': state.profile,
-    'github.repositories': { repositories: state.repositories },
-    'github.starred': { starred: state.starred },
-    exportSummary: {
-      count: totalItems,
-      label: totalItems === 1 ? "item" : "items",
-      details: `${state.repositories.length} repositories, ${state.starred.length} starred`,
-    },
-    timestamp: new Date().toISOString(),
-    version: "1.1.3-playwright",
-    platform: "github",
-  };
-
-  state.isComplete = true;
-  await page.setData("result", result);
-  await page.setData(
-    "status",
-    `Complete! ${state.repositories.length} repositories and ${state.starred.length} starred repos collected.`,
-  );
-
-  return { success: true, data: result };
-})();
+return { success: true, data: result };

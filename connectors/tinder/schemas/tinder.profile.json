@@ -1,0 +1,39 @@
+{
+  "name": "tinder profile",
+  "version": "1.0.0",
+  "scope": "tinder.profile",
+  "dialect": "json",
+  "description": "Tinder profile details including bio, photos, location, and account preferences.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "name": { "type": "string", "description": "Profile display name." },
+      "bio": { "type": "string", "description": "Profile biography text." },
+      "birthDate": { "type": "string", "description": "Birth date returned by the Tinder API." },
+      "gender": { "type": "string", "description": "Resolved gender label when available." },
+      "photos": {
+        "type": "array",
+        "description": "Profile photos.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string", "description": "Photo identifier." },
+            "url": { "type": "string", "description": "Photo URL." }
+          },
+          "required": ["id", "url"],
+          "additionalProperties": true
+        }
+      },
+      "city": { "type": "string", "description": "City or location label." },
+      "jobTitle": { "type": "string", "description": "Primary job title if available." },
+      "company": { "type": "string", "description": "Primary employer if available." },
+      "school": { "type": "string", "description": "School name if available." },
+      "ageFilterMin": { "type": ["integer", "string"], "description": "Minimum preferred age range." },
+      "ageFilterMax": { "type": ["integer", "string"], "description": "Maximum preferred age range." },
+      "distanceFilter": { "type": ["integer", "string"], "description": "Preferred match distance filter." },
+      "createDate": { "type": "string", "description": "Profile creation timestamp." }
+    },
+    "required": ["name", "photos"],
+    "additionalProperties": true
+  }
+}

@@ -3,7 +3,18 @@
  *
  * These types define the page API available to connector scripts.
  * The runner implementation lives in data-connect/playwright-runner/index.cjs.
+ *
+ * ## Versioning
+ *
+ * The major version of this contract is exported as `PAGE_API_VERSION` from
+ * `types/page-api-version.ts`. Within a major version, additions are allowed
+ * but removals and renames are not. Breaking changes require a bump of the
+ * constant and a matching bump of the `page_api_version` field in connector
+ * manifests.
  */
+
+/** Major version of the page API contract. */
+export type PageApiVersion = 1;
 
 /** Result from page.showBrowser() */
 export interface ShowBrowserResult {
@@ -33,6 +44,19 @@ export interface HttpFetchResult {
   text: string;
   json: unknown | null;
   error: string | null;
+}
+
+/** Options for page.click() / page.fill() / page.press() */
+export interface ElementActionOptions {
+  timeout?: number;
+  force?: boolean;
+  delay?: number;
+}
+
+/** Options for page.waitForSelector() */
+export interface WaitForSelectorOptions {
+  timeout?: number;
+  state?: 'attached' | 'detached' | 'visible' | 'hidden';
 }
 
 /** Network capture configuration */
@@ -78,6 +102,24 @@ export interface PageAPI {
 
   /** Navigate to a URL */
   goto(url: string, options?: GotoOptions): Promise<void>;
+
+  /** Return the URL of the current page. */
+  url(): Promise<string>;
+
+  /** Click the first element matching the selector. */
+  click(selector: string, options?: ElementActionOptions): Promise<void>;
+
+  /** Fill the first input/textarea matching the selector with the given value. */
+  fill(selector: string, value: string, options?: ElementActionOptions): Promise<void>;
+
+  /**
+   * Focus the first element matching the selector and press a key
+   * (e.g. "Enter", "ArrowDown", "Control+A").
+   */
+  press(selector: string, key: string, options?: ElementActionOptions): Promise<void>;
+
+  /** Wait for an element matching the selector to reach the requested state. */
+  waitForSelector(selector: string, options?: WaitForSelectorOptions): Promise<void>;
 
   /** Wait for a number of milliseconds */
   sleep(ms: number): Promise<void>;

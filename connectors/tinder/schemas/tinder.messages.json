@@ -1,0 +1,41 @@
+{
+  "name": "tinder messages",
+  "version": "1.0.0",
+  "scope": "tinder.messages",
+  "dialect": "json",
+  "description": "Conversation history for Tinder matches, including per-message content and timing.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "conversations": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "personName": { "type": "string", "description": "Match display name." },
+            "matchDate": { "type": "string", "description": "When the match was created." },
+            "messageCount": { "type": "integer", "description": "Number of messages included for this conversation." },
+            "messages": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": { "type": ["string", "null"], "description": "Message identifier." },
+                  "sentDate": { "type": ["string", "null"], "description": "Message timestamp." },
+                  "from": { "type": ["string", "null"], "description": "Sender identifier or name." },
+                  "to": { "type": ["string", "null"], "description": "Recipient identifier or name." },
+                  "message": { "type": ["string", "null"], "description": "Message text." }
+                },
+                "additionalProperties": true
+              }
+            }
+          },
+          "required": ["personName", "messageCount", "messages"],
+          "additionalProperties": true
+        }
+      }
+    },
+    "required": ["conversations"],
+    "additionalProperties": true
+  }
+}

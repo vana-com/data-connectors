@@ -1,0 +1,33 @@
+{
+  "name": "iCloud Notes",
+  "version": "1.1.0",
+  "scope": "icloud_notes.notes",
+  "dialect": "json",
+  "description": "Notes exported from iCloud. Field shape reflects the data the CG-in-prod iCloud Notes script emits: one object per note with recordName, title, snippet, folder, pin state, created/modified dates, attachment flag, and extracted text content.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "notes": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "recordName":     { "type": "string" },
+            "title":          { "type": "string" },
+            "snippet":        { "type": "string" },
+            "folder":         { "type": ["string", "null"] },
+            "isPinned":       { "type": "boolean" },
+            "createdDate":    { "type": ["string", "null"] },
+            "modifiedDate":   { "type": ["string", "null"] },
+            "hasAttachments": { "type": "boolean" },
+            "textContent":    { "type": ["string", "null"] }
+          },
+          "required": ["recordName", "title"]
+        }
+      },
+      "total":    { "type": "number" },
+      "userName": { "type": ["string", "null"] }
+    },
+    "required": ["notes"]
+  }
+}

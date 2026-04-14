@@ -1,14 +1,16 @@
 {
-  "id": "steam-playwright",
+  "manifest_version": "1.0",
+  "connector_id": "steam-playwright",
+  "source_id": "steam",
   "version": "1.0.0",
   "name": "Steam",
   "company": "valve",
-  "iconURL": "icons/steam.svg",
   "description": "Exports your Steam profile, game library with playtime stats, and friend list using the Steam Web API.",
-  "connectURL": "https://steamcommunity.com/dev/apikey",
-  "connectSelector": "input#domain",
-  "exportFrequency": "weekly",
   "runtime": "playwright",
+  "page_api_version": 1,
+  "connect_url": "https://steamcommunity.com/dev/apikey",
+  "connect_selector": "input#domain",
+  "icon": "icons/steam.svg",
   "scopes": [
     {
       "scope": "steam.profile",
@@ -26,6 +28,11 @@
       "description": "Friend list with persona names, avatars, and friendship dates"
     }
   ],
+  "id": "steam-playwright",
+  "connectURL": "https://steamcommunity.com/dev/apikey",
+  "connectSelector": "input#domain",
+  "iconURL": "icons/steam.svg",
+  "exportFrequency": "weekly",
   "vectorize_config": {
     "documents": "steam.games.owned[].name"
   }

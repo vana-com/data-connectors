@@ -1,0 +1,45 @@
+{
+  "manifest_version": "1.0",
+  "connector_id": "icloud-notes-playwright",
+  "source_id": "icloud_notes",
+  "version": "0.1.0",
+  "name": "iCloud Notes",
+  "company": "Apple",
+  "description": "Exports your Apple Notes and folders from iCloud.",
+  "runtime": "playwright",
+  "page_api_version": 1,
+  "connect_url": "https://www.icloud.com/notes",
+  "connect_selector": "iframe[name='aid-auth-widget-iFrame'], .notes-list, [data-testid='notes-app']",
+  "icon": "icons/icloud.svg",
+  "scopes": [
+    {
+      "scope": "icloud_notes.notes",
+      "label": "Your notes",
+      "description": "Note content, titles, created/modified timestamps, and folder assignment"
+    },
+    {
+      "scope": "icloud_notes.folders",
+      "label": "Your notes folders",
+      "description": "Folder structure for organizing notes"
+    }
+  ],
+  "runtime_requirements": {
+    "browser": "chromium",
+    "playwright": ">=1.40.0"
+  },
+  "capabilities": [
+    "network-capture",
+    "http-fetch",
+    "headed-takeover",
+    "frames",
+    "keyboard-input",
+    "cg-legacy-page-api"
+  ],
+  "exportFrequency": "weekly",
+  "consumer_metadata": {
+    "display_name": "iCloud Notes",
+    "brand_domain": "icloud.com",
+    "icon_key": "icloud_notes",
+    "default_scope": "icloud_notes.notes"
+  }
+}

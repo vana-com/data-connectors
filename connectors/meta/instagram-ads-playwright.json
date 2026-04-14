@@ -1,14 +1,16 @@
 {
-  "id": "instagram-ads-playwright",
+  "manifest_version": "1.0",
+  "connector_id": "instagram-ads-playwright",
+  "source_id": "instagram",
   "version": "1.0.0",
   "name": "Instagram Ads",
   "company": "Meta",
-  "iconURL": "icons/instagram.svg",
   "description": "Exports your Instagram ad interests — advertisers and ad topics.",
-  "connectURL": "https://accountscenter.instagram.com/ads/",
-  "connectSelector": "[role='button'][aria-label*='advertiser' i], [role='list'] [role='listitem']",
-  "exportFrequency": "daily",
   "runtime": "playwright",
+  "page_api_version": 1,
+  "connect_url": "https://accountscenter.instagram.com/ads/",
+  "connect_selector": "[role='button'][aria-label*='advertiser' i], [role='list'] [role='listitem']",
+  "icon": "icons/instagram.svg",
   "scopes": [
     {
       "scope": "instagram.ads",
@@ -16,7 +18,18 @@
       "description": "Advertisers you've interacted with and ad topics based on your activity"
     }
   ],
+  "id": "instagram-ads-playwright",
+  "connectURL": "https://accountscenter.instagram.com/ads/",
+  "connectSelector": "[role='button'][aria-label*='advertiser' i], [role='list'] [role='listitem']",
+  "iconURL": "icons/instagram.svg",
+  "exportFrequency": "daily",
   "vectorize_config": {
     "documents": "name"
+  },
+  "consumer_metadata": {
+    "display_name": "Instagram Ads",
+    "brand_domain": "instagram.com",
+    "icon_key": "instagram",
+    "default_scope": "instagram.ads"
   }
 }

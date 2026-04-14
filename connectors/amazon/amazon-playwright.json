@@ -1,14 +1,16 @@
 {
-  "id": "amazon-playwright",
+  "manifest_version": "1.0",
+  "connector_id": "amazon-playwright",
+  "source_id": "amazon",
   "version": "1.0.0",
   "name": "Amazon",
   "company": "Amazon",
-  "iconURL": "icons/amazon.svg",
-  "description": "Exports your Amazon order history and profile information using Playwright browser automation.",
-  "connectURL": "https://www.amazon.com",
-  "connectSelector": "#nav-link-accountList span.nav-line-1",
-  "exportFrequency": "weekly",
+  "description": "Exports your Amazon order history and profile information.",
   "runtime": "playwright",
+  "page_api_version": 1,
+  "connect_url": "https://www.amazon.com",
+  "connect_selector": "#nav-link-accountList span.nav-line-1",
+  "icon": "icons/amazon.svg",
   "scopes": [
     {
       "scope": "amazon.profile",
@@ -21,6 +23,11 @@
       "description": "Order history including items, prices, dates, and delivery status"
     }
   ],
+  "id": "amazon-playwright",
+  "connectURL": "https://www.amazon.com",
+  "connectSelector": "#nav-link-accountList span.nav-line-1",
+  "iconURL": "icons/amazon.svg",
+  "exportFrequency": "weekly",
   "vectorize_config": {
     "documents": "orders"
   }

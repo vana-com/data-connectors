@@ -232,6 +232,10 @@ function loadMetadata(connectorEntry) {
   }
 }
 
+function resolveSchemaPath(metadataPath, scope) {
+  return path.join(path.dirname(metadataPath), 'schemas', `${scope}.json`);
+}
+
 function validateCached(connectorEntry, opts) {
   const outputPath = path.join(RESULTS_DIR, `${connectorEntry.id}.json`);
   const loaded = loadMetadata(connectorEntry);
@@ -265,9 +269,8 @@ function validateCached(connectorEntry, opts) {
 
   let schemaErrors = [];
   if (opts.validateSchemas) {
-    const schemasDir = path.join(ROOT, 'schemas');
     for (const scope of validation.scopesFound) {
-      const schemaPath = path.join(schemasDir, `${scope}.json`);
+      const schemaPath = resolveSchemaPath(loaded.metadataPath, scope);
       if (!fs.existsSync(schemaPath)) continue;
       try {
         const schemaFile = JSON.parse(fs.readFileSync(schemaPath, 'utf-8'));
@@ -372,9 +375,8 @@ function runConnector(connectorEntry, opts) {
         // Optional schema validation
         let schemaErrors = [];
         if (opts.validateSchemas) {
-          const schemasDir = path.join(ROOT, 'schemas');
           for (const scope of validation.scopesFound) {
-            const schemaPath = path.join(schemasDir, `${scope}.json`);
+            const schemaPath = resolveSchemaPath(loaded.metadataPath, scope);
             if (!fs.existsSync(schemaPath)) continue;
             try {
               const schemaFile = JSON.parse(fs.readFileSync(schemaPath, 'utf-8'));

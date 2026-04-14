@@ -1,14 +1,16 @@
 {
-  "id": "youtube-playwright",
+  "manifest_version": "1.0",
+  "connector_id": "youtube-playwright",
+  "source_id": "youtube",
   "version": "1.0.0",
   "name": "YouTube",
   "company": "Google",
-  "iconURL": "icons/youtube.svg",
-  "description": "Exports your YouTube profile, subscriptions, playlists, playlist items, liked videos, watch later list, and top 50 recent watch history entries using Playwright browser automation.",
-  "connectURL": "https://www.youtube.com/",
-  "connectSelector": "button#avatar-btn, ytd-topbar-menu-button-renderer button#avatar-btn",
-  "exportFrequency": "weekly",
+  "description": "Exports your YouTube profile, subscriptions, playlists, playlist items, liked videos, watch later list, and top 50 recent watch history entries.",
   "runtime": "playwright",
+  "page_api_version": 1,
+  "connect_url": "https://www.youtube.com/",
+  "connect_selector": "button#avatar-btn, ytd-topbar-menu-button-renderer button#avatar-btn",
+  "icon": "icons/youtube.svg",
   "scopes": [
     {
       "scope": "youtube.profile",
@@ -46,7 +48,18 @@
       "description": "Raw watch history entries for the top 50 most recent items"
     }
   ],
+  "id": "youtube-playwright",
+  "connectURL": "https://www.youtube.com/",
+  "connectSelector": "button#avatar-btn, ytd-topbar-menu-button-renderer button#avatar-btn",
+  "iconURL": "icons/youtube.svg",
+  "exportFrequency": "weekly",
   "vectorize_config": {
     "documents": "history"
+  },
+  "consumer_metadata": {
+    "display_name": "YouTube",
+    "brand_domain": "youtube.com",
+    "icon_key": "youtube",
+    "default_scope": "youtube.profile"
   }
 }

@@ -1,14 +1,16 @@
 {
-  "id": "doordash-playwright",
+  "manifest_version": "1.0",
+  "connector_id": "doordash-playwright",
+  "source_id": "doordash",
   "version": "1.0.0",
   "name": "DoorDash",
   "company": "doordash",
-  "iconURL": "icons/doordash.svg",
   "description": "Exports your DoorDash order history including restaurant names, items ordered, dates, totals, and delivery status.",
-  "connectURL": "https://www.doordash.com",
-  "connectSelector": "a[href*='/orders'], [data-testid='AccountButton'], button[aria-label*='account' i]",
-  "exportFrequency": "weekly",
   "runtime": "playwright",
+  "page_api_version": 1,
+  "connect_url": "https://www.doordash.com",
+  "connect_selector": "a[href*='/orders'], [data-testid='AccountButton'], button[aria-label*='account' i]",
+  "icon": "icons/doordash.svg",
   "scopes": [
     {
       "scope": "doordash.orders",
@@ -16,6 +18,11 @@
       "description": "Complete order history with restaurant names, items ordered, dates, totals, and delivery status"
     }
   ],
+  "id": "doordash-playwright",
+  "connectURL": "https://www.doordash.com",
+  "connectSelector": "a[href*='/orders'], [data-testid='AccountButton'], button[aria-label*='account' i]",
+  "iconURL": "icons/doordash.svg",
+  "exportFrequency": "weekly",
   "vectorize_config": {
     "documents": "orders"
   }
