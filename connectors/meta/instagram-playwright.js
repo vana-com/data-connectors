@@ -73,8 +73,19 @@ const safeGoto = async (url, options = {}) => {
       console.error(
         `[instagram] Navigation attempt ${attempt}/${attempts} failed for ${url}: ${message}`,
       );
+      // Once the underlying page/context/browser is closed, further
+      // retries cannot succeed — the target is gone. Bail out with
+      // `false` so the caller can skip the scope instead of letting
+      // the next page.sleep throw and kill the whole script.
+      if (/target.*closed|context.*closed|browser.*closed/i.test(message)) {
+        return false;
+      }
       if (attempt < attempts) {
-        await page.sleep(betweenMs);
+        try {
+          await page.sleep(betweenMs);
+        } catch {
+          return false;
+        }
       }
     }
   }

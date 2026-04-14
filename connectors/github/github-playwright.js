@@ -47,8 +47,15 @@ const safeGoto = async (url, options = {}) => {
       console.error(
         `[github] Navigation attempt ${attempt}/${attempts} failed for ${url}: ${message}`,
       );
+      if (/target.*closed|context.*closed|browser.*closed/i.test(message)) {
+        return false;
+      }
       if (attempt < attempts) {
-        await page.sleep(betweenMs);
+        try {
+          await page.sleep(betweenMs);
+        } catch {
+          return false;
+        }
       }
     }
   }
