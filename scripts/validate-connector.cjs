@@ -6,9 +6,15 @@
  * Validates connector files (structure) and optionally connector output (data quality).
  * Returns machine-readable JSON for use by automated agents in the create-test-validate loop.
  *
+ * Understands the canonical honest connector result contract:
+ *   - requestedScopes, errors[], reserved metadata keys
+ *   - omitted / degraded / fatal dispositions
+ *   - protocol violation detection
+ *
  * Usage:
  *   node scripts/validate-connector.cjs <connector.js>
  *   node scripts/validate-connector.cjs <connector.js> --check-result ./connector-result.json
+ *   node scripts/validate-connector.cjs <connector.js> --check-result ./connector-result.json --strict
  *
  * Exit codes:
  *   0 = all checks passed
@@ -17,6 +23,35 @@
 
 const fs = require('fs');
 const path = require('path');
+
+// ─── Honest Contract Constants ─────────────────────────────
+
+const RESERVED_METADATA_KEYS = new Set([
+  'requestedScopes',
+  'timestamp',
+  'version',
+  'platform',
+  'exportSummary',
+  'errors',
+]);
+
+const VALID_ERROR_CLASSES = new Set([
+  'auth_failed',
+  'rate_limited',
+  'upstream_error',
+  'navigation_error',
+  'network_error',
+  'selector_error',
+  'timeout',
+  'protocol_violation',
+  'runtime_error',
+  'personal_server_unavailable',
+  'unknown',
+]);
+
+const VALID_DISPOSITIONS = new Set(['omitted', 'degraded', 'fatal']);
+
+const VALID_PHASES = new Set(['init', 'auth', 'collect', 'transform', 'finalize']);
 
 // ─── Report Builder ─────────────────────────────────────────
 
@@ -235,11 +270,29 @@ function validateScript(scriptPath, check) {
     /exportSummary/.test(script),
     'Includes exportSummary in result');
 
+  // ── Honest contract script checks ──
+
+  // requestedScopes in result construction
+  const hasRequestedScopes = /requestedScopes/.test(script);
+  check('script_requested_scopes',
+    hasRequestedScopes,
+    hasRequestedScopes
+      ? 'References requestedScopes in result'
+      : 'No requestedScopes found — retrofitted connectors must include requestedScopes in the result',
+    'warning');
+
+  // errors array in result construction
+  const hasErrorsArray = /\berrors\s*:/.test(script) || /\berrors\s*=\s*\[/.test(script);
+  check('script_errors_array',
+    hasErrorsArray,
+    hasErrorsArray
+      ? 'Builds errors array in result'
+      : 'No errors[] construction found — retrofitted connectors must include errors in the result',
+    'warning');
+
   // Common mistake: function reference in page.evaluate instead of string
-  // Look for page.evaluate( followed by ( or async without a backtick or quote
   const evalLines = script.split('\n').filter(l => l.includes('page.evaluate'));
   const badEvals = evalLines.filter(l => {
-    // Match page.evaluate( NOT followed by ` or ' or "
     return /page\.evaluate\s*\(\s*(?:async\s+)?\(/.test(l) &&
       !/page\.evaluate\s*\(\s*['"`]/.test(l);
   });
@@ -321,9 +374,126 @@ function validateSchemas(metadata, connectorDir, check) {
   }
 }
 
+// ─── Protocol Violation Detection ───────────────────────────
+
+function detectProtocolViolations(result) {
+  const violations = [];
+
+  // requestedScopes must be present, non-empty array
+  if (!result.requestedScopes) {
+    violations.push('requestedScopes is missing');
+  } else if (!Array.isArray(result.requestedScopes)) {
+    violations.push('requestedScopes is not an array');
+  } else if (result.requestedScopes.length === 0) {
+    violations.push('requestedScopes is empty');
+  } else {
+    // Check for duplicates
+    const unique = new Set(result.requestedScopes);
+    if (unique.size !== result.requestedScopes.length) {
+      violations.push('requestedScopes contains duplicates');
+    }
+    // Check all entries are strings
+    for (const s of result.requestedScopes) {
+      if (typeof s !== 'string') {
+        violations.push(`requestedScopes contains non-string entry: ${JSON.stringify(s)}`);
+      }
+    }
+  }
+
+  // errors must be present and an array
+  if (!('errors' in result)) {
+    violations.push('errors is missing');
+  } else if (!Array.isArray(result.errors)) {
+    violations.push('errors is not an array');
+  }
+
+  // Required metadata fields
+  for (const key of ['timestamp', 'version', 'platform', 'exportSummary']) {
+    if (result[key] === undefined || result[key] === null) {
+      violations.push(`Missing required metadata field: ${key}`);
+    }
+  }
+
+  // Scope keys produced outside requestedScopes
+  if (Array.isArray(result.requestedScopes)) {
+    const requested = new Set(result.requestedScopes);
+    for (const key of Object.keys(result)) {
+      if (RESERVED_METADATA_KEYS.has(key)) continue;
+      if (key.includes('.') && !requested.has(key)) {
+        violations.push(`Scope key "${key}" produced outside requestedScopes`);
+      }
+    }
+  }
+
+  return violations;
+}
+
+// ─── Error Entry Validation ─────────────────────────────────
+
+function validateErrorEntries(errors, check, strict) {
+  if (!Array.isArray(errors)) return;
+
+  for (let i = 0; i < errors.length; i++) {
+    const entry = errors[i];
+    const prefix = `errors[${i}]`;
+
+    // Required fields
+    const hasErrorClass = entry.errorClass && typeof entry.errorClass === 'string';
+    check(`${prefix}_errorClass`, hasErrorClass,
+      hasErrorClass
+        ? `errorClass: "${entry.errorClass}"`
+        : `${prefix}: missing or invalid errorClass`);
+
+    if (hasErrorClass) {
+      check(`${prefix}_errorClass_valid`, VALID_ERROR_CLASSES.has(entry.errorClass),
+        VALID_ERROR_CLASSES.has(entry.errorClass)
+          ? `errorClass "${entry.errorClass}" is in the shared taxonomy`
+          : `errorClass "${entry.errorClass}" is not in the shared taxonomy: ${[...VALID_ERROR_CLASSES].join(', ')}`,
+        strict ? 'error' : 'warning');
+    }
+
+    const hasReason = entry.reason && typeof entry.reason === 'string';
+    check(`${prefix}_reason`, hasReason,
+      hasReason
+        ? `reason: "${entry.reason.substring(0, 80)}"`
+        : `${prefix}: missing or invalid reason`);
+
+    const hasDisposition = entry.disposition && typeof entry.disposition === 'string';
+    check(`${prefix}_disposition`, hasDisposition,
+      hasDisposition
+        ? `disposition: "${entry.disposition}"`
+        : `${prefix}: missing disposition`);
+
+    if (hasDisposition) {
+      check(`${prefix}_disposition_valid`, VALID_DISPOSITIONS.has(entry.disposition),
+        VALID_DISPOSITIONS.has(entry.disposition)
+          ? `disposition "${entry.disposition}" is valid`
+          : `disposition "${entry.disposition}" must be one of: omitted, degraded, fatal`);
+
+      // omitted and degraded require scope
+      if (entry.disposition === 'omitted' || entry.disposition === 'degraded') {
+        const hasScope = entry.scope && typeof entry.scope === 'string';
+        check(`${prefix}_scope_required`, hasScope,
+          hasScope
+            ? `scope: "${entry.scope}"`
+            : `${prefix}: disposition "${entry.disposition}" requires a scope field`);
+      }
+    }
+
+    // Phase is optional but should be from the stable set if present
+    if (entry.phase) {
+      check(`${prefix}_phase_valid`, VALID_PHASES.has(entry.phase),
+        VALID_PHASES.has(entry.phase)
+          ? `phase: "${entry.phase}"`
+          : `phase "${entry.phase}" is not in the preferred set (${[...VALID_PHASES].join(', ')}) — non-blocking`,
+        'warning');
+    }
+  }
+}
+
 // ─── Output Validation ──────────────────────────────────────
 
-function validateOutput(resultPath, metadata, connectorDir, check) {
+function validateOutput(resultPath, metadata, connectorDir, check, strict) {
   check('result_exists', fs.existsSync(resultPath),
     fs.existsSync(resultPath) ? `Found: ${path.basename(resultPath)}` : `Missing: ${resultPath}`);
 
@@ -338,9 +508,96 @@ function validateOutput(resultPath, metadata, connectorDir, check) {
     return;
   }
 
-  // Identify scoped keys (keys containing '.' that aren't metadata)
-  const metaKeyNames = new Set(['exportSummary', 'timestamp', 'version', 'platform']);
-  const scopedKeys = Object.keys(result).filter(k => k.includes('.') && !metaKeyNames.has(k));
+  // ── Honest contract validation ──
+
+  // Detect whether this result uses the honest contract
+  const hasRequestedScopes = Array.isArray(result.requestedScopes);
+  const hasErrors = Array.isArray(result.errors);
+  const isHonestContract = hasRequestedScopes && hasErrors;
+
+  // In non-strict mode, missing requestedScopes/errors is a warning (transitional)
+  // In strict mode, it's an error (protocol violation)
+  const contractSeverity = strict ? 'error' : 'warning';
+
+  check('result_requested_scopes', hasRequestedScopes,
+    hasRequestedScopes
+      ? `requestedScopes: [${result.requestedScopes.join(', ')}]`
+      : 'Missing requestedScopes — retrofitted connectors must include requestedScopes',
+    contractSeverity);
+
+  check('result_errors_array', hasErrors,
+    hasErrors
+      ? `errors: ${result.errors.length} entries`
+      : 'Missing errors[] — retrofitted connectors must include errors array',
+    contractSeverity);
+
+  // Protocol violation detection (only when the honest contract is present)
+  if (isHonestContract) {
+    const violations = detectProtocolViolations(result);
+    check('result_protocol_violations', violations.length === 0,
+      violations.length === 0
+        ? 'No protocol violations detected'
+        : `Protocol violations: ${violations.join('; ')}`);
+
+    // Validate error entries
+    validateErrorEntries(result.errors, check, strict);
+
+    // Scope membership: every produced scope key must be in requestedScopes
+    const requested = new Set(result.requestedScopes);
+    const scopedKeys = Object.keys(result).filter(
+      k => !RESERVED_METADATA_KEYS.has(k) && k.includes('.')
+    );
+
+    for (const key of scopedKeys) {
+      check(`result_scope_membership_${key}`, requested.has(key),
+        requested.has(key)
+          ? `Scope "${key}" is a member of requestedScopes`
+          : `Scope "${key}" produced outside requestedScopes — protocol violation`);
+    }
+
+    // Check for omitted scopes: requested but not produced and no omitted error
+    const producedScopes = new Set(scopedKeys);
+    const omittedInErrors = new Set(
+      result.errors
+        .filter(e => e.disposition === 'omitted' && e.scope)
+        .map(e => e.scope)
+    );
+    const degradedInErrors = new Set(
+      result.errors
+        .filter(e => e.disposition === 'degraded' && e.scope)
+        .map(e => e.scope)
+    );
+
+    for (const scope of result.requestedScopes) {
+      if (!producedScopes.has(scope) && !omittedInErrors.has(scope)) {
+        check(`result_scope_accounted_${scope}`, false,
+          `Requested scope "${scope}" is neither produced nor reported as omitted in errors[]`,
+          strict ? 'error' : 'warning');
+      }
+      if (producedScopes.has(scope) && omittedInErrors.has(scope)) {
+        check(`result_scope_conflict_${scope}`, false,
+          `Scope "${scope}" is both produced and reported as omitted — contradictory`);
+      }
+    }
+
+    // Scope-level summary
+    check('result_scope_summary', true,
+      `Scope summary: ${requested.size} requested, ${producedScopes.size} produced, ${degradedInErrors.size} degraded, ${omittedInErrors.size} omitted`);
+
+  } else {
+    // Legacy result — fall through to the original scope-based checks
+    check('result_honest_contract', false,
+      'Result does not use the honest contract (missing requestedScopes and/or errors[]). ' +
+      'Retrofitted connectors should include both.',
+      'warning');
+  }
+
+  // ── Common checks (both legacy and honest) ──
+
+  // Identify scoped keys
+  const scopedKeys = Object.keys(result).filter(
+    k => k.includes('.') && !RESERVED_METADATA_KEYS.has(k)
+  );
 
   check('result_has_scopes', scopedKeys.length > 0,
     scopedKeys.length > 0
@@ -348,20 +605,24 @@ function validateOutput(resultPath, metadata, connectorDir, check) {
       : 'No scoped keys found in result');
 
   // Validate each scope has data
-  let totalItems = 0;
   for (const key of scopedKeys) {
     const data = result[key];
     const isEmpty = data === null || data === undefined ||
       (typeof data === 'object' && Object.keys(data).length === 0);
 
-    check(`result_${key}_not_empty`, !isEmpty,
-      isEmpty ? `Scope "${key}" is empty` : `Scope "${key}" has data`);
+    // Under the honest contract, empty-but-present scope payloads are valid
+    if (isHonestContract) {
+      check(`result_${key}_present`, true,
+        isEmpty ? `Scope "${key}" is present but empty (valid under honest contract)` : `Scope "${key}" has data`);
+    } else {
+      check(`result_${key}_not_empty`, !isEmpty,
+        isEmpty ? `Scope "${key}" is empty` : `Scope "${key}" has data`);
+    }
 
     // Count items in arrays
     if (data && typeof data === 'object') {
       for (const [field, value] of Object.entries(data)) {
         if (Array.isArray(value)) {
-          totalItems += value.length;
           check(`result_${key}_${field}_count`, value.length > 0,
             `${key}.${field}: ${value.length} items`,
             value.length === 0 ? 'warning' : 'error');
@@ -411,17 +672,31 @@ function validateOutput(resultPath, metadata, connectorDir, check) {
     }
   }
 
-  // Sanity check: if we expected scopes from metadata, check they all appeared
+  // Sanity check: if we expected scopes from metadata, check they all appeared.
+  // Under the honest contract, a scope validly omitted via errors[] is accounted for.
   if (metadata?.scopes && Array.isArray(metadata.scopes)) {
+    const omittedInResult = isHonestContract
+      ? new Set(
+          result.errors
+            .filter(e => e.disposition === 'omitted' && e.scope)
+            .map(e => e.scope)
+        )
+      : new Set();
+
     for (const scope of metadata.scopes) {
       const scopeName = scope.scope || scope.name;
-      if (scopeName) {
-        check(`result_expected_scope_${scopeName}`,
-          scopedKeys.includes(scopeName),
-          scopedKeys.includes(scopeName)
-            ? `Expected scope "${scopeName}" present in output`
+      if (!scopeName) continue;
+
+      const produced = scopedKeys.includes(scopeName);
+      const honestlyOmitted = omittedInResult.has(scopeName);
+
+      check(`result_expected_scope_${scopeName}`,
+        produced || honestlyOmitted,
+        produced
+          ? `Expected scope "${scopeName}" present in output`
+          : honestlyOmitted
+            ? `Expected scope "${scopeName}" honestly omitted via errors[]`
             : `Expected scope "${scopeName}" missing from output`);
-      }
     }
   }
 }
@@ -435,12 +710,19 @@ function main() {
     console.log(`
 Connector Validator — validates structure and output of data connectors.
 
+Understands the canonical honest connector result contract:
+  - requestedScopes, errors[], reserved metadata keys
+  - omitted / degraded / fatal dispositions
+  - protocol violation detection
+
 Usage:
   node scripts/validate-connector.cjs <connector.js>
   node scripts/validate-connector.cjs <connector.js> --check-result <result.json>
+  node scripts/validate-connector.cjs <connector.js> --check-result <result.json> --strict
 
 Flags:
   --check-result <file>  Also validate connector output data
+  --strict               Treat missing honest contract fields as errors (not warnings)
   --help, -h             Show this help
 
 Output: JSON report to stdout. Exit code 0 = valid, 1 = invalid.
@@ -450,10 +732,13 @@ Output: JSON report to stdout. Exit code 0 = valid, 1 = invalid.
 
   const connectorPath = path.resolve(args[0]);
   let resultPath = null;
+  let strict = false;
 
   for (let i = 1; i < args.length; i++) {
     if (args[i] === '--check-result' && args[i + 1]) {
       resultPath = path.resolve(args[++i]);
+    } else if (args[i] === '--strict') {
+      strict = true;
     }
   }
 
@@ -469,7 +754,7 @@ Output: JSON report to stdout. Exit code 0 = valid, 1 = invalid.
   validateSchemas(metadata, connectorDir, check);
 
   if (resultPath) {
-    validateOutput(resultPath, metadata, connectorDir, check);
+    validateOutput(resultPath, metadata, connectorDir, check, strict);
   }
 
   // Output

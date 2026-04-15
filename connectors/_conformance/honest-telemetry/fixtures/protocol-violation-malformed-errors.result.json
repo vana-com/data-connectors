@@ -1,0 +1,20 @@
+{
+  "requestedScopes": [
+    "conformance.profile"
+  ],
+  "timestamp": "2026-04-14T12:25:00.000Z",
+  "version": "1.0.0",
+  "platform": "conformance",
+  "exportSummary": {
+    "count": 0,
+    "label": "0 records exported"
+  },
+  "errors": [
+    {
+      "errorClass": "selector_error",
+      "reason": "Profile extraction failed.",
+      "disposition": "omitted",
+      "phase": "collect"
+    }
+  ]
+}

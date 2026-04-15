@@ -2,7 +2,7 @@
   "manifest_version": "1.0",
   "connector_id": "oura-playwright",
   "source_id": "oura",
-  "version": "1.0.1",
+  "version": "2.0.0",
   "name": "Oura Ring",
   "company": "Oura",
   "description": "Exports your Oura Ring readiness scores, sleep data, and daily activity.",

@@ -1,6 +1,6 @@
 {
   "version": "2.0.0",
-  "lastUpdated": "2026-04-13T00:00:00Z",
+  "lastUpdated": "2026-04-15T00:00:00Z",
   "baseUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main/connectors",
   "connectors": [
     {
@@ -32,7 +32,7 @@
     {
       "id": "github-playwright",
       "company": "github",
-      "version": "1.1.4",
+      "version": "1.2.0",
       "name": "GitHub",
       "status": "stable",
       "description": "Exports your GitHub profile, repositories, and starred repositories.",
@@ -48,14 +48,14 @@
         "metadata": "github/github-playwright.json"
       },
       "checksums": {
-        "script": "sha256:f16f3296557bacf7ac8f0147e61253a03833e4d112936997757704801e866f8b",
-        "metadata": "sha256:72521c9a991f0587134214c835679de737d313a19e88478bc4ef40cf9e3fc89f"
+        "script": "sha256:486d4d0642132105877ab42a3807b59601619c2bb8aa9a60afdfd9cf6da58448",
+        "metadata": "sha256:bac5c9a4d617c12e56d0056f6d55db2c652a263690008785ceda31f28e1cfd48"
       }
     },
     {
       "id": "instagram-playwright",
       "company": "meta",
-      "version": "1.1.0",
+      "version": "2.1.0",
       "name": "Instagram",
       "status": "stable",
       "description": "Exports your Instagram profile and posts.",
@@ -74,8 +74,8 @@
         "metadata": "meta/instagram-playwright.json"
       },
       "checksums": {
-        "script": "sha256:1a75e0075ba4fb4340ec0833a11b9b210dd04de30edeebfdc05e17523320e90e",
-        "metadata": "sha256:cafc2a147f64dea779ae8ead2df4547241f8fec90afc08718f253f710a15e0bc"
+        "script": "sha256:09c2f905cb73500750b63c82cd9b96f8d5e6429254b9f0a68e8c3b14df300d4c",
+        "metadata": "sha256:d837e66b63c1a188bf0a60e92b5fd9dcd9cd4672133d93dd02c06c16bc2bfb95"
       }
     },
     {
@@ -193,6 +193,29 @@
       }
     },
     {
+      "id": "google-api-playwright",
+      "company": "google",
+      "version": "1.0.0",
+      "name": "Google My Activity (API)",
+      "status": "experimental",
+      "description": "Exports your Google My Activity feed across all Google products (Search, Maps, YouTube, Play, Assistant, apps) using API-first batchexecute replay. No DOM scraping for data.",
+      "consumerMetadata": {
+        "sourceId": "google",
+        "displayName": "Google My Activity",
+        "brandDomain": "google.com",
+        "iconKey": "google",
+        "defaultScope": "google.myactivity"
+      },
+      "files": {
+        "script": "google/google-api-playwright.js",
+        "metadata": "google/google-api-playwright.json"
+      },
+      "checksums": {
+        "script": "sha256:81fbffbd7ef04fb2a4cfbc3d00d86691752994b210fb62457b84d37a58495f9e",
+        "metadata": "sha256:737c94f03092aa07ba8648be3347850b48ff6be55bf2dba7e2a384fabc39f0ff"
+      }
+    },
+    {
       "id": "shop-playwright",
       "company": "shopify",
       "version": "1.0.0",
@@ -221,7 +244,7 @@
     {
       "id": "oura-playwright",
       "company": "oura",
-      "version": "1.0.1",
+      "version": "2.0.0",
       "name": "Oura Ring",
       "status": "stable",
       "description": "Exports your Oura Ring readiness scores, sleep data, and daily activity.",
@@ -240,8 +263,8 @@
         "metadata": "oura/oura-playwright.json"
       },
       "checksums": {
-        "script": "sha256:8535a104e9892ced48a54a47e5d61a4d2b45fb00dd1109631b5fffa311d9aa02",
-        "metadata": "sha256:59dd8496619999db8d6e11663a70c57189e725199e5ed9e2c70be874575542d2"
+        "script": "sha256:2aa33b0e5dab3838faff8fac1d2b219378b3ac5540572911143479299442c4db",
+        "metadata": "sha256:628564732b13157fe9ad9be09495d3fc6d2b9f32ca9ba30bee20f5e165814d49"
       }
     },
     {
@@ -251,6 +274,16 @@
       "name": "Whole Foods Market",
       "status": "experimental",
       "description": "Exports your Whole Foods Market order history (via Amazon) and product nutrition data.",
+      "consumerMetadata": {
+        "sourceId": "wholefoods",
+        "displayName": "Whole Foods Market",
+        "brandDomain": "wholefoodsmarket.com",
+        "aliases": [
+          "whole foods"
+        ],
+        "iconKey": "wholefoods",
+        "defaultScope": "wholefoods.orders"
+      },
       "files": {
         "script": "wholefoods/wholefoods-playwright.js",
         "metadata": "wholefoods/wholefoods-playwright.json"
@@ -283,6 +316,13 @@
       "name": "H-E-B",
       "status": "experimental",
       "description": "Exports your H-E-B account profile, order history, and product nutrition data.",
+      "consumerMetadata": {
+        "sourceId": "heb",
+        "displayName": "H-E-B",
+        "brandDomain": "heb.com",
+        "iconKey": "heb",
+        "defaultScope": "heb.orders"
+      },
       "files": {
         "script": "heb/heb-playwright.js",
         "metadata": "heb/heb-playwright.json"
@@ -359,7 +399,7 @@
     {
       "id": "icloud-notes-playwright",
       "company": "Apple",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "name": "iCloud Notes",
       "status": "experimental",
       "description": "Exports your Apple Notes and folders from iCloud.",
@@ -375,8 +415,8 @@
         "metadata": "apple/icloud-notes-playwright.json"
       },
       "checksums": {
-        "script": "sha256:5c2db6eb459db477d72e1630ed87697cc06c4699fbe2c909ad8a0f9206ca1e8a",
-        "metadata": "sha256:4784600faef6354d38c1ff4d3c546d75ab920cd794e56fee76b6301cc860dfdd"
+        "script": "sha256:ab465031ce09187c70890f4498fb0d650d0ea0dd7a11d558496d834a00076188",
+        "metadata": "sha256:1b43c2ab74a7dc8bb2271b5be9d6f1d1e64d3f636604332f67439663bfd62bce"
       }
     }
   ]

@@ -1,0 +1,32 @@
+{
+  "requestedScopes": [
+    "conformance.profile",
+    "conformance.activity"
+  ],
+  "timestamp": "2026-04-14T12:15:00.000Z",
+  "version": "1.0.0",
+  "platform": "conformance",
+  "exportSummary": {
+    "count": 1,
+    "label": "1 provisional record exported"
+  },
+  "errors": [
+    {
+      "errorClass": "auth_failed",
+      "reason": "Authentication expired during collection, making the run untrustworthy.",
+      "disposition": "fatal",
+      "phase": "auth"
+    },
+    {
+      "errorClass": "auth_failed",
+      "reason": "Activity scope could not be collected after auth expired.",
+      "disposition": "omitted",
+      "scope": "conformance.activity",
+      "phase": "collect"
+    }
+  ],
+  "conformance.profile": {
+    "id": "user-1",
+    "displayName": "Ada Lovelace"
+  }
+}

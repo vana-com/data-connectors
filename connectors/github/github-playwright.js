@@ -15,6 +15,104 @@ const state = {
   isComplete: false,
 };
 
+const PLATFORM = "github";
+const VERSION = "1.2.0";
+const CANONICAL_SCOPES = [
+  "github.profile",
+  "github.repositories",
+  "github.starred",
+];
+
+const makeConnectorError = (
+  errorClass,
+  reason,
+  disposition,
+  extras = {},
+) => ({
+  errorClass,
+  reason,
+  disposition,
+  ...extras,
+});
+
+const makeFatalRunError = (errorClass, reason, phase = "collect") => {
+  const error = new Error(reason);
+  error.telemetryError = makeConnectorError(errorClass, reason, "fatal", {
+    phase,
+  });
+  return error;
+};
+
+const inferErrorClass = (message, fallback = "runtime_error") => {
+  const text = String(message || "").toLowerCase();
+  if (text.includes("auth") || text.includes("login") || text.includes("credential")) {
+    return "auth_failed";
+  }
+  if (text.includes("timeout") || text.includes("timed out")) {
+    return "timeout";
+  }
+  if (
+    text.includes("network") ||
+    text.includes("fetch") ||
+    text.includes("net::")
+  ) {
+    return "network_error";
+  }
+  return fallback;
+};
+
+const formatExportSummaryDetails = (repositories, starred) => ({
+  repositories,
+  starred,
+});
+
+const buildResult = ({ requestedScopes, scopes, errors, exportSummary }) => ({
+  requestedScopes: [...requestedScopes],
+  timestamp: new Date().toISOString(),
+  version: VERSION,
+  platform: PLATFORM,
+  exportSummary,
+  errors,
+  ...scopes,
+});
+
+const buildEmptyResult = (requestedScopes, errors) =>
+  buildResult({
+    requestedScopes,
+    scopes: {},
+    errors,
+    exportSummary: {
+      count: 0,
+      label: "items",
+      details: formatExportSummaryDetails(0, 0),
+    },
+  });
+
+const resolveRequestedScopes = () => {
+  const raw =
+    typeof page.requestedScopes === "function" ? page.requestedScopes() : null;
+  if (raw == null) {
+    return [...CANONICAL_SCOPES];
+  }
+  if (!Array.isArray(raw) || raw.length === 0) {
+    throw makeFatalRunError(
+      "protocol_violation",
+      "GitHub connector received an empty or invalid requestedScopes array.",
+      "init",
+    );
+  }
+  const deduped = Array.from(new Set(raw));
+  const invalid = deduped.filter((scope) => !CANONICAL_SCOPES.includes(scope));
+  if (invalid.length > 0) {
+    throw makeFatalRunError(
+      "protocol_violation",
+      `GitHub connector received unsupported requestedScopes: ${invalid.join(", ")}.`,
+      "init",
+    );
+  }
+  return deduped;
+};
+
 const withTimeout = async (promise, ms, label) => {
   let timeoutId = null;
   try {
@@ -82,7 +180,7 @@ const toInt = (raw) => {
 };
 `;
 
-const checkLoggedIn = async () => {
+const checkLoginStatus = async () => {
   try {
     return await page.evaluate(`
       (() => {
@@ -124,13 +222,33 @@ const resolveUsername = async () => {
 };
 
 const extractProfile = async (username) => {
-  if (!isValidGitHubUsername(username)) return null;
+  if (!isValidGitHubUsername(username)) {
+    return {
+      ok: false,
+      error: makeConnectorError(
+        "runtime_error",
+        "Could not resolve a valid GitHub username for profile collection.",
+        "omitted",
+        { scope: "github.profile", phase: "collect" },
+      ),
+    };
+  }
 
-  if (!(await safeGoto(`https://github.com/${username}`))) return null;
+  if (!(await safeGoto(`https://github.com/${username}`))) {
+    return {
+      ok: false,
+      error: makeConnectorError(
+        "navigation_error",
+        `Could not reach the GitHub profile page for @${username}.`,
+        "omitted",
+        { scope: "github.profile", phase: "collect" },
+      ),
+    };
+  }
   await page.sleep(1500);
 
   try {
-    return await page.evaluate(`
+    const profile = await page.evaluate(`
       (() => {
         ${TO_INT_HELPER}
 
@@ -161,20 +279,60 @@ const extractProfile = async (username) => {
         };
       })()
     `);
+    if (!profile || !isValidGitHubUsername(profile.username)) {
+      return {
+        ok: false,
+        error: makeConnectorError(
+          "selector_error",
+          `Could not extract a trustworthy GitHub profile payload for @${username}.`,
+          "omitted",
+          { scope: "github.profile", phase: "collect" },
+        ),
+      };
+    }
+    return { ok: true, data: profile };
   } catch {
-    return null;
+    return {
+      ok: false,
+      error: makeConnectorError(
+        "selector_error",
+        `Could not read the GitHub profile DOM for @${username}.`,
+        "omitted",
+        { scope: "github.profile", phase: "collect" },
+      ),
+    };
   }
 };
 
 const extractRepositories = async (username) => {
-  if (!isValidGitHubUsername(username)) return [];
+  if (!isValidGitHubUsername(username)) {
+    return {
+      ok: false,
+      data: [],
+      error: makeConnectorError(
+        "runtime_error",
+        "Could not resolve a valid GitHub username for repositories collection.",
+        "omitted",
+        { scope: "github.repositories", phase: "collect" },
+      ),
+    };
+  }
 
   const all = [];
   const seen = new Set();
   const maxPages = 60;
+  let unresolvedError = null;
 
   for (let pageIndex = 1; pageIndex <= maxPages; pageIndex++) {
-    if (!(await safeGoto(`https://github.com/${username}?page=${pageIndex}&tab=repositories`))) break;
+    if (!(await safeGoto(`https://github.com/${username}?page=${pageIndex}&tab=repositories`))) {
+      unresolvedError = makeConnectorError(
+        "navigation_error",
+        `Could not reach repositories page ${pageIndex} for @${username}.`,
+        all.length > 0 ? "degraded" : "omitted",
+        { scope: "github.repositories", phase: "collect" },
+      );
+      break;
+    }
     await page.sleep(1000);
 
     try {
@@ -228,22 +386,45 @@ const extractRepositories = async (username) => {
         break;
       }
     } catch {
+      unresolvedError = makeConnectorError(
+        "selector_error",
+        `Could not read repositories page ${pageIndex} for @${username}.`,
+        all.length > 0 ? "degraded" : "omitted",
+        { scope: "github.repositories", phase: "collect" },
+      );
       break;
     }
   }
 
-  return all;
+  return {
+    ok: unresolvedError === null || all.length > 0,
+    data: all,
+    error: unresolvedError,
+  };
 };
 
 const extractStarred = async (username) => {
-  if (!isValidGitHubUsername(username)) return [];
+  if (!isValidGitHubUsername(username)) {
+    return {
+      ok: false,
+      data: [],
+      error: makeConnectorError(
+        "runtime_error",
+        "Could not resolve a valid GitHub username for starred repositories collection.",
+        "omitted",
+        { scope: "github.starred", phase: "collect" },
+      ),
+    };
+  }
 
   const all = [];
   const seen = new Set();
   const maxPages = 60;
+  let unresolvedError = null;
 
   for (let pageIndex = 1; pageIndex <= maxPages; pageIndex++) {
     let pageResult = { list: [], hasNext: false };
+    let reachedStarredPage = false;
     const pageUrls = [
       `https://github.com/${username}?page=${pageIndex}&tab=stars`,
       `https://github.com/stars/${username}?page=${pageIndex}`,
@@ -251,7 +432,10 @@ const extractStarred = async (username) => {
 
     try {
       for (const pageUrl of pageUrls) {
-        if (!(await safeGoto(pageUrl))) continue;
+        if (!(await safeGoto(pageUrl))) {
+          continue;
+        }
+        reachedStarredPage = true;
         await page.sleep(1500);
 
         const candidate = await page.evaluate(`
@@ -352,6 +536,16 @@ const extractStarred = async (username) => {
         }
       }
 
+      if (!reachedStarredPage) {
+        unresolvedError = makeConnectorError(
+          "navigation_error",
+          `Could not reach a starred repositories page for @${username}.`,
+          all.length > 0 ? "degraded" : "omitted",
+          { scope: "github.starred", phase: "collect" },
+        );
+        break;
+      }
+
       const pageItems = Array.isArray(pageResult?.list) ? pageResult.list : [];
       for (const repo of pageItems) {
         if (!repo?.url || seen.has(repo.url)) continue;
@@ -365,242 +559,347 @@ const extractStarred = async (username) => {
         break;
       }
     } catch {
+      unresolvedError = makeConnectorError(
+        "selector_error",
+        `Could not read starred repositories page ${pageIndex} for @${username}.`,
+        all.length > 0 ? "degraded" : "omitted",
+        { scope: "github.starred", phase: "collect" },
+      );
       break;
     }
   }
 
-  return all;
+  return {
+    ok: unresolvedError === null || all.length > 0,
+    data: all,
+    error: unresolvedError,
+  };
 };
 
 // ── Main Flow ────────────────────────────────────────────────────────
-
-await page.setData('status', 'Checking GitHub login...');
-if (!(await safeGoto('https://github.com/'))) {
-  return { success: false, error: 'Could not reach GitHub after multiple attempts.' };
-}
-await page.sleep(1500);
-
-let loggedIn = await checkLoggedIn();
-
-if (!loggedIn) {
-  if (!(await safeGoto('https://github.com/login'))) {
-    return { success: false, error: 'Could not reach GitHub login page after multiple attempts.' };
+(async () => {
+  let requestedScopes = [...CANONICAL_SCOPES];
+  let initError = null;
+  try {
+    requestedScopes = resolveRequestedScopes();
+  } catch (error) {
+    initError = error;
   }
-  await page.sleep(2000);
 
-  if (typeof page.requestInput === 'function') {
-    let attempts = 0;
-    const maxAttempts = 3;
-    let lastError = null;
-    let credentials = null;
-
-    while (!loggedIn && attempts < maxAttempts) {
-      attempts++;
-
-      const hasLoginForm = await page.evaluate(`
-        !!document.querySelector('#login_field') && !!document.querySelector('#password')
-      `);
-
-      if (!hasLoginForm) {
-        lastError = 'Login form not found. Retrying...';
-        await safeGoto('https://github.com/login');
-        await page.sleep(2000);
-        continue;
-      }
-
-      if (!credentials || lastError) {
-        credentials = await page.requestInput({
-          message: lastError
-            ? `Log in to GitHub — ${lastError}`
-            : 'Log in to GitHub',
-          schema: {
-            type: 'object',
-            required: ['username', 'password'],
-            properties: {
-              username: { type: 'string', description: 'GitHub username or email' },
-              password: { type: 'string', format: 'password' },
-            },
-          },
-        });
-      }
-
-      await page.setData('status', 'Signing in...');
-
-      try {
-        await page.fill('#login_field', credentials.username);
-        await page.sleep(300);
-        await page.fill('#password', credentials.password);
-        await page.sleep(300);
-        await page.press('#password', 'Enter');
-      } catch (e) {
-        lastError = 'Login form error. Retrying...';
-        continue;
-      }
-
-      await page.sleep(5000);
-
-      // Handle 2FA — GitHub may show a passkey/webauthn page first, or go
-      // directly to the authenticator app page. Not all accounts have 2FA.
-      // Some accounts get a "device verification" email code instead.
-      const currentUrl = await page.url();
-      const onPasskeyPage = currentUrl.includes('/sessions/two-factor/webauthn');
-      const onDeviceVerify = currentUrl.includes('/sessions/verified-device');
-
-      if (onPasskeyPage) {
-        // Click "Authenticator app" link to skip passkeys
-        await page.setData('status', 'Navigating to authenticator app...');
-        try {
-          await page.click('a[href*="/sessions/two-factor/app"]', { timeout: 5000 });
-          await page.sleep(2000);
-        } catch (e) {
-          // Fallback: navigate directly
-          await safeGoto('https://github.com/sessions/two-factor/app');
-          await page.sleep(2000);
-        }
-      }
-
-      // Check if we're now on any 2FA or device verification page
-      const urlAfterNav = await page.url();
-      const needs2fa = urlAfterNav.includes('/sessions/two-factor');
-      const needsDeviceVerify = onDeviceVerify || urlAfterNav.includes('/sessions/verified-device');
-
-      if (needsDeviceVerify) {
-        await page.setData('status', 'Device verification required — check your email');
-        const deviceResult = await page.requestInput({
-          message: 'GitHub sent a 6-digit verification code to your email. Enter it below.',
-          schema: {
-            type: 'object',
-            required: ['code'],
-            properties: {
-              code: { type: 'string', description: 'Verification code from email', minLength: 6, maxLength: 6 },
-            },
-          },
-        });
-
-        const deviceSelector = 'input[placeholder="XXXXXX"], input[type="text"]';
-        try {
-          await page.fill(deviceSelector, deviceResult.code);
-          await page.sleep(500);
-          await page.click('button:has-text("Verify"), button[type="submit"]', { timeout: 5000 });
-        } catch (e) {
-          await page.press(deviceSelector, 'Enter');
-        }
-        await page.sleep(5000);
-      } else if (needs2fa) {
-        await page.setData('status', 'Two-factor authentication required');
-        const otpResult = await page.requestInput({
-          message: 'Enter the 6-digit code from your authenticator app',
-          schema: {
-            type: 'object',
-            required: ['code'],
-            properties: {
-              code: { type: 'string', description: '6-digit authenticator code', minLength: 6, maxLength: 8 },
-            },
-          },
-        });
-
-        const otpSelector = '#app_totp, #sms_totp, [name="otp"], input[type="text"]';
-        try {
-          await page.fill(otpSelector, otpResult.code);
-          await page.sleep(500);
-          await page.click('button:has-text("Verify"), button[type="submit"]', { timeout: 5000 });
-        } catch (e) {
-          await page.press(otpSelector, 'Enter');
-        }
-        await page.sleep(5000);
-      }
-
-      // Check for login errors — only match visible flash elements.
-      // GitHub's base template includes a hidden #ajax-error-message with
-      // class flash-error and non-empty text on every page. Matching hidden
-      // elements causes false positives on the authenticated dashboard.
-      const errorMsg = await page.evaluate(`
-        (() => {
-          const flash = document.querySelector('.flash-error, .js-flash-alert');
-          if (!flash || flash.hidden || flash.offsetParent === null) return null;
-          return flash.textContent.trim() || null;
-        })()
-      `);
-
-      if (errorMsg) {
-        lastError = `Login failed: ${errorMsg}`;
-        await safeGoto('https://github.com/login');
-        await page.sleep(2000);
-        continue;
-      }
-
-      loggedIn = await checkLoggedIn();
-      if (!loggedIn) {
-        lastError = 'Login failed. Please check your credentials.';
-      }
+  try {
+    if (initError) {
+      throw initError;
     }
-  }
+    const wantsScope = (scope) => requestedScopes.includes(scope);
+    const errors = [];
+    const scopes = {};
 
-  // Fallback: manual login via browser takeover — only if the runtime
-  // can surface a headed browser to the user.
-  if (!loggedIn) {
-    const { headed } = await page.showBrowser('https://github.com/login');
-    if (headed) {
-      await page.setData('status', 'Please sign in manually in the browser below.');
-      await page.promptUser(
-        'Automatic sign-in failed. Please sign in to GitHub manually, including any 2FA. The process will continue automatically once you are signed in.',
-        async () => await checkLoggedIn(),
-        5000
+    await page.setData("status", "Checking GitHub login...");
+    if (!(await safeGoto("https://github.com/"))) {
+      throw makeFatalRunError(
+        "navigation_error",
+        "Could not reach GitHub after multiple attempts.",
       );
-      await page.goHeadless();
-      loggedIn = await checkLoggedIn();
-    } else {
-      return {
-        success: false,
-        error: 'Login requires a headed browser or requestInput support.',
-      };
     }
+    await page.sleep(1500);
+
+    let loggedIn = await checkLoginStatus();
+
+    if (!loggedIn) {
+      if (!(await safeGoto("https://github.com/login"))) {
+        throw makeFatalRunError(
+          "navigation_error",
+          "Could not reach the GitHub login page after multiple attempts.",
+          "auth",
+        );
+      }
+      await page.sleep(2000);
+
+      if (typeof page.requestInput === "function") {
+        let attempts = 0;
+        const maxAttempts = 3;
+        let lastError = null;
+        let credentials = null;
+
+        while (!loggedIn && attempts < maxAttempts) {
+          attempts++;
+
+          const hasLoginForm = await page.evaluate(`
+            !!document.querySelector('#login_field') && !!document.querySelector('#password')
+          `);
+
+          if (!hasLoginForm) {
+            lastError = "Login form not found. Retrying...";
+            await safeGoto("https://github.com/login");
+            await page.sleep(2000);
+            continue;
+          }
+
+          if (!credentials || lastError) {
+            credentials = await page.requestInput({
+              message: lastError
+                ? `Log in to GitHub — ${lastError}`
+                : "Log in to GitHub",
+              schema: {
+                type: "object",
+                required: ["username", "password"],
+                properties: {
+                  username: {
+                    type: "string",
+                    description: "GitHub username or email",
+                  },
+                  password: { type: "string", format: "password" },
+                },
+              },
+            });
+          }
+
+          await page.setData("status", "Signing in...");
+
+          try {
+            await page.fill("#login_field", credentials.username);
+            await page.sleep(300);
+            await page.fill("#password", credentials.password);
+            await page.sleep(300);
+            await page.press("#password", "Enter");
+          } catch {
+            lastError = "Login form error. Retrying...";
+            continue;
+          }
+
+          await page.sleep(5000);
+
+          const currentUrl = await page.url();
+          const onPasskeyPage = currentUrl.includes("/sessions/two-factor/webauthn");
+          const onDeviceVerify = currentUrl.includes("/sessions/verified-device");
+
+          if (onPasskeyPage) {
+            await page.setData("status", "Navigating to authenticator app...");
+            try {
+              await page.click('a[href*="/sessions/two-factor/app"]', {
+                timeout: 5000,
+              });
+              await page.sleep(2000);
+            } catch {
+              await safeGoto("https://github.com/sessions/two-factor/app");
+              await page.sleep(2000);
+            }
+          }
+
+          const urlAfterNav = await page.url();
+          const needs2fa = urlAfterNav.includes("/sessions/two-factor");
+          const needsDeviceVerify =
+            onDeviceVerify || urlAfterNav.includes("/sessions/verified-device");
+
+          if (needsDeviceVerify) {
+            await page.setData(
+              "status",
+              "Device verification required — check your email",
+            );
+            const deviceResult = await page.requestInput({
+              message:
+                "GitHub sent a 6-digit verification code to your email. Enter it below.",
+              schema: {
+                type: "object",
+                required: ["code"],
+                properties: {
+                  code: {
+                    type: "string",
+                    description: "Verification code from email",
+                    minLength: 6,
+                    maxLength: 6,
+                  },
+                },
+              },
+            });
+
+            const deviceSelector =
+              'input[placeholder="XXXXXX"], input[type="text"]';
+            try {
+              await page.fill(deviceSelector, deviceResult.code);
+              await page.sleep(500);
+              await page.click('button:has-text("Verify"), button[type="submit"]', {
+                timeout: 5000,
+              });
+            } catch {
+              await page.press(deviceSelector, "Enter");
+            }
+            await page.sleep(5000);
+          } else if (needs2fa) {
+            await page.setData("status", "Two-factor authentication required");
+            const otpResult = await page.requestInput({
+              message: "Enter the 6-digit code from your authenticator app",
+              schema: {
+                type: "object",
+                required: ["code"],
+                properties: {
+                  code: {
+                    type: "string",
+                    description: "6-digit authenticator code",
+                    minLength: 6,
+                    maxLength: 8,
+                  },
+                },
+              },
+            });
+
+            const otpSelector =
+              '#app_totp, #sms_totp, [name="otp"], input[type="text"]';
+            try {
+              await page.fill(otpSelector, otpResult.code);
+              await page.sleep(500);
+              await page.click('button:has-text("Verify"), button[type="submit"]', {
+                timeout: 5000,
+              });
+            } catch {
+              await page.press(otpSelector, "Enter");
+            }
+            await page.sleep(5000);
+          }
+
+          const errorMsg = await page.evaluate(`
+            (() => {
+              const flash = document.querySelector('.flash-error, .js-flash-alert');
+              if (!flash || flash.hidden || flash.offsetParent === null) return null;
+              return flash.textContent.trim() || null;
+            })()
+          `);
+
+          if (errorMsg) {
+            lastError = `Login failed: ${errorMsg}`;
+            await safeGoto("https://github.com/login");
+            await page.sleep(2000);
+            continue;
+          }
+
+          loggedIn = await checkLoginStatus();
+          if (!loggedIn) {
+            lastError = "Login failed. Please check your credentials.";
+          }
+        }
+      }
+
+      if (!loggedIn) {
+        const { headed } = await page.showBrowser("https://github.com/login");
+        if (headed) {
+          await page.setData(
+            "status",
+            "Please sign in manually in the browser below.",
+          );
+          await page.promptUser(
+            "Automatic sign-in failed. Please sign in to GitHub manually, including any 2FA. The process will continue automatically once you are signed in.",
+            async () => await checkLoginStatus(),
+            5000,
+          );
+          await page.goHeadless();
+          loggedIn = await checkLoginStatus();
+        } else {
+          throw makeFatalRunError(
+            "auth_failed",
+            "GitHub login requires a headed browser or requestInput support.",
+            "auth",
+          );
+        }
+      }
+    }
+
+    if (!loggedIn) {
+      throw makeFatalRunError(
+        "auth_failed",
+        "GitHub login could not be confirmed.",
+        "auth",
+      );
+    }
+
+    await page.setData("status", "Login confirmed. Resolving account...");
+
+    const username = await resolveUsername();
+    if (!isValidGitHubUsername(username)) {
+      throw makeFatalRunError(
+        "runtime_error",
+        "Could not resolve a valid GitHub username after login.",
+      );
+    }
+    state.username = username;
+
+    if (wantsScope("github.profile")) {
+      await page.setData("status", `Fetching profile for @${username}...`);
+      const profileResult = await extractProfile(username);
+      if (profileResult.ok) {
+        state.profile = profileResult.data;
+        scopes["github.profile"] = state.profile;
+      } else if (profileResult.error) {
+        errors.push(profileResult.error);
+      }
+    }
+
+    if (wantsScope("github.repositories")) {
+      await page.setData("status", "Fetching repositories...");
+      const repositoriesResult = await extractRepositories(username);
+      state.repositories = repositoriesResult.data;
+      if (repositoriesResult.ok) {
+        scopes["github.repositories"] = {
+          repositories: state.repositories,
+        };
+      }
+      if (repositoriesResult.error) {
+        errors.push(repositoriesResult.error);
+      }
+    }
+
+    if (state.profile) {
+      state.profile.repositoryCount = state.repositories.length;
+    }
+
+    if (wantsScope("github.starred")) {
+      await page.setData("status", "Fetching starred repositories...");
+      const starredResult = await extractStarred(username);
+      state.starred = starredResult.data;
+      if (starredResult.ok) {
+        scopes["github.starred"] = {
+          starred: state.starred,
+        };
+      }
+      if (starredResult.error) {
+        errors.push(starredResult.error);
+      }
+    }
+
+    const totalItems = state.repositories.length + state.starred.length;
+    const result = buildResult({
+      requestedScopes,
+      scopes,
+      errors,
+      exportSummary: {
+        count: totalItems,
+        label: totalItems === 1 ? "item" : "items",
+        details: formatExportSummaryDetails(
+          state.repositories.length,
+          state.starred.length,
+        ),
+      },
+    });
+
+    state.isComplete = true;
+    await page.setData("result", result);
+    await page.setData(
+      "status",
+      `Complete! ${state.repositories.length} repositories and ${state.starred.length} starred repos collected.`,
+    );
+
+    return result;
+  } catch (error) {
+    const telemetryError =
+      error?.telemetryError ||
+      makeConnectorError(
+        inferErrorClass(error?.message || String(error)),
+        error?.message || String(error),
+        "fatal",
+        { phase: "collect" },
+      );
+    const result = buildEmptyResult(requestedScopes, [telemetryError]);
+    await page.setData("result", result);
+    await page.setData("error", telemetryError.reason);
+    return result;
   }
-}
-
-if (!loggedIn) {
-  return { success: false, error: 'GitHub login could not be confirmed.' };
-}
-
-await page.setData('status', 'Login confirmed. Resolving account...');
-
-const username = await resolveUsername();
-if (!isValidGitHubUsername(username)) {
-  return { success: false, error: 'Could not resolve a valid GitHub username after login.' };
-}
-state.username = username;
-
-await page.setData('status', `Fetching profile for @${username}...`);
-state.profile = await extractProfile(username);
-
-await page.setData('status', 'Fetching repositories...');
-state.repositories = await extractRepositories(username);
-if (state.profile) {
-  state.profile.repositoryCount = state.repositories.length;
-}
-
-await page.setData('status', 'Fetching starred repositories...');
-state.starred = await extractStarred(username);
-
-const totalItems = state.repositories.length + state.starred.length;
-const result = {
-  'github.profile': state.profile,
-  'github.repositories': { repositories: state.repositories },
-  'github.starred': { starred: state.starred },
-  exportSummary: {
-    count: totalItems,
-    label: totalItems === 1 ? 'item' : 'items',
-    details: `${state.repositories.length} repositories, ${state.starred.length} starred`,
-  },
-  timestamp: new Date().toISOString(),
-  version: '1.1.3',
-  platform: 'github',
-};
-
-state.isComplete = true;
-await page.setData('result', result);
-await page.setData('status',
-  `Complete! ${state.repositories.length} repositories and ${state.starred.length} starred repos collected.`
-);
-
-return { success: true, data: result };
+})();

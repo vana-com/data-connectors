@@ -1,0 +1,120 @@
+{
+  "name": "honest-connector-telemetry-conformance-corpus",
+  "version": "1.0.0",
+  "contractReference": "2026-04-14 honest connector telemetry contract freeze",
+  "description": "Cross-runtime connector result fixtures for the frozen honest telemetry contract.",
+  "cases": [
+    {
+      "id": "clean-success",
+      "fixture": "fixtures/clean-success.result.json",
+      "description": "All requested scopes are produced cleanly and no unresolved errors remain.",
+      "expected": {
+        "validity": "valid",
+        "classification": {
+          "outcome": "success",
+          "scopeSummary": {
+            "requested": 2,
+            "produced": 2,
+            "degraded": 0,
+            "omitted": 0
+          }
+        }
+      }
+    },
+    {
+      "id": "partial-omitted-scope",
+      "fixture": "fixtures/partial-omitted-scope.result.json",
+      "description": "One requested scope is produced and another is honestly omitted.",
+      "expected": {
+        "validity": "valid",
+        "classification": {
+          "outcome": "partial",
+          "errorClass": "selector_error",
+          "scopeSummary": {
+            "requested": 2,
+            "produced": 1,
+            "degraded": 0,
+            "omitted": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "partial-degraded-scope",
+      "fixture": "fixtures/partial-degraded-scope.result.json",
+      "description": "A requested scope is present but materially incomplete, so the run is partial.",
+      "expected": {
+        "validity": "valid",
+        "classification": {
+          "outcome": "partial",
+          "errorClass": "upstream_error",
+          "scopeSummary": {
+            "requested": 2,
+            "produced": 2,
+            "degraded": 1,
+            "omitted": 0
+          }
+        }
+      }
+    },
+    {
+      "id": "fatal-failure",
+      "fixture": "fixtures/fatal-failure.result.json",
+      "description": "A run-level fatal error forces failure even though a scope payload is present.",
+      "expected": {
+        "validity": "valid",
+        "classification": {
+          "outcome": "failure",
+          "errorClass": "auth_failed",
+          "scopeSummary": {
+            "requested": 2,
+            "produced": 1,
+            "degraded": 0,
+            "omitted": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "protocol-violation-over-produced-scope",
+      "fixture": "fixtures/protocol-violation-over-produced-scope.result.json",
+      "description": "A scope key is emitted outside requestedScopes, which is a hard protocol failure.",
+      "expected": {
+        "validity": "protocol_violation",
+        "classification": {
+          "outcome": "failure",
+          "errorClass": "protocol_violation"
+        }
+      }
+    },
+    {
+      "id": "protocol-violation-malformed-errors",
+      "fixture": "fixtures/protocol-violation-malformed-errors.result.json",
+      "description": "errors[] contains an omitted entry without scope, which is malformed.",
+      "expected": {
+        "validity": "protocol_violation",
+        "classification": {
+          "outcome": "failure",
+          "errorClass": "protocol_violation"
+        }
+      }
+    },
+    {
+      "id": "empty-but-present-payload-success",
+      "fixture": "fixtures/empty-but-present-payload-success.result.json",
+      "description": "An empty object payload still counts as a successfully produced scope.",
+      "expected": {
+        "validity": "valid",
+        "classification": {
+          "outcome": "success",
+          "scopeSummary": {
+            "requested": 1,
+            "produced": 1,
+            "degraded": 0,
+            "omitted": 0
+          }
+        }
+      }
+    }
+  ]
+}

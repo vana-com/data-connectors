@@ -2,7 +2,7 @@
   "manifest_version": "1.0",
   "connector_id": "github-playwright",
   "source_id": "github",
-  "version": "1.1.4",
+  "version": "1.2.0",
   "name": "GitHub",
   "company": "GitHub",
   "description": "Exports your GitHub profile, repositories, and starred repositories.",

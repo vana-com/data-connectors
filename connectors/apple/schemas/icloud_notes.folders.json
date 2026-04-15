@@ -1,6 +1,6 @@
 {
   "name": "iCloud Notes Folders",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "scope": "icloud_notes.folders",
   "dialect": "json",
   "description": "Folder structure used to organize iCloud Notes. Field shape reflects the data the CG-in-prod iCloud Notes script emits: one object per folder with its CloudKit recordName and display title.",
@@ -15,11 +15,13 @@
             "recordName": { "type": "string" },
             "title":      { "type": "string" }
           },
-          "required": ["recordName", "title"]
+          "required": ["recordName", "title"],
+          "additionalProperties": true
         }
       },
       "total": { "type": "number" }
     },
-    "required": ["folders"]
+    "required": ["folders"],
+    "additionalProperties": true
   }
 }

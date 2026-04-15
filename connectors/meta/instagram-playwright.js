@@ -21,6 +21,105 @@ const state = {
   isComplete: false
 };
 
+const PLATFORM = "instagram";
+const VERSION = "2.1.0-playwright";
+const CANONICAL_SCOPES = [
+  "instagram.profile",
+  "instagram.posts",
+  "instagram.following",
+  "instagram.ads",
+];
+
+const makeConnectorError = (
+  errorClass,
+  reason,
+  disposition,
+  extras = {},
+) => ({
+  errorClass,
+  reason,
+  disposition,
+  ...extras,
+});
+
+const makeFatalRunError = (errorClass, reason, phase = "collect") => {
+  const error = new Error(reason);
+  error.telemetryError = makeConnectorError(errorClass, reason, "fatal", {
+    phase,
+  });
+  return error;
+};
+
+const inferErrorClass = (message, fallback = "runtime_error") => {
+  const text = String(message || "").toLowerCase();
+  if (text.includes("auth") || text.includes("login") || text.includes("credential")) {
+    return "auth_failed";
+  }
+  if (text.includes("timeout") || text.includes("timed out")) {
+    return "timeout";
+  }
+  if (
+    text.includes("network") ||
+    text.includes("fetch") ||
+    text.includes("net::")
+  ) {
+    return "network_error";
+  }
+  return fallback;
+};
+
+const buildResult = ({ requestedScopes, scopes, errors, exportSummary }) => ({
+  requestedScopes: [...requestedScopes],
+  timestamp: new Date().toISOString(),
+  version: VERSION,
+  platform: PLATFORM,
+  exportSummary,
+  errors,
+  ...scopes,
+});
+
+const buildEmptyResult = (requestedScopes, errors) =>
+  buildResult({
+    requestedScopes,
+    scopes: {},
+    errors,
+    exportSummary: {
+      count: 0,
+      label: "items",
+      details: {
+        posts: 0,
+        following: 0,
+        advertisers: 0,
+        adTopics: 0,
+      },
+    },
+  });
+
+const resolveRequestedScopes = () => {
+  const raw =
+    typeof page.requestedScopes === "function" ? page.requestedScopes() : null;
+  if (raw == null) {
+    return [...CANONICAL_SCOPES];
+  }
+  if (!Array.isArray(raw) || raw.length === 0) {
+    throw makeFatalRunError(
+      "protocol_violation",
+      "Instagram connector received an empty or invalid requestedScopes array.",
+      "init",
+    );
+  }
+  const deduped = Array.from(new Set(raw));
+  const invalid = deduped.filter((scope) => !CANONICAL_SCOPES.includes(scope));
+  if (invalid.length > 0) {
+    throw makeFatalRunError(
+      "protocol_violation",
+      `Instagram connector received unsupported requestedScopes: ${invalid.join(", ")}.`,
+      "init",
+    );
+  }
+  return deduped;
+};
+
 // ── Resilience helpers (ported from CG prod instagram-headless.js) ───
 //
 // Instagram's edges occasionally return transient HTTP errors on login,
@@ -92,7 +191,18 @@ const safeGoto = async (url, options = {}) => {
 // activated.
 const scrapeFollowingAccounts = async (userId, expectedCount) => {
   try {
-    if (!userId) return [];
+    if (!userId) {
+      return {
+        ok: false,
+        data: [],
+        error: makeConnectorError(
+          "runtime_error",
+          "Instagram following collection could not start without a user id.",
+          "omitted",
+          { scope: "instagram.following", phase: "collect" },
+        ),
+      };
+    }
     const apiAccounts = await page.evaluate(`
       (async ({ userId, expectedCount }) => {
         const collected = [];
@@ -140,14 +250,45 @@ const scrapeFollowingAccounts = async (userId, expectedCount) => {
           nextMaxId = data.next_max_id;
         }
 
-        return collected;
+        return {
+          accounts: collected,
+          incomplete:
+            typeof expectedCount === 'number' &&
+            expectedCount > 0 &&
+            collected.length < expectedCount &&
+            Boolean(nextMaxId),
+        };
       })(${JSON.stringify({ userId, expectedCount })})
     `);
-    return Array.isArray(apiAccounts) ? apiAccounts : [];
+    const accounts = Array.isArray(apiAccounts?.accounts)
+      ? apiAccounts.accounts
+      : [];
+    const incomplete = Boolean(apiAccounts?.incomplete);
+    if (incomplete) {
+      return {
+        ok: true,
+        data: accounts,
+        error: makeConnectorError(
+          "upstream_error",
+          `Instagram following collection stopped before reaching the expected count (${accounts.length}/${expectedCount || "unknown"}).`,
+          "degraded",
+          { scope: "instagram.following", phase: "collect" },
+        ),
+      };
+    }
+    return { ok: true, data: accounts, error: null };
   } catch (error) {
-    // Non-fatal: following data is optional at the connector level.
     await page.setData('status', `Failed to scrape following accounts: ${error?.message || String(error)}`);
-    return [];
+    return {
+      ok: false,
+      data: [],
+      error: makeConnectorError(
+        inferErrorClass(error?.message || String(error), "upstream_error"),
+        `Instagram following collection failed: ${error?.message || String(error)}`,
+        "omitted",
+        { scope: "instagram.following", phase: "collect" },
+      ),
+    };
   }
 };
 
@@ -210,714 +351,781 @@ const fetchWebInfo = async () => {
 
 // Main export flow
 (async () => {
-  // Honest scope gating: if the runtime exposes requestedScopes(), respect
-  // it so we can skip collection for scopes the caller didn't ask for.
-  // A null return (or a missing method) means "collect everything" — the
-  // legacy default — so older runtimes continue to work unchanged. This
-  // is not an enforcement layer against a malicious caller; the script
-  // runs in a client-controlled JS VM and the gate can be stripped. It
-  // exists so well-behaved flows don't waste worker cycles or overcollect.
-  const requestedScopesList =
-    typeof page.requestedScopes === 'function' ? page.requestedScopes() : null;
-  const wantsScope = (scope) =>
-    requestedScopesList === null || requestedScopesList.includes(scope);
+  let requestedScopes = [...CANONICAL_SCOPES];
+  let initError = null;
+  try {
+    requestedScopes = resolveRequestedScopes();
+  } catch (error) {
+    initError = error;
+  }
 
-  // Profile data is load-bearing for login detection and for the username
-  // we pass to the Following endpoint, so we always collect it. We just
-  // omit it from the result if it wasn't requested.
-  const wantsProfile = wantsScope('instagram.profile');
-  const wantsFollowing = wantsScope('instagram.following');
-  const wantsPosts = wantsScope('instagram.posts');
-  const wantsAds = wantsScope('instagram.ads');
-
-  // Navigate to Instagram
-  // We start on login page - check if already logged in
-  await page.setData('status', 'Checking login status...');
-  await page.sleep(2000);
-
-  const webInfo = await fetchWebInfo();
-  state.webInfo = webInfo;
-
-  const isLoggedIn = webInfo && webInfo.username;
-
-  if (!isLoggedIn) {
-    // Navigation to the login page is load-bearing; retry a few times
-    // before giving up so a transient HTTP blip doesn't kill the whole run.
-    const loginReachable = await safeGoto(
-      'https://www.instagram.com/accounts/login/',
-    );
-    if (!loginReachable) {
-      return {
-        success: false,
-        error: 'Could not reach Instagram login page after multiple attempts.',
-      };
+  try {
+    if (initError) {
+      throw initError;
     }
+
+    const wantsScope = (scope) => requestedScopes.includes(scope);
+    const wantsProfile = wantsScope("instagram.profile");
+    const wantsFollowing = wantsScope("instagram.following");
+    const wantsPosts = wantsScope("instagram.posts");
+    const wantsAds = wantsScope("instagram.ads");
+
+    const errors = [];
+    const scopes = {};
+    let followingResult = { ok: false, data: [], error: null };
+    let postsIssue = null;
+    let adsIssue = null;
+    let adsAdvertisersCollected = false;
+    let adsTopicsCollected = false;
+
+    await page.setData("status", "Checking login status...");
     await page.sleep(2000);
 
-    // Selectors are deliberately broad — Instagram ships different DOMs by
-    // region/version. These cover the shapes observed in production:
-    //   - input[name="username"] + input[name="password"]    (older)
-    //   - input[name="email"]    + input[name="pass"]        (current 2025+)
-    //   - input[aria-label*="Username"] + input[aria-label*="Password"]  (regional)
-    const userSelector = 'input[name="username"], input[name="email"], input[aria-label*="Username"]';
-    const passSelector = 'input[name="password"], input[name="pass"], input[aria-label*="Password"]';
+    const webInfo = await fetchWebInfo();
+    state.webInfo = webInfo;
 
-    const supportsRequestInput = typeof page.requestInput === 'function';
+    let isLoggedIn = Boolean(webInfo && webInfo.username);
 
-    // Wait for the login form to render before we try to interact with it.
-    // Instagram hydrates its forms asynchronously, so a one-shot DOM check
-    // can race hydration. waitForSelector polls until the element is visible
-    // or the timeout elapses.
-    let hasLoginForm = false;
-    try {
-      await page.waitForSelector(userSelector, { timeout: 10000, state: 'visible' });
-      hasLoginForm = true;
-    } catch {
-      hasLoginForm = false;
-    }
+    if (!isLoggedIn) {
+      const loginReachable = await safeGoto(
+        "https://www.instagram.com/accounts/login/",
+      );
+      if (!loginReachable) {
+        throw makeFatalRunError(
+          "navigation_error",
+          "Could not reach Instagram login page after multiple attempts.",
+          "auth",
+        );
+      }
+      await page.sleep(2000);
 
-    if (supportsRequestInput && hasLoginForm) {
-      const { username: loginUser, password } = await page.requestInput({
-        message: "Log in to Instagram",
-        schema: {
-          type: "object",
-          properties: {
-            username: { type: "string", description: "Instagram username, email, or phone number" },
-            password: { type: "string", format: "password" },
-          },
-          required: ["username", "password"],
-        },
-      });
+      const userSelector =
+        'input[name="username"], input[name="email"], input[aria-label*="Username"]';
+      const passSelector =
+        'input[name="password"], input[name="pass"], input[aria-label*="Password"]';
+      const supportsRequestInput = typeof page.requestInput === "function";
 
-      // Use the canonical Page API's page.fill / page.press so the runtime
-      // (Playwright, under both DataConnect and Context Gateway) handles
-      // React-synthetic-event dispatch correctly. Setting input.value by
-      // hand and firing a bubbling 'input' event does NOT trigger React's
-      // onChange for controlled inputs, which is why previous versions of
-      // this script failed silently on Instagram's current DOM.
-      await page.fill(userSelector, loginUser);
-      await page.sleep(300);
-      await page.fill(passSelector, password);
-      await page.sleep(300);
-      // Press Enter on the password field rather than clicking a submit
-      // button — Instagram renders its submit as either
-      // `<button type="submit">`, `<input type="submit">`, or
-      // `<div role="button">`, and the Enter-key path bypasses all of
-      // those variations.
-      await page.press(passSelector, 'Enter');
-      // Instagram's SPA redirect can take 10+ seconds after a successful
-      // submit. Wait long enough that an immediate check for the login
-      // form or a 2FA prompt will see a settled DOM.
-      await page.sleep(12000);
+      let hasLoginForm = false;
+      try {
+        await page.waitForSelector(userSelector, {
+          timeout: 10000,
+          state: "visible",
+        });
+        hasLoginForm = true;
+      } catch {
+        hasLoginForm = false;
+      }
 
-      // Handle 2FA / suspicious login challenge
-      const needs2fa = await page.evaluate(`
-        !!document.querySelector('input[name="verificationCode"]') ||
-        !!document.querySelector('input[name="security_code"]') ||
-        !!document.querySelector('input[aria-label="Security Code"]') ||
-        !!document.querySelector('input[name="approvals_code"]')
-      `);
-      if (needs2fa) {
-        const { code } = await page.requestInput({
-          message: "Enter your Instagram security/verification code",
+      if (supportsRequestInput && hasLoginForm) {
+        const { username: loginUser, password } = await page.requestInput({
+          message: "Log in to Instagram",
           schema: {
             type: "object",
-            properties: { code: { type: "string", description: "6-digit verification code" } },
-            required: ["code"],
+            properties: {
+              username: {
+                type: "string",
+                description: "Instagram username, email, or phone number",
+              },
+              password: { type: "string", format: "password" },
+            },
+            required: ["username", "password"],
           },
         });
-        const otpSelector = 'input[name="verificationCode"], input[name="security_code"], input[aria-label="Security Code"], input[name="approvals_code"]';
-        try {
-          await page.fill(otpSelector, code);
-          await page.sleep(500);
-          await page.press(otpSelector, 'Enter');
-        } catch {
-          // If the selector disambiguation failed, fall back to a DOM-level
-          // form fill that at least gets the character into the field.
-          //
-          // Use window.HTMLInputElement.prototype directly rather than
-          // Object.getPrototypeOf(el): it's the standard bypass for React's
-          // controlled inputs (React 16+) and is bulletproof against any
-          // polyfill that may have mutated the element's instance prototype
-          // chain.
-          await page.evaluate(`
-            (() => {
-              const el = document.querySelector(${JSON.stringify(otpSelector)});
-              if (el) {
-                const setter = Object.getOwnPropertyDescriptor(
-                  window.HTMLInputElement.prototype, 'value'
-                )?.set;
-                if (setter) setter.call(el, ${JSON.stringify(code)});
-                else el.value = ${JSON.stringify(code)};
-                el.dispatchEvent(new Event('input', { bubbles: true }));
-                el.dispatchEvent(new Event('change', { bubbles: true }));
-                const form = el.closest('form');
-                if (form) form.submit();
-              }
-            })()
-          `);
+
+        await page.fill(userSelector, loginUser);
+        await page.sleep(300);
+        await page.fill(passSelector, password);
+        await page.sleep(300);
+        await page.press(passSelector, "Enter");
+        await page.sleep(12000);
+
+        const needs2fa = await page.evaluate(`
+          !!document.querySelector('input[name="verificationCode"]') ||
+          !!document.querySelector('input[name="security_code"]') ||
+          !!document.querySelector('input[aria-label="Security Code"]') ||
+          !!document.querySelector('input[name="approvals_code"]')
+        `);
+        if (needs2fa) {
+          const { code } = await page.requestInput({
+            message: "Enter your Instagram security/verification code",
+            schema: {
+              type: "object",
+              properties: {
+                code: {
+                  type: "string",
+                  description: "6-digit verification code",
+                },
+              },
+              required: ["code"],
+            },
+          });
+          const otpSelector =
+            'input[name="verificationCode"], input[name="security_code"], input[aria-label="Security Code"], input[name="approvals_code"]';
+          try {
+            await page.fill(otpSelector, code);
+            await page.sleep(500);
+            await page.press(otpSelector, "Enter");
+          } catch {
+            await page.evaluate(`
+              (() => {
+                const el = document.querySelector(${JSON.stringify(otpSelector)});
+                if (el) {
+                  const setter = Object.getOwnPropertyDescriptor(
+                    window.HTMLInputElement.prototype, 'value'
+                  )?.set;
+                  if (setter) setter.call(el, ${JSON.stringify(code)});
+                  else el.value = ${JSON.stringify(code)};
+                  el.dispatchEvent(new Event('input', { bubbles: true }));
+                  el.dispatchEvent(new Event('change', { bubbles: true }));
+                  const form = el.closest('form');
+                  if (form) form.submit();
+                }
+              })()
+            `);
+          }
+          await page.sleep(5000);
         }
-        await page.sleep(5000);
-      }
-    }
-
-    // Dismiss Instagram interstitials that appear after login
-    // These block the page and prevent fetchWebInfo() from working
-    for (let dismissAttempt = 0; dismissAttempt < 3; dismissAttempt++) {
-      await page.evaluate(`
-        (() => {
-          // Cookie consent banner — "Allow All Cookies" or "Decline Optional Cookies"
-          const cookieBtns = document.querySelectorAll('button');
-          for (const btn of cookieBtns) {
-            const text = (btn.textContent || '').trim().toLowerCase();
-            if (text.includes('allow all cookies') || text.includes('allow essential and optional cookies') ||
-                text.includes('decline optional cookies') || text.includes('accept all')) {
-              btn.click();
-              return 'dismissed cookie banner';
-            }
-          }
-
-          // "Save Your Login Info?" dialog — click "Not Now"
-          // "Turn on Notifications?" dialog — click "Not Now"
-          for (const btn of cookieBtns) {
-            const text = (btn.textContent || '').trim().toLowerCase();
-            if (text === 'not now' || text === 'skip') {
-              btn.click();
-              return 'dismissed interstitial: ' + text;
-            }
-          }
-
-          // "We Noticed an Unusual Login Attempt" — click "This Was Me"
-          for (const btn of cookieBtns) {
-            const text = (btn.textContent || '').trim().toLowerCase();
-            if (text === 'this was me') {
-              btn.click();
-              return 'dismissed security prompt';
-            }
-          }
-
-          return 'no interstitials found';
-        })()
-      `);
-      await page.sleep(2000);
-    }
-
-    // Check if login succeeded. Give fetchWebInfo a few tries — the page
-    // may still be settling after the Instagram SPA navigation.
-    let newWebInfo = null;
-    for (let r = 0; r < 3; r++) {
-      newWebInfo = await fetchWebInfo();
-      if (newWebInfo?.username) break;
-      await page.sleep(2000);
-    }
-    let loginSucceeded = !!(newWebInfo && newWebInfo.username);
-
-    // Fallback to headed browser if programmatic login failed
-    if (!loginSucceeded) {
-      const { headed } = await page.showBrowser('https://www.instagram.com/accounts/login/');
-      if (headed) {
-        await page.setData('status', 'Please complete login in the browser...');
-        await page.promptUser(
-          'Complete any remaining verification, then click "Done".',
-          async () => {
-            const info = await fetchWebInfo();
-            return !!(info && info.username);
-          },
-          2000
-        );
-        await page.goHeadless();
-      } else {
-        return { success: false, error: 'Login requires a headed browser or requestInput support.' };
       }
 
-      // Dismiss any remaining interstitials after headed browser login
       for (let dismissAttempt = 0; dismissAttempt < 3; dismissAttempt++) {
         await page.evaluate(`
           (() => {
-            const btns = document.querySelectorAll('button');
-            for (const btn of btns) {
+            const cookieBtns = document.querySelectorAll('button');
+            for (const btn of cookieBtns) {
               const text = (btn.textContent || '').trim().toLowerCase();
               if (text.includes('allow all cookies') || text.includes('allow essential and optional cookies') ||
-                  text.includes('decline optional cookies') || text.includes('accept all') ||
-                  text === 'not now' || text === 'skip' || text === 'this was me') {
+                  text.includes('decline optional cookies') || text.includes('accept all')) {
                 btn.click();
-                return 'dismissed: ' + text;
+                return 'dismissed cookie banner';
               }
             }
-            return 'none';
+
+            for (const btn of cookieBtns) {
+              const text = (btn.textContent || '').trim().toLowerCase();
+              if (text === 'not now' || text === 'skip') {
+                btn.click();
+                return 'dismissed interstitial: ' + text;
+              }
+            }
+
+            for (const btn of cookieBtns) {
+              const text = (btn.textContent || '').trim().toLowerCase();
+              if (text === 'this was me') {
+                btn.click();
+                return 'dismissed security prompt';
+              }
+            }
+
+            return 'no interstitials found';
           })()
         `);
-        await page.sleep(1500);
+        await page.sleep(2000);
       }
-      newWebInfo = await fetchWebInfo();
-    }
 
-    state.webInfo = newWebInfo;
-    await page.setData('status', 'Login completed');
-  } else {
-    await page.setData('status', 'Session restored from previous login');
-  }
+      let newWebInfo = null;
+      for (let r = 0; r < 3; r++) {
+        newWebInfo = await fetchWebInfo();
+        if (newWebInfo?.username) break;
+        await page.sleep(2000);
+      }
+      let loginSucceeded = Boolean(newWebInfo && newWebInfo.username);
 
-  // Get the username
-  const username = state.webInfo?.username;
-  if (!username) {
-    await page.setData('error', 'Could not determine username');
-    return { error: 'Could not determine username' };
-  }
-
-  await page.setData('status', `Logged in as @${username}`);
-
-  // ═══ PHASE 1: Profile Data ═══
-  await page.setProgress({
-    phase: { step: 1, total: 3, label: 'Fetching profile' },
-    message: 'Setting up network capture...',
-  });
-
-  // Set up network captures BEFORE navigating to profile. The profile
-  // capture is load-bearing (we need profile.id for the following scrape
-  // and username/counts for the export summary), so always run it. The
-  // posts capture is gated on the instagram.posts scope — skipping it
-  // means we don't scroll or paginate for posts below.
-  await page.captureNetwork({
-    urlPattern: '/graphql',
-    bodyPattern: 'PolarisProfilePageContentQuery|ProfilePageQuery|UserByUsernameQuery',
-    key: 'profileResponse'
-  });
-
-  if (wantsPosts) {
-    await page.captureNetwork({
-      urlPattern: '/graphql',
-      bodyPattern: 'PolarisProfilePostsQuery|PolarisProfilePostsTabContentQuery_connection|ProfilePostsQuery|UserMediaQuery',
-      key: 'postsResponse'
-    });
-  }
-
-  await page.setData('status', 'Network capture configured');
-
-  // Navigate to user's profile — profile is load-bearing for the Following
-  // scrape (we need the user id) and for the final exported username, so
-  // retry a few times before bailing.
-  await page.setProgress({
-    phase: { step: 1, total: 3, label: 'Fetching profile' },
-    message: `Navigating to profile: @${username}`,
-  });
-  const profileReachable = await safeGoto(
-    `https://www.instagram.com/${username}/`,
-  );
-  if (!profileReachable) {
-    return {
-      success: false,
-      error: `Could not reach Instagram profile page for @${username} after multiple attempts.`,
-    };
-  }
-  await page.sleep(3000);
-
-  // Wait for profile data
-  await page.setProgress({
-    phase: { step: 1, total: 3, label: 'Fetching profile' },
-    message: 'Waiting for profile data...',
-  });
-  let profileData = null;
-  // When posts are not requested, treat postsData as "already done" so the
-  // wait loop exits as soon as the profile capture arrives.
-  let postsData = wantsPosts ? null : { skipped: true };
-  let attempts = 0;
-  const maxAttempts = 30;
-
-  while (attempts < maxAttempts && (!profileData || !postsData)) {
-    await page.sleep(1000);
-    attempts++;
-
-    if (!profileData) {
-      profileData = await page.getCapturedResponse('profileResponse');
-      if (profileData) {
-        await page.setProgress({
-          phase: { step: 1, total: 3, label: 'Fetching profile' },
-          message: 'Profile data captured!',
-        });
-
-        const userData = profileData?.data?.data?.user;
-        if (userData) {
-          state.profileData = {
-            username: userData.username,
-            full_name: userData.full_name,
-            pk: userData.pk,
-            id: userData.id,
-            biography: userData.biography,
-            follower_count: userData.follower_count,
-            following_count: userData.following_count,
-            media_count: userData.media_count,
-            total_clips_count: userData.total_clips_count,
-            profile_pic_url: userData.profile_pic_url,
-            hd_profile_pic_url: userData.hd_profile_pic_url_info?.url,
-            has_profile_pic: userData.has_profile_pic,
-            is_private: userData.is_private,
-            is_verified: userData.is_verified,
-            is_business: userData.is_business,
-            is_professional_account: userData.is_professional_account,
-            account_type: userData.account_type,
-            external_url: userData.external_url,
-            external_lynx_url: userData.external_lynx_url,
-            bio_links: userData.bio_links,
-            linked_fb_info: userData.linked_fb_info,
-            pronouns: userData.pronouns,
-            account_badges: userData.account_badges,
-            has_story_archive: userData.has_story_archive,
-            viewer_data: profileData.data?.data?.viewer,
-            collected_at: new Date().toISOString()
-          };
-          state.isProfileComplete = true;
-          await page.setData('profile', state.profileData);
-
-          // Scrape the following list once we have the authoritative user id
-          // and expected following count. This runs against Instagram's
-          // internal friendships endpoint via page.evaluate and is portable.
-          if (wantsFollowing) {
-            await page.setProgress({
-              phase: { step: 1, total: 3, label: 'Fetching following' },
-              message: `Fetching following list for @${state.profileData.username}...`,
-            });
-            state.followingAccounts = await scrapeFollowingAccounts(
-              state.profileData.id || state.profileData.pk,
-              state.profileData.following_count,
-            );
-            state.isFollowingComplete = true;
-            await page.setData('following_count_collected', state.followingAccounts.length);
-          } else {
-            // Mark complete so the done check doesn't wait on it.
-            state.isFollowingComplete = true;
-          }
+      if (!loginSucceeded) {
+        const { headed } = await page.showBrowser(
+          "https://www.instagram.com/accounts/login/",
+        );
+        if (headed) {
+          await page.setData(
+            "status",
+            "Please complete login in the browser...",
+          );
+          await page.promptUser(
+            'Complete any remaining verification, then click "Done".',
+            async () => {
+              const info = await fetchWebInfo();
+              return Boolean(info && info.username);
+            },
+            2000,
+          );
+          await page.goHeadless();
+        } else {
+          throw makeFatalRunError(
+            "auth_failed",
+            "Instagram login requires a headed browser or requestInput support.",
+            "auth",
+          );
         }
-      }
-    }
 
-    if (!postsData) {
-      postsData = await page.getCapturedResponse('postsResponse');
-      if (postsData) {
-        await page.setProgress({
-          phase: { step: 1, total: 3, label: 'Fetching profile' },
-          message: 'Posts data captured!',
-        });
-      }
-    }
-  }
-
-  // If we didn't get posts data (and posts were actually requested), try
-  // scrolling to trigger loading.
-  if (wantsPosts && !postsData) {
-    await page.setProgress({
-      phase: { step: 2, total: 3, label: 'Fetching posts' },
-      message: 'Scrolling to load posts...',
-      count: 0,
-    });
-    await page.evaluate(`window.scrollTo(0, document.body.scrollHeight)`);
-    await page.sleep(2000);
-    postsData = await page.getCapturedResponse('postsResponse');
-  }
-
-  // Process initial posts data (only when posts were requested — when
-  // posts are skipped, postsData is a {skipped: true} sentinel that would
-  // otherwise trip the truthiness check below).
-  if (wantsPosts && postsData) {
-    const timelineData = postsData?.data?.data?.xdt_api__v1__feed__user_timeline_graphql_connection;
-    if (timelineData) {
-      const { edges, page_info } = timelineData;
-      if (edges && Array.isArray(edges)) {
-        state.timelineEdges = edges;
-        state.pageInfo = page_info;
-        state.totalFetched = edges.length;
-        const mediaCount = state.profileData?.media_count;
-
-        await page.setProgress({
-          phase: { step: 2, total: 3, label: 'Fetching posts' },
-          message: mediaCount
-            ? `Captured ${state.totalFetched} of ${mediaCount} posts`
-            : `Captured ${state.totalFetched} posts`,
-          count: state.totalFetched,
-        });
-
-        // Fetch more pages if available
-        if (page_info?.has_next_page && page_info?.end_cursor) {
-
-          let hasMore = true;
-          let scrollAttempts = 0;
-          const maxScrollAttempts = 20;
-
-          while (hasMore && scrollAttempts < maxScrollAttempts) {
-            scrollAttempts++;
-
-            await page.clearNetworkCaptures();
-            await page.captureNetwork({
-              urlPattern: '/graphql',
-              bodyPattern: 'PolarisProfilePostsQuery|PolarisProfilePostsTabContentQuery_connection|ProfilePostsQuery|UserMediaQuery',
-              key: 'postsResponse'
-            });
-
-            await page.evaluate(`window.scrollTo(0, document.body.scrollHeight)`);
-            await page.sleep(2000);
-
-            const nextPostsData = await page.getCapturedResponse('postsResponse');
-            if (nextPostsData) {
-              const nextTimelineData = nextPostsData?.data?.data?.xdt_api__v1__feed__user_timeline_graphql_connection;
-              if (nextTimelineData?.edges) {
-                const { edges: newEdges, page_info: newPageInfo } = nextTimelineData;
-
-                const existingIds = new Set(
-                  state.timelineEdges.map(edge =>
-                    edge.node?.id || edge.node?.pk || edge.node?.media_id || edge.node?.code
-                  ).filter(Boolean)
-                );
-
-                const uniqueNewEdges = newEdges.filter(edge => {
-                  const nodeId = edge.node?.id || edge.node?.pk || edge.node?.media_id || edge.node?.code;
-                  return nodeId && !existingIds.has(nodeId);
-                });
-
-                if (uniqueNewEdges.length > 0) {
-                  state.timelineEdges = [...state.timelineEdges, ...uniqueNewEdges];
-                  state.pageInfo = newPageInfo;
-                  state.totalFetched = state.timelineEdges.length;
-
-                  await page.setProgress({
-                    phase: { step: 2, total: 3, label: 'Fetching posts' },
-                    message: mediaCount
-                      ? `Captured ${state.totalFetched} of ${mediaCount} posts`
-                      : `Captured ${state.totalFetched} posts`,
-                    count: state.totalFetched,
-                  });
+        for (let dismissAttempt = 0; dismissAttempt < 3; dismissAttempt++) {
+          await page.evaluate(`
+            (() => {
+              const btns = document.querySelectorAll('button');
+              for (const btn of btns) {
+                const text = (btn.textContent || '').trim().toLowerCase();
+                if (text.includes('allow all cookies') || text.includes('allow essential and optional cookies') ||
+                    text.includes('decline optional cookies') || text.includes('accept all') ||
+                    text === 'not now' || text === 'skip' || text === 'this was me') {
+                  btn.click();
+                  return 'dismissed: ' + text;
                 }
-
-                hasMore = newPageInfo?.has_next_page && newPageInfo?.end_cursor && uniqueNewEdges.length > 0;
-              } else {
-                hasMore = false;
               }
+              return 'none';
+            })()
+          `);
+          await page.sleep(1500);
+        }
+        newWebInfo = await fetchWebInfo();
+        loginSucceeded = Boolean(newWebInfo && newWebInfo.username);
+      }
+
+      state.webInfo = newWebInfo;
+      if (!loginSucceeded) {
+        throw makeFatalRunError(
+          "auth_failed",
+          "Instagram login could not be confirmed.",
+          "auth",
+        );
+      }
+      await page.setData("status", "Login completed");
+    } else {
+      await page.setData("status", "Session restored from previous login");
+    }
+
+    const username = state.webInfo?.username;
+    if (!username) {
+      throw makeFatalRunError(
+        "runtime_error",
+        "Could not determine the Instagram username for this session.",
+      );
+    }
+
+    await page.setData("status", `Logged in as @${username}`);
+
+    await page.setProgress({
+      phase: { step: 1, total: 3, label: "Fetching profile" },
+      message: "Setting up network capture...",
+    });
+
+    await page.captureNetwork({
+      urlPattern: "/graphql",
+      bodyPattern:
+        "PolarisProfilePageContentQuery|ProfilePageQuery|UserByUsernameQuery",
+      key: "profileResponse",
+    });
+
+    if (wantsPosts) {
+      await page.captureNetwork({
+        urlPattern: "/graphql",
+        bodyPattern:
+          "PolarisProfilePostsQuery|PolarisProfilePostsTabContentQuery_connection|ProfilePostsQuery|UserMediaQuery",
+        key: "postsResponse",
+      });
+    }
+
+    await page.setData("status", "Network capture configured");
+
+    await page.setProgress({
+      phase: { step: 1, total: 3, label: "Fetching profile" },
+      message: `Navigating to profile: @${username}`,
+    });
+    const profileReachable = await safeGoto(
+      `https://www.instagram.com/${username}/`,
+    );
+    if (!profileReachable) {
+      throw makeFatalRunError(
+        "navigation_error",
+        `Could not reach Instagram profile page for @${username} after multiple attempts.`,
+      );
+    }
+    await page.sleep(3000);
+
+    await page.setProgress({
+      phase: { step: 1, total: 3, label: "Fetching profile" },
+      message: "Waiting for profile data...",
+    });
+    let profileData = null;
+    let postsData = wantsPosts ? null : { skipped: true };
+    let attempts = 0;
+    const maxAttempts = 30;
+
+    while (attempts < maxAttempts && (!profileData || !postsData)) {
+      await page.sleep(1000);
+      attempts++;
+
+      if (!profileData) {
+        profileData = await page.getCapturedResponse("profileResponse");
+        if (profileData) {
+          await page.setProgress({
+            phase: { step: 1, total: 3, label: "Fetching profile" },
+            message: "Profile data captured!",
+          });
+
+          const userData = profileData?.data?.data?.user;
+          if (userData) {
+            state.profileData = {
+              username: userData.username,
+              full_name: userData.full_name,
+              pk: userData.pk,
+              id: userData.id,
+              biography: userData.biography,
+              follower_count: userData.follower_count,
+              following_count: userData.following_count,
+              media_count: userData.media_count,
+              total_clips_count: userData.total_clips_count,
+              profile_pic_url: userData.profile_pic_url,
+              hd_profile_pic_url: userData.hd_profile_pic_url_info?.url,
+              has_profile_pic: userData.has_profile_pic,
+              is_private: userData.is_private,
+              is_verified: userData.is_verified,
+              is_business: userData.is_business,
+              is_professional_account: userData.is_professional_account,
+              account_type: userData.account_type,
+              external_url: userData.external_url,
+              external_lynx_url: userData.external_lynx_url,
+              bio_links: userData.bio_links,
+              linked_fb_info: userData.linked_fb_info,
+              pronouns: userData.pronouns,
+              account_badges: userData.account_badges,
+              has_story_archive: userData.has_story_archive,
+              viewer_data: profileData.data?.data?.viewer,
+              collected_at: new Date().toISOString(),
+            };
+            state.isProfileComplete = true;
+            await page.setData("profile", state.profileData);
+
+            if (wantsFollowing) {
+              await page.setProgress({
+                phase: { step: 1, total: 3, label: "Fetching following" },
+                message: `Fetching following list for @${state.profileData.username}...`,
+              });
+              followingResult = await scrapeFollowingAccounts(
+                state.profileData.id || state.profileData.pk,
+                state.profileData.following_count,
+              );
+              state.followingAccounts = followingResult.data;
+              state.isFollowingComplete = followingResult.ok;
+              if (followingResult.error) {
+                errors.push(followingResult.error);
+              }
+              await page.setData(
+                "following_count_collected",
+                state.followingAccounts.length,
+              );
             } else {
-              hasMore = false;
+              state.isFollowingComplete = true;
             }
           }
         }
+      }
 
-        state.isTimelineComplete = true;
+      if (!postsData) {
+        postsData = await page.getCapturedResponse("postsResponse");
+        if (postsData) {
+          await page.setProgress({
+            phase: { step: 1, total: 3, label: "Fetching profile" },
+            message: "Posts data captured!",
+          });
+        }
       }
     }
-  }
 
-  // ═══ PHASE 3: Ad Interests ═══
-  // Scrapes from Accounts Center. DOM uses stable ARIA roles:
-  //   dialog > list > listitem (textContent = name)
-  // "See all advertisers" opens a dialog; "See all ad topics" navigates to /ads/ad_topics/ dialog.
-  //
-  // Gated on instagram.ads: when the caller didn't request ads, we skip
-  // the entire accountscenter navigation and dialog scraping.
-  if (wantsAds) {
-  await page.setProgress({
-    phase: { step: 3, total: 3, label: 'Fetching ad interests' },
-    message: 'Navigating to ad preferences...',
-  });
+    if (!state.profileData) {
+      throw makeFatalRunError(
+        "selector_error",
+        `Instagram profile data could not be captured for @${username}.`,
+      );
+    }
 
-  // Ads sub-page navigation failures are recoverable — we skip the ads
-  // scope rather than killing the run. The scoped result will come back
-  // with advertisers/ad_topics as empty arrays.
-  const adsReachable = await safeGoto(
-    'https://accountscenter.instagram.com/ads/',
-  );
-  if (!adsReachable) {
-    console.error(
-      '[instagram] Could not reach ads landing; skipping instagram.ads scope',
-    );
-  }
-  await page.sleep(4000);
-
-  // Helper: extract names from listitem elements inside a dialog
-  const scrapeDialogList = async () => {
-    return await page.evaluate(`
-      (() => {
-        const dialog = document.querySelector('[role="dialog"]');
-        if (!dialog) return [];
-        const items = dialog.querySelectorAll('[role="list"] [role="listitem"]');
-        return Array.from(items).map(el => el.textContent.trim()).filter(t => t.length > 0);
-      })()
-    `);
-  };
-
-  // 1. Advertisers — click "See all" button to open dialog.
-  // Wrapped in try/catch so a transient DOM or network issue in this
-  // sub-phase doesn't kill the whole ads collection.
-  if (adsReachable) {
-    try {
+    if (wantsPosts && !postsData) {
       await page.setProgress({
-        phase: { step: 3, total: 3, label: 'Fetching ad interests' },
-        message: 'Collecting advertisers...',
+        phase: { step: 2, total: 3, label: "Fetching posts" },
+        message: "Scrolling to load posts...",
+        count: 0,
+      });
+      await page.evaluate("window.scrollTo(0, document.body.scrollHeight)");
+      await page.sleep(2000);
+      postsData = await page.getCapturedResponse("postsResponse");
+    }
+
+    if (wantsPosts) {
+      if (!postsData) {
+        postsIssue = makeConnectorError(
+          "upstream_error",
+          `Instagram posts data was not captured for @${username}.`,
+          "omitted",
+          { scope: "instagram.posts", phase: "collect" },
+        );
+      } else {
+        const timelineData =
+          postsData?.data?.data?.xdt_api__v1__feed__user_timeline_graphql_connection;
+        if (!timelineData?.edges || !Array.isArray(timelineData.edges)) {
+          postsIssue = makeConnectorError(
+            "selector_error",
+            `Instagram posts payload was malformed for @${username}.`,
+            "omitted",
+            { scope: "instagram.posts", phase: "collect" },
+          );
+        } else {
+          const { edges, page_info: pageInfo } = timelineData;
+          state.timelineEdges = edges;
+          state.pageInfo = pageInfo;
+          state.totalFetched = edges.length;
+          const mediaCount = state.profileData?.media_count;
+
+          await page.setProgress({
+            phase: { step: 2, total: 3, label: "Fetching posts" },
+            message: mediaCount
+              ? `Captured ${state.totalFetched} of ${mediaCount} posts`
+              : `Captured ${state.totalFetched} posts`,
+            count: state.totalFetched,
+          });
+
+          if (pageInfo?.has_next_page && pageInfo?.end_cursor) {
+            let hasMore = true;
+            let scrollAttempts = 0;
+            const maxScrollAttempts = 20;
+
+            while (hasMore && scrollAttempts < maxScrollAttempts) {
+              scrollAttempts++;
+
+              await page.clearNetworkCaptures();
+              await page.captureNetwork({
+                urlPattern: "/graphql",
+                bodyPattern:
+                  "PolarisProfilePostsQuery|PolarisProfilePostsTabContentQuery_connection|ProfilePostsQuery|UserMediaQuery",
+                key: "postsResponse",
+              });
+
+              await page.evaluate("window.scrollTo(0, document.body.scrollHeight)");
+              await page.sleep(2000);
+
+              const nextPostsData = await page.getCapturedResponse("postsResponse");
+              if (!nextPostsData) {
+                postsIssue = makeConnectorError(
+                  "upstream_error",
+                  `Instagram posts pagination stopped before all pages were captured for @${username}.`,
+                  "degraded",
+                  { scope: "instagram.posts", phase: "collect" },
+                );
+                break;
+              }
+
+              const nextTimelineData =
+                nextPostsData?.data?.data?.xdt_api__v1__feed__user_timeline_graphql_connection;
+              if (!nextTimelineData?.edges) {
+                postsIssue = makeConnectorError(
+                  "selector_error",
+                  `Instagram posts pagination returned an unreadable page for @${username}.`,
+                  "degraded",
+                  { scope: "instagram.posts", phase: "collect" },
+                );
+                break;
+              }
+
+              const {
+                edges: newEdges,
+                page_info: newPageInfo,
+              } = nextTimelineData;
+
+              const existingIds = new Set(
+                state.timelineEdges
+                  .map(
+                    (edge) =>
+                      edge.node?.id ||
+                      edge.node?.pk ||
+                      edge.node?.media_id ||
+                      edge.node?.code,
+                  )
+                  .filter(Boolean),
+              );
+
+              const uniqueNewEdges = newEdges.filter((edge) => {
+                const nodeId =
+                  edge.node?.id ||
+                  edge.node?.pk ||
+                  edge.node?.media_id ||
+                  edge.node?.code;
+                return nodeId && !existingIds.has(nodeId);
+              });
+
+              if (uniqueNewEdges.length > 0) {
+                state.timelineEdges = [...state.timelineEdges, ...uniqueNewEdges];
+                state.pageInfo = newPageInfo;
+                state.totalFetched = state.timelineEdges.length;
+
+                await page.setProgress({
+                  phase: { step: 2, total: 3, label: "Fetching posts" },
+                  message: mediaCount
+                    ? `Captured ${state.totalFetched} of ${mediaCount} posts`
+                    : `Captured ${state.totalFetched} posts`,
+                  count: state.totalFetched,
+                });
+              }
+
+              hasMore = Boolean(
+                newPageInfo?.has_next_page &&
+                  newPageInfo?.end_cursor &&
+                  uniqueNewEdges.length > 0,
+              );
+              if (
+                !hasMore &&
+                newPageInfo?.has_next_page &&
+                uniqueNewEdges.length === 0
+              ) {
+                postsIssue = makeConnectorError(
+                  "upstream_error",
+                  `Instagram posts pagination stopped yielding new records before completion for @${username}.`,
+                  "degraded",
+                  { scope: "instagram.posts", phase: "collect" },
+                );
+              }
+            }
+
+            if (!postsIssue && state.pageInfo?.has_next_page) {
+              postsIssue = makeConnectorError(
+                "upstream_error",
+                `Instagram posts pagination did not finish within the connector attempt limit for @${username}.`,
+                "degraded",
+                { scope: "instagram.posts", phase: "collect" },
+              );
+            }
+          }
+
+          state.isTimelineComplete = true;
+        }
+      }
+
+      if (postsIssue) {
+        errors.push(postsIssue);
+      }
+    }
+
+    if (wantsAds) {
+      await page.setProgress({
+        phase: { step: 3, total: 3, label: "Fetching ad interests" },
+        message: "Navigating to ad preferences...",
       });
 
-      await page.evaluate(`
-        (() => {
-          const btn = document.querySelector('[role="button"][aria-label*="advertiser" i]');
-          if (btn) btn.click();
-        })()
-      `);
-      await page.sleep(2000);
-
-      const advertiserNames = await scrapeDialogList();
-      state.adsData.advertisers = advertiserNames.map(name => ({ name }));
-
-      // Close dialog
-      await page.evaluate(`
-        (() => {
-          const dialog = document.querySelector('[role="dialog"]');
-          const close = dialog?.querySelector('[aria-label="Close" i]');
-          if (close) close.click();
-        })()
-      `);
-      await page.sleep(1000);
-    } catch (error) {
-      console.error(
-        '[instagram] advertisers scrape failed:',
-        error?.message || String(error),
+      const adsReachable = await safeGoto(
+        "https://accountscenter.instagram.com/ads/",
       );
+      if (!adsReachable) {
+        adsIssue = makeConnectorError(
+          "navigation_error",
+          "Instagram ads landing page could not be reached.",
+          "omitted",
+          { scope: "instagram.ads", phase: "collect" },
+        );
+      } else {
+        await page.sleep(4000);
+
+        const scrapeDialogList = async () => {
+          return await page.evaluate(`
+            (() => {
+              const dialog = document.querySelector('[role="dialog"]');
+              if (!dialog) return [];
+              const items = dialog.querySelectorAll('[role="list"] [role="listitem"]');
+              return Array.from(items)
+                .map(el => el.textContent.trim())
+                .filter(t => t.length > 0);
+            })()
+          `);
+        };
+
+        try {
+          await page.setProgress({
+            phase: { step: 3, total: 3, label: "Fetching ad interests" },
+            message: "Collecting advertisers...",
+          });
+
+          await page.evaluate(`
+            (() => {
+              const btn = document.querySelector('[role="button"][aria-label*="advertiser" i]');
+              if (btn) btn.click();
+            })()
+          `);
+          await page.sleep(2000);
+
+          const advertiserNames = await scrapeDialogList();
+          state.adsData.advertisers = advertiserNames.map((name) => ({ name }));
+          adsAdvertisersCollected = true;
+
+          await page.evaluate(`
+            (() => {
+              const dialog = document.querySelector('[role="dialog"]');
+              const close = dialog?.querySelector('[aria-label="Close" i]');
+              if (close) close.click();
+            })()
+          `);
+          await page.sleep(1000);
+        } catch (error) {
+          adsIssue = makeConnectorError(
+            inferErrorClass(error?.message || String(error), "selector_error"),
+            `Instagram advertisers collection failed: ${error?.message || String(error)}`,
+            "omitted",
+            { scope: "instagram.ads", phase: "collect" },
+          );
+        }
+
+        await page.setProgress({
+          phase: { step: 3, total: 3, label: "Fetching ad interests" },
+          message: `Found ${state.adsData.advertisers.length} advertisers. Collecting ad topics...`,
+        });
+
+        const topicsReachable = await safeGoto(
+          "https://accountscenter.instagram.com/ads/ad_topics/",
+        );
+        if (!topicsReachable) {
+          const disposition = adsAdvertisersCollected ? "degraded" : "omitted";
+          adsIssue = makeConnectorError(
+            "navigation_error",
+            "Instagram ad topics page could not be reached.",
+            disposition,
+            { scope: "instagram.ads", phase: "collect" },
+          );
+        } else {
+          try {
+            await page.sleep(3000);
+            const topicNames = await page.evaluate(`
+              (() => {
+                const dialog = document.querySelector('[role="dialog"]');
+                if (!dialog) return [];
+                const items = dialog.querySelectorAll('[role="list"] [role="listitem"]');
+                return Array.from(items)
+                  .map(el => el.textContent.trim())
+                  .filter(t => t.length > 0 && !t.toLowerCase().includes('special topic') && !t.toLowerCase().includes('see less'));
+              })()
+            `);
+            state.adsData.ad_topics = topicNames.map((name) => ({ name }));
+            adsTopicsCollected = true;
+          } catch (error) {
+            adsIssue = makeConnectorError(
+              inferErrorClass(error?.message || String(error), "selector_error"),
+              `Instagram ad topics collection failed: ${error?.message || String(error)}`,
+              adsAdvertisersCollected ? "degraded" : "omitted",
+              { scope: "instagram.ads", phase: "collect" },
+            );
+          }
+        }
+      }
+
+      state.isAdsComplete =
+        adsAdvertisersCollected || adsTopicsCollected;
+      await page.setProgress({
+        phase: { step: 3, total: 3, label: "Fetching ad interests" },
+        message: `Ad interests: ${state.adsData.advertisers.length} advertisers, ${state.adsData.ad_topics.length} topics`,
+      });
+
+      if (adsIssue && (adsAdvertisersCollected || adsTopicsCollected)) {
+        adsIssue = { ...adsIssue, disposition: "degraded" };
+      }
+      if (adsIssue) {
+        errors.push(adsIssue);
+      }
     }
-  }
 
-  await page.setProgress({
-    phase: { step: 3, total: 3, label: 'Fetching ad interests' },
-    message: `Found ${state.adsData.advertisers.length} advertisers. Collecting ad topics...`,
-  });
-
-  // 2. Ad topics — navigate to sub-page which opens its own dialog.
-  // Retry the navigation via safeGoto, and wrap the scrape in try/catch
-  // so partial ads data (e.g., advertisers collected but topics failed)
-  // still surfaces to the caller.
-  const topicsReachable = await safeGoto(
-    'https://accountscenter.instagram.com/ads/ad_topics/',
-  );
-  if (topicsReachable) {
-    try {
-      await page.sleep(3000);
-      const topicNames = await page.evaluate(`
-        (() => {
-          const dialog = document.querySelector('[role="dialog"]');
-          if (!dialog) return [];
-          // "Your activity-based topics" section has a heading followed by a generic with topic text,
-          // or list items. Collect all listitem texts from the dialog, filtering out non-topic entries.
-          const items = dialog.querySelectorAll('[role="list"] [role="listitem"]');
-          return Array.from(items)
-            .map(el => el.textContent.trim())
-            .filter(t => t.length > 0 && !t.toLowerCase().includes('special topic') && !t.toLowerCase().includes('see less'));
-        })()
-      `);
-      state.adsData.ad_topics = topicNames.map(name => ({ name }));
-    } catch (error) {
-      console.error(
-        '[instagram] ad topics scrape failed:',
-        error?.message || String(error),
-      );
-    }
-  } else {
-    console.error(
-      '[instagram] Could not reach ads/ad_topics; skipping topics sub-scrape',
-    );
-  }
-
-  state.isAdsComplete = state.adsData.advertisers.length > 0 || state.adsData.ad_topics.length > 0;
-
-  await page.setProgress({
-    phase: { step: 3, total: 3, label: 'Fetching ad interests' },
-    message: `Ad interests: ${state.adsData.advertisers.length} advertisers, ${state.adsData.ad_topics.length} topics`,
-  });
-  } // end if (wantsAds)
-
-  // Transform data to schema format
-  const transformDataForSchema = () => {
-    const profile = state.profileData;
-    const edges = state.timelineEdges;
-
-    if (!profile) {
-      return null;
-    }
-
-    const posts = (edges || []).map((edge) => {
+    const posts = (state.timelineEdges || []).map((edge) => {
       const node = edge.node;
-      const imgUrl = node.image_versions2?.candidates?.[0]?.url ||
-        node.carousel_media?.[0]?.image_versions2?.candidates?.[0]?.url || "";
+      const imgUrl =
+        node.image_versions2?.candidates?.[0]?.url ||
+        node.carousel_media?.[0]?.image_versions2?.candidates?.[0]?.url ||
+        "";
       const caption = node.caption?.text || "";
       const numOfLikes = node.like_count || 0;
       const whoLiked = (node.facepile_top_likers || []).map((liker) => ({
         profile_pic_url: liker.profile_pic_url || "",
         pk: liker.pk || liker.id || "",
         username: liker.username || "",
-        id: liker.id || liker.pk || ""
+        id: liker.id || liker.pk || "",
       }));
 
       return {
         img_url: imgUrl,
-        caption: caption,
+        caption,
         num_of_likes: numOfLikes,
-        who_liked: whoLiked
+        who_liked: whoLiked,
       };
     });
 
-    // Build the scoped result, only including keys for scopes the caller
-    // actually requested. When requestedScopesList is null (legacy),
-    // wantsScope always returns true and all four scopes are emitted.
-    const scopedResult = {};
     if (wantsProfile) {
-      scopedResult['instagram.profile'] = {
-        username: profile.username,
-        full_name: profile.full_name,
-        bio: profile.biography,
-        profile_pic_url: profile.profile_pic_url,
-        external_url: profile.external_url,
-        follower_count: profile.follower_count,
-        following_count: profile.following_count,
-        media_count: profile.media_count,
-        is_private: profile.is_private,
-        is_verified: profile.is_verified,
-        is_business: profile.is_business,
+      scopes["instagram.profile"] = {
+        username: state.profileData.username,
+        full_name: state.profileData.full_name,
+        bio: state.profileData.biography,
+        profile_pic_url: state.profileData.profile_pic_url,
+        external_url: state.profileData.external_url,
+        follower_count: state.profileData.follower_count,
+        following_count: state.profileData.following_count,
+        media_count: state.profileData.media_count,
+        is_private: state.profileData.is_private,
+        is_verified: state.profileData.is_verified,
+        is_business: state.profileData.is_business,
       };
     }
-    if (wantsPosts) {
-      scopedResult['instagram.posts'] = {
-        posts: posts,
+
+    if (wantsPosts && postsIssue?.disposition !== "omitted") {
+      scopes["instagram.posts"] = {
+        posts,
       };
     }
-    if (wantsFollowing) {
-      scopedResult['instagram.following'] = {
+
+    if (wantsFollowing && followingResult.ok) {
+      scopes["instagram.following"] = {
         accounts: state.followingAccounts,
         total: state.followingAccounts.length,
       };
     }
-    if (wantsAds) {
-      scopedResult['instagram.ads'] = {
+
+    if (wantsAds && (adsAdvertisersCollected || adsTopicsCollected)) {
+      scopes["instagram.ads"] = {
         advertisers: state.adsData.advertisers,
         ad_topics: state.adsData.ad_topics,
       };
     }
-    return {
-      ...scopedResult,
+
+    state.isComplete = state.isProfileComplete;
+    const totalItems =
+      posts.length +
+      state.followingAccounts.length +
+      state.adsData.advertisers.length +
+      state.adsData.ad_topics.length;
+    const result = buildResult({
+      requestedScopes,
+      scopes,
+      errors,
       exportSummary: {
-        count: posts.length,
-        label: posts.length === 1 ? 'post' : 'posts'
+        count: totalItems,
+        label: totalItems === 1 ? "item" : "items",
+        details: {
+          posts: posts.length,
+          following: state.followingAccounts.length,
+          advertisers: state.adsData.advertisers.length,
+          adTopics: state.adsData.ad_topics.length,
+        },
       },
-      timestamp: new Date().toISOString(),
-      version: "2.0.0-playwright",
-      platform: "instagram",
-      requestedScopes: requestedScopesList,
-    };
-  };
+    });
 
-  // Build final result
-  state.isComplete = state.isProfileComplete;
-  const result = transformDataForSchema();
-
-  if (result) {
-    await page.setData('result', result);
-    const postCount = result['instagram.posts']?.posts?.length || 0;
-    const adCount = result['instagram.ads']?.advertisers?.length || 0;
-    const topicCount = result['instagram.ads']?.ad_topics?.length || 0;
-    await page.setData('status', `Complete! ${postCount} posts, ${adCount} advertisers, ${topicCount} ad topics collected for @${result['instagram.profile']?.username}`);
-    return { success: true, data: result };
-  } else {
-    await page.setData('error', 'Failed to transform data');
-    return { success: false, error: 'Failed to transform data' };
+    await page.setData("result", result);
+    const postCount = result["instagram.posts"]?.posts?.length || 0;
+    const adCount = result["instagram.ads"]?.advertisers?.length || 0;
+    const topicCount = result["instagram.ads"]?.ad_topics?.length || 0;
+    await page.setData(
+      "status",
+      `Complete! ${postCount} posts, ${adCount} advertisers, ${topicCount} ad topics collected for @${state.profileData.username}`,
+    );
+    return result;
+  } catch (error) {
+    const telemetryError =
+      error?.telemetryError ||
+      makeConnectorError(
+        inferErrorClass(error?.message || String(error)),
+        error?.message || String(error),
+        "fatal",
+        { phase: "collect" },
+      );
+    const result = buildEmptyResult(requestedScopes, [telemetryError]);
+    await page.setData("result", result);
+    await page.setData("error", telemetryError.reason);
+    return result;
   }
 })();

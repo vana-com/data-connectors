@@ -125,22 +125,121 @@ Connectors run in a sandboxed Playwright browser managed by the DataConnect app.
 3. Report structured progress to the UI
 4. Return the collected data with an export summary
 
-### Scoped result format
+### Canonical result shape
 
-Connectors return a scoped result object where data keys use the format `source.category` (e.g., `linkedin.profile`, `chatgpt.conversations`). The frontend auto-detects scoped keys (any key containing a `.` that isn't a metadata field) and POSTs each scope separately to the Personal Server at `POST /v1/data/{scope}`.
+Connectors return a flat result object. Top-level keys are either **reserved metadata** or **scope keys** (`source.category` format, e.g., `linkedin.profile`, `chatgpt.conversations`). The frontend auto-detects scoped keys (any key containing a `.` that isn't a reserved key) and POSTs each scope separately to the Personal Server at `POST /v1/data/{scope}`.
 
 ```javascript
 const result = {
-  'platform.scope1': { /* scope data */ },
-  'platform.scope2': { /* scope data */ },
-  exportSummary: { count, label, details },
+  // ── Reserved metadata (always required) ──
+  requestedScopes: ['platform.scope1', 'platform.scope2'],
   timestamp: new Date().toISOString(),
   version: '2.0.0-playwright',
   platform: 'platform-name',
+  exportSummary: { count: 42, label: '42 items exported', details: { /* ... */ } },
+  errors: [],
+
+  // ── Scope keys (one per collected scope) ──
+  'platform.scope1': { /* scope data */ },
+  'platform.scope2': { /* scope data */ },
 };
 ```
 
-Metadata keys (`exportSummary`, `timestamp`, `version`, `platform`) are not treated as scopes.
+#### Reserved metadata keys
+
+These top-level keys are reserved and must not be used as scope names:
+
+| Key | Type | Required | Description |
+|-----|------|----------|-------------|
+| `requestedScopes` | `string[]` | **yes** | The resolved execution target for this run — explicit, deduplicated, non-empty. |
+| `timestamp` | `string` | **yes** | ISO 8601 timestamp of when the run completed. |
+| `version` | `string` | **yes** | Connector version string. |
+| `platform` | `string` | **yes** | Platform identifier. |
+| `exportSummary` | `object` | **yes** | Summary with `count` (number), `label` (string), and optional `details`. |
+| `errors` | `ConnectorError[]` | **yes** | Unresolved output-affecting errors. Empty array if none. |
+
+All other top-level keys are treated as candidate scope keys and must be members of `requestedScopes`.
+
+#### Scope keys
+
+Scope keys use the `platform.category` format (e.g., `github.repositories`). Rules:
+
+- Every produced scope key **must** appear in `requestedScopes`.
+- A scope not listed in `requestedScopes` must never be produced (protocol violation).
+- Empty-but-present scope payloads (`{}`) are valid data, not failures.
+- A requested scope may be: produced cleanly, produced in degraded form, or omitted.
+
+#### `requestedScopes`
+
+`requestedScopes` represents the **resolved execution target** for this run — not raw caller input.
+
+- If the caller omits scopes, the runtime expands to the connector manifest's full canonical scope set before execution.
+- `requestedScopes` must always be present, explicit, deduplicated, and non-empty.
+- Missing, empty, or non-array `requestedScopes` is a protocol violation.
+
+#### `errors[]` — honest outcome reporting
+
+`errors[]` carries **unresolved, output-affecting problems only**. It must always be present (empty array is valid).
+
+Each error entry:
+
+```javascript
+{
+  errorClass: 'auth_failed',        // from the shared taxonomy (see below)
+  reason: 'Session cookie expired',  // human-readable explanation
+  disposition: 'omitted',           // 'omitted' | 'degraded' | 'fatal'
+  scope: 'platform.scope1',         // required for omitted/degraded; optional for fatal
+  phase: 'auth',                    // optional diagnostic context
+}
+```
+
+**Dispositions:**
+
+| Disposition | Meaning | `scope` required? | Scope key present? |
+|-------------|---------|--------------------|--------------------|
+| `omitted` | The requested scope did not produce a trustworthy payload. | yes | no |
+| `degraded` | The scope produced a payload, but completeness or fidelity is materially affected. | yes | yes |
+| `fatal` | A run-level problem makes the entire run untrustworthy. | no | n/a |
+
+**What belongs in `errors[]`:**
+
+- Auth failures preventing collection
+- Selector drift causing omission
+- Pagination failures making a produced scope materially incomplete
+- Scope emitted outside `requestedScopes`
+
+**What does NOT belong** (if fully recovered):
+
+- A navigation attempt that failed then succeeded with no output lost
+- A fetch that failed once, retry succeeded, no output lost
+
+#### Error taxonomy
+
+Connectors and runners share one error taxonomy:
+
+`auth_failed` · `rate_limited` · `upstream_error` · `navigation_error` · `network_error` · `selector_error` · `timeout` · `protocol_violation` · `runtime_error` · `personal_server_unavailable` · `unknown`
+
+#### Protocol violations
+
+The following are protocol violations and must be treated as hard failures:
+
+- Missing required metadata fields (`requestedScopes`, `timestamp`, `version`, `platform`, `exportSummary`, `errors`)
+- `requestedScopes` missing, empty, or non-array
+- `errors` missing or not an array
+- Top-level scope key produced outside `requestedScopes`
+- Invalid error entries (missing `errorClass`, `reason`, or `disposition`)
+- `omitted`/`degraded` errors missing `scope`
+
+#### Collection outcomes
+
+The runner classifies each run into one of:
+
+| Outcome | Meaning |
+|---------|---------|
+| `success` | All requested scopes produced, no unresolved output-affecting errors. |
+| `partial` | At least one scope produced, but at least one scope was omitted or degraded. |
+| `failure` | No scopes successfully produced, or a fatal/protocol-level issue makes the run untrustworthy. |
+| `cancelled` | Run was cancelled. |
 
 ### Data extraction patterns
 

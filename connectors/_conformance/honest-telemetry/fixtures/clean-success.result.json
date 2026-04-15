@@ -1,0 +1,28 @@
+{
+  "requestedScopes": [
+    "conformance.profile",
+    "conformance.activity"
+  ],
+  "timestamp": "2026-04-14T12:00:00.000Z",
+  "version": "1.0.0",
+  "platform": "conformance",
+  "exportSummary": {
+    "count": 3,
+    "label": "3 records exported"
+  },
+  "errors": [],
+  "conformance.profile": {
+    "id": "user-1",
+    "displayName": "Ada Lovelace"
+  },
+  "conformance.activity": {
+    "items": [
+      {
+        "id": "activity-1"
+      },
+      {
+        "id": "activity-2"
+      }
+    ]
+  }
+}
