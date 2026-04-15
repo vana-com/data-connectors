@@ -276,42 +276,119 @@ const fetchWebInfo = async () => {
       hasLoginForm = false;
     }
 
-    if (supportsRequestInput && hasLoginForm) {
-      const { username: loginUser, password } = await page.requestInput({
-        message: "Log in to Instagram",
-        schema: {
-          type: "object",
-          properties: {
-            username: { type: "string", description: "Instagram username, email, or phone number" },
-            password: { type: "string", format: "password" },
-          },
-          required: ["username", "password"],
-        },
-      });
+    // Wrong-password retry loop. Previously the connector would fill
+    // creds once, press Enter, wait 12s, and blindly continue — so a
+    // bad password produced a silent-success (no error surfaced, script
+    // continued into the data-fetch phase with an unauthenticated
+    // session and returned whatever it could scrape). Mirrors the
+    // pattern the canonical GitHub connector uses. BUI-340 class bug.
+    let needs2fa = false;
+    let loginAttempts = 0;
+    const maxLoginAttempts = 3;
+    let lastLoginError = null;
 
-      // Use the canonical Page API's page.fill / page.press so the runtime
-      // (Playwright, under both DataConnect and Context Gateway) handles
-      // React-synthetic-event dispatch correctly. Setting input.value by
-      // hand and firing a bubbling 'input' event does NOT trigger React's
-      // onChange for controlled inputs, which is why previous versions of
-      // this script failed silently on Instagram's current DOM.
-      await page.fill(userSelector, loginUser);
-      await page.sleep(300);
-      await page.fill(passSelector, password);
-      await page.sleep(300);
-      // Press Enter on the password field rather than clicking a submit
-      // button — Instagram renders its submit as either
-      // `<button type="submit">`, `<input type="submit">`, or
-      // `<div role="button">`, and the Enter-key path bypasses all of
-      // those variations.
-      await page.press(passSelector, 'Enter');
-      // Instagram's SPA redirect can take 10+ seconds after a successful
-      // submit. Wait long enough that an immediate check for the login
-      // form or a 2FA prompt will see a settled DOM.
-      await page.sleep(12000);
+    if (supportsRequestInput && hasLoginForm) {
+      while (loginAttempts < maxLoginAttempts) {
+        loginAttempts += 1;
+
+        const { username: loginUser, password } = await page.requestInput({
+          message: lastLoginError
+            ? `Log in to Instagram — ${lastLoginError}`
+            : "Log in to Instagram",
+          schema: {
+            type: "object",
+            properties: {
+              username: { type: "string", description: "Instagram username, email, or phone number" },
+              password: { type: "string", format: "password" },
+            },
+            required: ["username", "password"],
+          },
+        });
+
+        // Use the canonical Page API's page.fill / page.press so the runtime
+        // (Playwright, under both DataConnect and Context Gateway) handles
+        // React-synthetic-event dispatch correctly. Setting input.value by
+        // hand and firing a bubbling 'input' event does NOT trigger React's
+        // onChange for controlled inputs, which is why previous versions of
+        // this script failed silently on Instagram's current DOM.
+        await page.fill(userSelector, loginUser);
+        await page.sleep(300);
+        await page.fill(passSelector, password);
+        await page.sleep(300);
+        // Press Enter on the password field rather than clicking a submit
+        // button — Instagram renders its submit as either
+        // `<button type="submit">`, `<input type="submit">`, or
+        // `<div role="button">`, and the Enter-key path bypasses all of
+        // those variations.
+        await page.press(passSelector, 'Enter');
+        // Instagram's SPA redirect can take 10+ seconds after a successful
+        // submit. Wait long enough that an immediate check for the login
+        // form or a 2FA prompt will see a settled DOM.
+        await page.sleep(12000);
+
+        // Check whether we navigated off the login form. Instagram shows
+        // wrong-password errors on the same page — either in a visible
+        // error banner (`#slfErrorAlert`, `[role="alert"]`, or inline
+        // text containing "incorrect" / "wrong" / "sorry") or simply by
+        // keeping the form visible with no error text. Both cases mean
+        // we are NOT authenticated and must re-prompt.
+        const postSubmit = await page.evaluate(`
+          (() => {
+            const userEl = document.querySelector(
+              'input[name="username"], input[name="email"], input[aria-label*="Username"]'
+            );
+            const stillOnLoginForm = !!userEl && userEl.offsetParent !== null;
+
+            let errorText = null;
+            const errorCandidates = [
+              '#slfErrorAlert',
+              '[role="alert"]',
+              'p[data-bloks-name*="Text"]',
+              'div[data-testid*="error"]',
+            ];
+            for (const sel of errorCandidates) {
+              const nodes = document.querySelectorAll(sel);
+              for (const el of nodes) {
+                if (!el || el.offsetParent === null) continue;
+                const text = (el.textContent || '').trim();
+                if (!text) continue;
+                if (/incorrect|wrong|invalid|sorry|try again|check.*password/i.test(text)) {
+                  errorText = text;
+                  break;
+                }
+              }
+              if (errorText) break;
+            }
+
+            return { stillOnLoginForm, errorText };
+          })()
+        `);
+
+        if (!postSubmit.stillOnLoginForm) {
+          // Off the login form — either past login (dashboard) or on a
+          // 2FA challenge page. Break out and let the 2FA / post-login
+          // detection below handle it.
+          break;
+        }
+
+        lastLoginError =
+          postSubmit.errorText ||
+          'Login failed — still on the login form after submit.';
+        console.error(
+          `[instagram] login attempt ${loginAttempts}/${maxLoginAttempts} failed: ${lastLoginError}`
+        );
+
+        if (loginAttempts >= maxLoginAttempts) {
+          return {
+            success: false,
+            error: `Instagram login failed after ${maxLoginAttempts} attempts: ${lastLoginError}`,
+          };
+        }
+        // Loop back to re-prompt with the error visible in the message.
+      }
 
       // Handle 2FA / suspicious login challenge
-      const needs2fa = await page.evaluate(`
+      needs2fa = await page.evaluate(`
         !!document.querySelector('input[name="verificationCode"]') ||
         !!document.querySelector('input[name="security_code"]') ||
         !!document.querySelector('input[aria-label="Security Code"]') ||
