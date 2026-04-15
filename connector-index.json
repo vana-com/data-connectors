@@ -185,6 +185,38 @@
         }
       }
     ],
+    "google-api-playwright": [
+      {
+        "connectorId": "google-api-playwright",
+        "company": "google",
+        "version": "1.0.0",
+        "name": "Google My Activity (API)",
+        "status": "experimental",
+        "description": "Exports your Google My Activity feed across all Google products (Search, Maps, YouTube, Play, Assistant, apps) using API-first batchexecute replay. No DOM scraping for data.",
+        "sourceFiles": {
+          "script": "google/google-api-playwright.js",
+          "metadata": "google/google-api-playwright.json"
+        },
+        "publishedAt": "2026-04-15T00:00:00Z",
+        "gitRef": "feat/instagram-api-playwright-connector",
+        "pageApiVersion": 1,
+        "manifestSha256": "sha256:737c94f03092aa07ba8648be3347850b48ff6be55bf2dba7e2a384fabc39f0ff",
+        "scriptSha256": "sha256:f28873c5db5c72384e922cb99b92de87b20178f0fdf36e372d7d0778a91df662",
+        "artifactSha256": "sha256:b0951416ec8832896034db84fd3e00d460ff25c357c4b68112a1b46a6fa43496",
+        "artifactPath": "artifacts/google-api-playwright/google-api-playwright-1.0.0.tgz",
+        "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/feat/instagram-api-playwright-connector/artifacts/google-api-playwright/google-api-playwright-1.0.0.tgz",
+        "scopes": [
+          "google.myactivity"
+        ],
+        "consumerMetadata": {
+          "sourceId": "google",
+          "displayName": "Google My Activity",
+          "brandDomain": "google.com",
+          "iconKey": "google",
+          "defaultScope": "google.myactivity"
+        }
+      }
+    ],
     "heb-playwright": [
       {
         "connectorId": "heb-playwright",
