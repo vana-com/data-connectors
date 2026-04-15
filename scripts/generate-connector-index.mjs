@@ -124,6 +124,30 @@ function resolveCommittedArtifactRef(existingIndex) {
   return null;
 }
 
+function resolveCommittedArtifactTag(existingIndex) {
+  if (!existingIndex?.connectors) {
+    return null;
+  }
+
+  const tags = new Set();
+  for (const versions of Object.values(existingIndex.connectors)) {
+    if (!Array.isArray(versions) || versions.length === 0) {
+      continue;
+    }
+
+    const latest = versions.at(-1);
+    if (latest?.sourceTag) {
+      tags.add(latest.sourceTag);
+    }
+  }
+
+  if (tags.size === 1) {
+    return [...tags][0];
+  }
+
+  return null;
+}
+
 function sha256Buffer(buffer) {
   return `sha256:${createHash("sha256").update(buffer).digest("hex")}`;
 }
@@ -249,7 +273,10 @@ function main() {
     process.env.CONNECTOR_SOURCE_COMMIT?.trim() ||
     (checkMode && resolveCommittedArtifactRef(existingIndex)) ||
     resolveSourceCommit();
-  const sourceTag = resolveSourceTag(sourceCommit);
+  const sourceTag =
+    process.env.CONNECTOR_SOURCE_TAG?.trim() ||
+    (checkMode && resolveCommittedArtifactTag(existingIndex)) ||
+    resolveSourceTag(sourceCommit);
   const releaseMetadata = resolveReleaseMetadata(sourceCommit);
   const nextIndex = {
     indexVersion: "2.0",
