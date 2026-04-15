@@ -55,12 +55,15 @@ function resolveReleaseMetadata(sourceCommit) {
   const releaseTag =
     process.env.CONNECTOR_RELEASE_TAG?.trim() ||
     `connectors-${sourceCommit.slice(0, 12)}`;
+  const latestReleaseTag =
+    process.env.CONNECTOR_LATEST_RELEASE_TAG?.trim() || "connectors-latest";
   const releaseId =
     process.env.CONNECTOR_RELEASE_ID?.trim() || releaseTag;
   const repo = process.env.GITHUB_REPOSITORY?.trim() || "vana-com/data-connectors";
 
   return {
     releaseTag,
+    latestReleaseTag,
     releaseId,
     repo,
   };
@@ -88,7 +91,7 @@ function readJson(path) {
   return JSON.parse(readFileSync(path, "utf8"));
 }
 
-function buildSigstoreBundleMetadata(bundlePath) {
+function buildSigstoreBundleMetadata(bundlePath, bundleUrl = null) {
   if (!shouldEmitSignatureMetadata) {
     return null;
   }
@@ -96,6 +99,7 @@ function buildSigstoreBundleMetadata(bundlePath) {
   return {
     type: "sigstoreBundle",
     bundlePath,
+    ...(bundleUrl ? { bundleUrl } : {}),
   };
 }
 
@@ -254,7 +258,15 @@ function main() {
     indexVersion: "2.0",
     sourceRepo: "https://github.com/vana-com/data-connectors",
     generatedAt: registry.lastUpdated ?? new Date().toISOString(),
-    signature: buildSigstoreBundleMetadata("connector-index.json.sigstore.json"),
+    signature: buildSigstoreBundleMetadata(
+      "connector-index.json.sigstore.json",
+      buildArtifactUrl({
+        artifactRelativePath: "connector-index.json.sigstore.json",
+        releaseTag: releaseMetadata.latestReleaseTag,
+        repo: releaseMetadata.repo,
+        sourceCommit,
+      })
+    ),
     connectors: {},
   };
 
@@ -322,10 +334,24 @@ function main() {
         repo: releaseMetadata.repo,
         sourceCommit,
       }),
-      ...(buildSigstoreBundleMetadata(`${artifactFilename}.sigstore.json`)
+      ...(buildSigstoreBundleMetadata(
+        `${artifactFilename}.sigstore.json`,
+        buildArtifactUrl({
+          artifactRelativePath: `${artifactPath.slice(repoRoot.length + 1)}.sigstore.json`,
+          releaseTag: releaseMetadata.releaseTag,
+          repo: releaseMetadata.repo,
+          sourceCommit,
+        })
+      )
         ? {
             artifactSignature: buildSigstoreBundleMetadata(
-              `${artifactFilename}.sigstore.json`
+              `${artifactFilename}.sigstore.json`,
+              buildArtifactUrl({
+                artifactRelativePath: `${artifactPath.slice(repoRoot.length + 1)}.sigstore.json`,
+                releaseTag: releaseMetadata.releaseTag,
+                repo: releaseMetadata.repo,
+                sourceCommit,
+              })
             ),
           }
         : {}),

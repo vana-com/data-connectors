@@ -128,6 +128,30 @@ export function extractAvailableVersions(indexDoc, connectorId) {
   return Array.isArray(entries) ? entries : [];
 }
 
+function findMatchingIndexEntry(indexSource, entry) {
+  const entries = extractAvailableVersions(indexSource?.doc ?? {}, entry.connectorId);
+  return entries.find((candidate) => candidate.version === entry.version) ?? null;
+}
+
+function enrichRemoteEntry(indexSource, entry) {
+  if (indexSource?.mode !== "remote") {
+    return entry;
+  }
+
+  const matched = findMatchingIndexEntry(indexSource, entry);
+  if (!matched) {
+    return entry;
+  }
+
+  return {
+    ...entry,
+    artifactUrl: matched.artifactUrl ?? entry.artifactUrl,
+    artifactSignature:
+      normalizeSignature(entry.artifactSignature) ??
+      normalizeSignature(matched.artifactSignature ?? null),
+  };
+}
+
 async function fetchBinary(url) {
   const response = await fetch(url);
   if (!response.ok) {
@@ -171,6 +195,14 @@ async function verifyRemoteSignature({
       return false;
     }
     throw new Error(`${subjectLabel} is missing Sigstore bundle metadata`);
+  }
+  if (
+    normalizedSignature.type &&
+    normalizedSignature.type !== "sigstoreBundle"
+  ) {
+    throw new Error(
+      `${subjectLabel} uses unsupported signature type "${normalizedSignature.type}"`
+    );
   }
 
   const bundleUrl = resolveBundleUrl(subjectUrl, normalizedSignature);
@@ -412,24 +444,26 @@ function normalizeLockEntry(entry) {
 }
 
 async function fetchArtifactForEntry(indexSource, entry) {
+  const resolvedEntry = enrichRemoteEntry(indexSource, entry);
+
   if (indexSource?.mode === "local") {
     const artifactPath = resolveArtifactLocalPath(
       indexSource.rootDir,
-      entry.artifactPath,
-      entry.connectorId
+      resolvedEntry.artifactPath,
+      resolvedEntry.connectorId
     );
     return readFileSync(artifactPath);
   }
 
-  if (!entry.artifactUrl) {
-    throw new Error(`Connector ${entry.connectorId} is missing artifactUrl`);
+  if (!resolvedEntry.artifactUrl) {
+    throw new Error(`Connector ${resolvedEntry.connectorId} is missing artifactUrl`);
   }
-  const artifactBuffer = await fetchBinary(entry.artifactUrl);
+  const artifactBuffer = await fetchBinary(resolvedEntry.artifactUrl);
   await verifyRemoteSignature({
     payloadBuffer: artifactBuffer,
-    subjectLabel: `Connector artifact ${entry.connectorId}@${entry.version}`,
-    subjectUrl: entry.artifactUrl,
-    signature: entry.artifactSignature,
+    subjectLabel: `Connector artifact ${resolvedEntry.connectorId}@${resolvedEntry.version}`,
+    subjectUrl: resolvedEntry.artifactUrl,
+    signature: resolvedEntry.artifactSignature,
   });
   return artifactBuffer;
 }
