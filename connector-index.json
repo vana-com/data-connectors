@@ -132,13 +132,13 @@
           "metadata": "github/github-playwright.json"
         },
         "publishedAt": "2026-04-13T00:00:00Z",
-        "gitRef": "feat/connector-contract-unification",
+        "gitRef": "1097ceddc8bff1c60e29ed60cd8af9f65c594646",
         "pageApiVersion": 1,
         "manifestSha256": "sha256:72521c9a991f0587134214c835679de737d313a19e88478bc4ef40cf9e3fc89f",
         "scriptSha256": "sha256:7f221ddf698383f1fbceb6bd8cb97f457fc0a4143b4c13c5135a11b8ef230516",
         "artifactSha256": "sha256:9d98daed4c11795320b5be94bd4fee24080513253db423d0a0800c3cd6472fcd",
         "artifactPath": "artifacts/github-playwright/github-playwright-1.1.4.tgz",
-        "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/feat/connector-contract-unification/artifacts/github-playwright/github-playwright-1.1.4.tgz",
+        "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/1097ceddc8bff1c60e29ed60cd8af9f65c594646/artifacts/github-playwright/github-playwright-1.1.4.tgz",
         "scopes": [
           "github.profile",
           "github.repositories",
@@ -232,13 +232,13 @@
           "metadata": "apple/icloud-notes-playwright.json"
         },
         "publishedAt": "2026-04-13T00:00:00Z",
-        "gitRef": "feat/connector-contract-unification",
+        "gitRef": "1097ceddc8bff1c60e29ed60cd8af9f65c594646",
         "pageApiVersion": 1,
         "manifestSha256": "sha256:4784600faef6354d38c1ff4d3c546d75ab920cd794e56fee76b6301cc860dfdd",
         "scriptSha256": "sha256:7d7bbf28ff1ee455cbdf89ac35d56dbff3799da691d72b53fa94f149420cd002",
         "artifactSha256": "sha256:6866aa71a85fa087240cd9c21d87249ed071d5a33a602ef0852cc7fa21836d08",
         "artifactPath": "artifacts/icloud-notes-playwright/icloud-notes-playwright-0.1.0.tgz",
-        "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/feat/connector-contract-unification/artifacts/icloud-notes-playwright/icloud-notes-playwright-0.1.0.tgz",
+        "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/1097ceddc8bff1c60e29ed60cd8af9f65c594646/artifacts/icloud-notes-playwright/icloud-notes-playwright-0.1.0.tgz",
         "scopes": [
           "icloud_notes.notes",
           "icloud_notes.folders"
@@ -265,7 +265,7 @@
         "publishedAt": "2026-04-13T00:00:00Z",
         "gitRef": "main",
         "pageApiVersion": 1,
-        "manifestSha256": "sha256:1b43c2ab74a7dc8bb2271b5be9d6f1d1e64d3f636604332f67439663bfd62bce",
+        "manifestSha256": "sha256:550ba20690d3d16d809686df73f9f23f18005dd5763ce6b631a17d4d7da370c4",
         "scriptSha256": "sha256:ab465031ce09187c70890f4498fb0d650d0ea0dd7a11d558496d834a00076188",
         "artifactSha256": "sha256:6047605b595ca6470b8b8de6a5e1668e3e8027e848d1d482993f308ddeb8d2f5",
         "artifactPath": "artifacts/icloud-notes-playwright/icloud-notes-playwright-0.2.0.tgz",
@@ -328,13 +328,13 @@
           "metadata": "meta/instagram-playwright.json"
         },
         "publishedAt": "2026-04-13T00:00:00Z",
-        "gitRef": "feat/connector-contract-unification",
+        "gitRef": "1097ceddc8bff1c60e29ed60cd8af9f65c594646",
         "pageApiVersion": 1,
         "manifestSha256": "sha256:cafc2a147f64dea779ae8ead2df4547241f8fec90afc08718f253f710a15e0bc",
         "scriptSha256": "sha256:b22a21d76e08bb78acd873cacf25afb6cc5c501820649214b48374509bb3e903",
         "artifactSha256": "sha256:cb595642f4148c2a68109378a88c3a14ebf0ff2f8ce44f1340f4d4704b6d3fe0",
         "artifactPath": "artifacts/instagram-playwright/instagram-playwright-1.1.0.tgz",
-        "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/feat/connector-contract-unification/artifacts/instagram-playwright/instagram-playwright-1.1.0.tgz",
+        "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/1097ceddc8bff1c60e29ed60cd8af9f65c594646/artifacts/instagram-playwright/instagram-playwright-1.1.0.tgz",
         "scopes": [
           "instagram.profile",
           "instagram.posts",
@@ -439,13 +439,13 @@
           "metadata": "oura/oura-playwright.json"
         },
         "publishedAt": "2026-04-13T00:00:00Z",
-        "gitRef": "feat/connector-contract-unification",
+        "gitRef": "1097ceddc8bff1c60e29ed60cd8af9f65c594646",
         "pageApiVersion": 1,
         "manifestSha256": "sha256:59dd8496619999db8d6e11663a70c57189e725199e5ed9e2c70be874575542d2",
         "scriptSha256": "sha256:b5dd43f3381b8cc51d5cd7e48b727d6f18fa26c06577f530d54020960ff5c43f",
         "artifactSha256": "sha256:a3363983002e99d166cd53bc2640361ddea32551dac3c4da2324b5fb12435b35",
         "artifactPath": "artifacts/oura-playwright/oura-playwright-1.0.1.tgz",
-        "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/feat/connector-contract-unification/artifacts/oura-playwright/oura-playwright-1.0.1.tgz",
+        "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/1097ceddc8bff1c60e29ed60cd8af9f65c594646/artifacts/oura-playwright/oura-playwright-1.0.1.tgz",
         "scopes": [
           "oura.readiness",
           "oura.sleep",
