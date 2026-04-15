@@ -161,6 +161,7 @@ function createArtifactBundle(entry, metadata) {
     return {
       scriptSource,
       metadataSource,
+      manifestPath: join(bundleDir, "manifest.json"),
       bundleDir,
     };
   } finally {
@@ -236,7 +237,7 @@ function main() {
       ".",
     ]);
 
-    const manifestBuffer = readFileSync(bundle.metadataSource);
+    const manifestBuffer = readFileSync(bundle.manifestPath);
     const scriptBuffer = readFileSync(bundle.scriptSource);
     const artifactBuffer = readFileSync(tempArtifactPath);
 
