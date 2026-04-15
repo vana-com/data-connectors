@@ -39,11 +39,11 @@ const IDX_CORE = 9;
 const IDX_APP_INFO = 18;
 const IDX_DEVICE_BLOCK = 19;
 
-// Credentials cached for the duration of this connector run. Opensteer's
-// login loop can revisit a step after an account-chooser interstitial, so we
-// cache the email/password to avoid re-prompting on the same run.
-let cachedEmail = '';
-let cachedPassword = '';
+// Credentials are NOT cached across loop iterations. Google's /challenge/pwd
+// page stays on the same URL after a wrong-password submit (the error is
+// rendered inline), and /signin/identifier does the same for a wrong email,
+// so any time runInteractiveLogin re-enters an input step it means the last
+// attempt was rejected — we must re-prompt the user with a fresh dialog.
 
 // ─── Generic helpers ─────────────────────────────────────────
 
@@ -435,7 +435,6 @@ const headedFallback = async (message) => {
 // ─── Login: requestInput prompts ─────────────────────────────
 
 const requestEmail = async () => {
-  if (cachedEmail) return cachedEmail;
   const res = await page.requestInput({
     message: 'Sign in to Google',
     schema: {
@@ -446,13 +445,12 @@ const requestEmail = async () => {
       required: ['email'],
     },
   });
-  cachedEmail = String((res && res.email) || '').trim();
-  if (!cachedEmail) throw new Error('Email is required for Google login');
-  return cachedEmail;
+  const email = String((res && res.email) || '').trim();
+  if (!email) throw new Error('Email is required for Google login');
+  return email;
 };
 
 const requestPassword = async () => {
-  if (cachedPassword) return cachedPassword;
   const res = await page.requestInput({
     message: 'Enter your Google password',
     schema: {
@@ -463,9 +461,9 @@ const requestPassword = async () => {
       required: ['password'],
     },
   });
-  cachedPassword = String((res && res.password) || '');
-  if (!cachedPassword) throw new Error('Password is required for Google login');
-  return cachedPassword;
+  const password = String((res && res.password) || '');
+  if (!password) throw new Error('Password is required for Google login');
+  return password;
 };
 
 const requestCode = async (title, message) => {
