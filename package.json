@@ -14,8 +14,12 @@
   "bin": {
     "connector-installer": "./packages/connector-installer-cli/index.mjs"
   },
+  "dependencies": {
+    "sigstore": "^4.1.0"
+  },
   "scripts": {
     "connector-index:generate": "node ./scripts/generate-connector-index.mjs",
-    "connector-index:check": "node ./scripts/generate-connector-index.mjs --check"
+    "connector-index:check": "node ./scripts/generate-connector-index.mjs --check",
+    "release:sign": "node ./scripts/sign-release-assets.mjs"
   }
 }

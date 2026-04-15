@@ -15,6 +15,9 @@ on:
       - "package.json"
 
 permissions:
+  id-token: write
+  attestations: write
+  artifact-metadata: write
   contents: write
 
 jobs:
@@ -29,27 +32,61 @@ jobs:
         with:
           node-version: "20"
 
+      - name: Install release tooling dependencies
+        run: npm install --package-lock=false
+
       - name: Resolve source metadata
         id: meta
         run: |
           echo "source_commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-          echo "release_tag=connectors-${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+          echo "immutable_release_tag=connectors-${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+          echo "latest_release_tag=connectors-latest" >> "$GITHUB_OUTPUT"
           echo "release_id=github-${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
 
       - name: Regenerate connector index for release assets
         env:
           CONNECTOR_SOURCE_COMMIT: ${{ steps.meta.outputs.source_commit }}
           CONNECTOR_SOURCE_TAG: main
-          CONNECTOR_RELEASE_TAG: ${{ steps.meta.outputs.release_tag }}
+          CONNECTOR_RELEASE_TAG: ${{ steps.meta.outputs.immutable_release_tag }}
           CONNECTOR_RELEASE_ID: ${{ steps.meta.outputs.release_id }}
           CONNECTOR_USE_RELEASE_ASSETS: "1"
+          CONNECTOR_ENABLE_SIGSTORE_METADATA: "1"
         run: node scripts/generate-connector-index.mjs
 
-      - name: Publish release assets
+      - name: Sign connector release subjects
+        run: npm run release:sign
+
+      - name: Attest connector release subjects
+        id: attest
+        uses: actions/attest@v4
+        with:
+          subject-path: |
+            ${{ github.workspace }}/connector-index.json
+            ${{ github.workspace }}/artifacts/**/*.tgz
+
+      - name: Update latest release tag
+        run: |
+          git tag -f "${{ steps.meta.outputs.latest_release_tag }}" "${GITHUB_SHA}"
+          git push origin "refs/tags/${{ steps.meta.outputs.latest_release_tag }}" --force
+
+      - name: Publish immutable release assets
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.meta.outputs.release_tag }}
-          name: Connector artifacts ${{ steps.meta.outputs.release_tag }}
+          tag_name: ${{ steps.meta.outputs.immutable_release_tag }}
+          name: Connector artifacts ${{ steps.meta.outputs.immutable_release_tag }}
+          overwrite_files: true
           files: |
             connector-index.json
+            connector-index.json.sigstore.json
             artifacts/**/*.tgz
+            artifacts/**/*.tgz.sigstore.json
+
+      - name: Publish latest signed index
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.latest_release_tag }}
+          name: Connector artifacts latest
+          overwrite_files: true
+          files: |
+            connector-index.json
+            connector-index.json.sigstore.json

@@ -86,10 +86,15 @@ create-connector.sh                # Quick autonomous scaffold script
 `data-connect` and `context-gateway`.
 
 - `connector-index.json` is the authoritative release index.
+- `connector-index.json.sigstore.json` is the detached Sigstore bundle for the
+  authoritative signed index published at the stable `connectors-latest`
+  release URL.
 - `registry.json` remains connector-local compatibility data only while
   consumers finish migrating old assumptions away.
 - `artifacts/<connector>/<connector>-<version>.tgz` is the immutable bundle
   format consumed by installers.
+- `artifacts/**/*.tgz.sigstore.json` is the detached Sigstore bundle for each
+  immutable artifact.
 - `@opendatalabs/data-connectors-tools/installer-core` exposes the supported
   install/update contract used by consumer repos.
 - `connector-installer` is the supported CLI wrapper for lock generation,
@@ -472,4 +477,7 @@ Each consumer declares version constraints in a `connector-dependencies.json` fi
 npm run connectors:resolve
 ```
 
-This fetches matching versions from `connector-index.json` on `main`, verifies checksums, and writes the scripts + manifests to a local snapshot directory. It's analogous to `npm install`.
+This fetches matching versions from the signed `connectors-latest`
+`connector-index.json`, verifies the detached Sigstore bundles plus the
+artifact/manifest/script checksums, and writes the scripts + manifests to a
+local snapshot directory. It's analogous to `npm install`.

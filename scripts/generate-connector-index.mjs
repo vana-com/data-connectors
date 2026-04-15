@@ -22,6 +22,7 @@ const repoRoot = join(__dirname, "..");
 const registryPath = join(repoRoot, "registry.json");
 const indexPath = join(repoRoot, "connector-index.json");
 const artifactsDir = join(repoRoot, "artifacts");
+const shouldEmitSignatureMetadata = process.env.CONNECTOR_ENABLE_SIGSTORE_METADATA === "1";
 
 function resolveSourceCommit() {
   const explicitCommit = process.env.CONNECTOR_SOURCE_COMMIT?.trim();
@@ -85,6 +86,17 @@ function buildArtifactUrl({
 
 function readJson(path) {
   return JSON.parse(readFileSync(path, "utf8"));
+}
+
+function buildSigstoreBundleMetadata(bundlePath) {
+  if (!shouldEmitSignatureMetadata) {
+    return null;
+  }
+
+  return {
+    type: "sigstoreBundle",
+    bundlePath,
+  };
 }
 
 function resolveCommittedArtifactRef(existingIndex) {
@@ -242,7 +254,7 @@ function main() {
     indexVersion: "2.0",
     sourceRepo: "https://github.com/vana-com/data-connectors",
     generatedAt: registry.lastUpdated ?? new Date().toISOString(),
-    signature: null,
+    signature: buildSigstoreBundleMetadata("connector-index.json.sigstore.json"),
     connectors: {},
   };
 
@@ -310,6 +322,13 @@ function main() {
         repo: releaseMetadata.repo,
         sourceCommit,
       }),
+      ...(buildSigstoreBundleMetadata(`${artifactFilename}.sigstore.json`)
+        ? {
+            artifactSignature: buildSigstoreBundleMetadata(
+              `${artifactFilename}.sigstore.json`
+            ),
+          }
+        : {}),
       scopes: (metadata.scopes ?? []).map((scopeEntry) =>
         typeof scopeEntry === "string" ? scopeEntry : scopeEntry.scope
       ),

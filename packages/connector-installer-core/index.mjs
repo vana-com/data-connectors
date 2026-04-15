@@ -12,6 +12,14 @@ import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { dirname, join, normalize, resolve as resolvePath } from "node:path";
+import { verify as verifySigstoreBundle } from "sigstore";
+
+export const DEFAULT_CONNECTOR_INDEX_URL =
+  "https://github.com/vana-com/data-connectors/releases/download/connectors-latest/connector-index.json";
+export const DEFAULT_SIGSTORE_CERTIFICATE_ISSUER =
+  "https://token.actions.githubusercontent.com";
+export const DEFAULT_SIGSTORE_CERTIFICATE_IDENTITY =
+  "https://github.com/vana-com/data-connectors/.github/workflows/publish-connector-release-index.yml@refs/heads/main";
 
 export function readJson(path) {
   return JSON.parse(readFileSync(path, "utf8"));
@@ -128,6 +136,61 @@ async function fetchBinary(url) {
   return Buffer.from(await response.arrayBuffer());
 }
 
+function normalizeSignature(signature) {
+  if (!signature || typeof signature !== "object") {
+    return null;
+  }
+
+  return {
+    type: signature.type ?? null,
+    bundlePath: signature.bundlePath ?? signature.bundle_path ?? null,
+    bundleUrl: signature.bundleUrl ?? signature.bundle_url ?? null,
+  };
+}
+
+function resolveBundleUrl(subjectUrl, signature) {
+  if (signature?.bundleUrl) {
+    return signature.bundleUrl;
+  }
+  if (signature?.bundlePath) {
+    return new URL(signature.bundlePath, subjectUrl).toString();
+  }
+  return `${subjectUrl}.sigstore.json`;
+}
+
+async function verifyRemoteSignature({
+  payloadBuffer,
+  subjectLabel,
+  subjectUrl,
+  signature,
+  allowUnsignedRemote = false,
+}) {
+  const normalizedSignature = normalizeSignature(signature);
+  if (!normalizedSignature) {
+    if (allowUnsignedRemote) {
+      return false;
+    }
+    throw new Error(`${subjectLabel} is missing Sigstore bundle metadata`);
+  }
+
+  const bundleUrl = resolveBundleUrl(subjectUrl, normalizedSignature);
+  const bundleBuffer = await fetchBinary(bundleUrl);
+  const bundle = JSON.parse(bundleBuffer.toString("utf8"));
+
+  try {
+    await verifySigstoreBundle(bundle, payloadBuffer, {
+      certificateIssuer: DEFAULT_SIGSTORE_CERTIFICATE_ISSUER,
+      certificateIdentityURI: DEFAULT_SIGSTORE_CERTIFICATE_IDENTITY,
+    });
+  } catch (error) {
+    throw new Error(
+      `${subjectLabel} signature verification failed: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
+
+  return true;
+}
+
 function ensureInside(baseDir, relativePath) {
   if (relativePath.startsWith("/") || relativePath.includes("\\")) {
     throw new Error(`Invalid artifact path "${relativePath}"`);
@@ -229,8 +292,9 @@ export async function loadConnectorIndex({
   fromLocal = null,
   indexUrl = null,
   defaultLocalSource = null,
-  defaultIndexUrl = null,
+  defaultIndexUrl = DEFAULT_CONNECTOR_INDEX_URL,
   preferDefaultLocal = false,
+  allowUnsignedRemote = false,
 }) {
   const resolvedLocal = fromLocal
     ? resolvePath(fromLocal)
@@ -262,12 +326,23 @@ export async function loadConnectorIndex({
     throw new Error(`Failed to fetch ${url}: ${response.status} ${response.statusText}`);
   }
 
+  const indexBuffer = Buffer.from(await response.arrayBuffer());
+  const doc = JSON.parse(indexBuffer.toString("utf8"));
+  const signatureVerified = await verifyRemoteSignature({
+    payloadBuffer: indexBuffer,
+    subjectLabel: "Connector index",
+    subjectUrl: url,
+    signature: doc.signature,
+    allowUnsignedRemote,
+  });
+
   return {
     mode: "remote",
     rootDir: null,
     indexUrl: url,
     indexPath: null,
-    doc: await response.json(),
+    doc,
+    signatureVerified,
   };
 }
 
@@ -320,6 +395,9 @@ function normalizeLockEntry(entry) {
     artifactUrl: entry.artifactUrl ?? entry.artifact_url ?? null,
     artifactPath: entry.artifactPath ?? entry.artifact_path ?? null,
     artifactSha256: entry.artifactSha256 ?? entry.artifact_sha256 ?? entry.checksums?.artifact,
+    artifactSignature: normalizeSignature(
+      entry.artifactSignature ?? entry.artifact_signature ?? null
+    ),
     manifestSha256:
       entry.manifestSha256 ?? entry.manifest_sha256 ?? entry.checksums?.metadata,
     scriptSha256: entry.scriptSha256 ?? entry.script_sha256 ?? entry.checksums?.script,
@@ -346,7 +424,14 @@ async function fetchArtifactForEntry(indexSource, entry) {
   if (!entry.artifactUrl) {
     throw new Error(`Connector ${entry.connectorId} is missing artifactUrl`);
   }
-  return fetchBinary(entry.artifactUrl);
+  const artifactBuffer = await fetchBinary(entry.artifactUrl);
+  await verifyRemoteSignature({
+    payloadBuffer: artifactBuffer,
+    subjectLabel: `Connector artifact ${entry.connectorId}@${entry.version}`,
+    subjectUrl: entry.artifactUrl,
+    signature: entry.artifactSignature,
+  });
+  return artifactBuffer;
 }
 
 function unpackAndVerifyArtifact(entry, artifactBuffer) {
@@ -627,6 +712,7 @@ export async function generateLock({
       path: source.indexPath,
       url: source.indexUrl,
       version: source.doc.indexVersion ?? "unknown",
+      signatureVerified: source.signatureVerified ?? false,
     },
     dependencies: dependencies.connectors,
     connectors: resolution.resolved
@@ -639,6 +725,7 @@ export async function generateLock({
         artifactUrl: resolved.entry.artifactUrl ?? null,
         artifactPath: resolved.entry.artifactPath ?? null,
         artifactSha256: resolved.checksums.artifact,
+        artifactSignature: resolved.entry.artifactSignature ?? null,
         manifestSha256: resolved.checksums.manifest,
         scriptSha256: resolved.checksums.script,
         sourceTag: resolved.entry.sourceTag ?? resolved.entry.gitRef ?? sourceMeta.sourceTag,
@@ -677,6 +764,7 @@ export async function checkForUpdates({ lock, indexDoc }) {
         currentVersion: lockEntry.version,
         latestVersion: latest.version,
         artifactSha256: latest.artifactSha256,
+        artifactSignature: normalizeSignature(latest.artifactSignature ?? null),
       });
     }
   }

@@ -22,27 +22,14 @@
       "format": "date-time"
     },
     "signature": {
-      "type": [
-        "object",
-        "null"
-      ],
-      "additionalProperties": false,
-      "required": [
-        "algorithm",
-        "keyId",
-        "signature"
-      ],
-      "properties": {
-        "algorithm": {
-          "type": "string"
+      "anyOf": [
+        {
+          "$ref": "#/$defs/signature"
         },
-        "keyId": {
-          "type": "string"
-        },
-        "signature": {
-          "type": "string"
+        {
+          "type": "null"
         }
-      }
+      ]
     },
     "connectors": {
       "type": "object",
@@ -68,6 +55,26 @@
         },
         "metadata": {
           "type": "string"
+        }
+      }
+    },
+    "signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "bundlePath"
+      ],
+      "properties": {
+        "type": {
+          "const": "sigstoreBundle"
+        },
+        "bundlePath": {
+          "type": "string"
+        },
+        "bundleUrl": {
+          "type": "string",
+          "format": "uri"
         }
       }
     },
@@ -144,6 +151,16 @@
         "artifactUrl": {
           "type": "string",
           "format": "uri"
+        },
+        "artifactSignature": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/signature"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "scopes": {
           "type": "array",
