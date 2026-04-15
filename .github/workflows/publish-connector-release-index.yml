@@ -48,7 +48,6 @@ jobs:
           CONNECTOR_SOURCE_COMMIT: ${{ steps.meta.outputs.source_commit }}
           CONNECTOR_SOURCE_TAG: main
           CONNECTOR_RELEASE_TAG: ${{ steps.meta.outputs.immutable_release_tag }}
-          CONNECTOR_LATEST_RELEASE_TAG: ${{ steps.meta.outputs.latest_release_tag }}
           CONNECTOR_RELEASE_ID: ${{ steps.meta.outputs.release_id }}
           CONNECTOR_USE_RELEASE_ASSETS: "1"
           CONNECTOR_ENABLE_SIGSTORE_METADATA: "1"
