@@ -4,10 +4,15 @@
   "private": true,
   "type": "module",
   "files": [
-    "packages/connector-installer-core/index.mjs"
+    "packages/connector-installer-core/index.mjs",
+    "packages/connector-installer-cli/index.mjs",
+    "schemas/connector-index.schema.json"
   ],
   "exports": {
     "./installer-core": "./packages/connector-installer-core/index.mjs"
+  },
+  "bin": {
+    "connector-installer": "./packages/connector-installer-cli/index.mjs"
   },
   "scripts": {
     "connector-index:generate": "node ./scripts/generate-connector-index.mjs",

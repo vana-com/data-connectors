@@ -23,15 +23,23 @@ const registryPath = join(repoRoot, "registry.json");
 const indexPath = join(repoRoot, "connector-index.json");
 const artifactsDir = join(repoRoot, "artifacts");
 
-function resolveHeadGitRef() {
-  const explicitRef = process.env.CONNECTOR_ARTIFACT_REF?.trim();
-  if (explicitRef) {
-    return explicitRef;
+function resolveSourceCommit() {
+  const explicitCommit = process.env.CONNECTOR_SOURCE_COMMIT?.trim();
+  if (explicitCommit) {
+    return explicitCommit;
   }
-  // Use the branch name instead of a commit hash. Commit hashes create a
-  // circular dependency: the index embeds the hash in artifact URLs, but
-  // the index itself is part of the commit, so the hash changes after
-  // committing. Branch names are stable across commits.
+  return execFileSync("git", ["rev-parse", "HEAD"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+  }).trim();
+}
+
+function resolveSourceTag(sourceCommit) {
+  const explicitTag = process.env.CONNECTOR_SOURCE_TAG?.trim();
+  if (explicitTag) {
+    return explicitTag;
+  }
+
   const branch = execFileSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], {
     cwd: repoRoot,
     encoding: "utf8",
@@ -39,11 +47,40 @@ function resolveHeadGitRef() {
   if (branch && branch !== "HEAD") {
     return branch;
   }
-  // Detached HEAD fallback — use the commit hash.
-  return execFileSync("git", ["rev-parse", "HEAD"], {
-    cwd: repoRoot,
-    encoding: "utf8",
-  }).trim();
+  return sourceCommit;
+}
+
+function resolveReleaseMetadata(sourceCommit) {
+  const releaseTag =
+    process.env.CONNECTOR_RELEASE_TAG?.trim() ||
+    `connectors-${sourceCommit.slice(0, 12)}`;
+  const releaseId =
+    process.env.CONNECTOR_RELEASE_ID?.trim() || releaseTag;
+  const repo = process.env.GITHUB_REPOSITORY?.trim() || "vana-com/data-connectors";
+
+  return {
+    releaseTag,
+    releaseId,
+    repo,
+  };
+}
+
+function buildArtifactUrl({
+  artifactRelativePath,
+  releaseTag,
+  repo,
+  sourceCommit,
+}) {
+  if (process.env.CONNECTOR_RELEASE_ASSET_BASE_URL?.trim()) {
+    const baseUrl = process.env.CONNECTOR_RELEASE_ASSET_BASE_URL.trim().replace(/\/$/, "");
+    return `${baseUrl}/${artifactRelativePath.split("/").at(-1)}`;
+  }
+
+  if (process.env.CONNECTOR_USE_RELEASE_ASSETS === "1") {
+    return `https://github.com/${repo}/releases/download/${releaseTag}/${artifactRelativePath.split("/").at(-1)}`;
+  }
+
+  return `https://raw.githubusercontent.com/${repo}/${sourceCommit}/${artifactRelativePath}`;
 }
 
 function readJson(path) {
@@ -62,8 +99,8 @@ function resolveCommittedArtifactRef(existingIndex) {
     }
 
     const latest = versions.at(-1);
-    if (latest?.gitRef) {
-      refs.add(latest.gitRef);
+    if (latest?.sourceCommit) {
+      refs.add(latest.sourceCommit);
     }
   }
 
@@ -195,15 +232,17 @@ function main() {
   const checkMode = process.argv.includes("--check");
   const registry = readJson(registryPath);
   const existingIndex = existsSync(indexPath) ? readJson(indexPath) : null;
-  const gitRef =
-    process.env.CONNECTOR_ARTIFACT_REF?.trim() ||
+  const sourceCommit =
+    process.env.CONNECTOR_SOURCE_COMMIT?.trim() ||
     (checkMode && resolveCommittedArtifactRef(existingIndex)) ||
-    resolveHeadGitRef();
-  const repoBaseUrl = `https://raw.githubusercontent.com/vana-com/data-connectors/${gitRef}`;
+    resolveSourceCommit();
+  const sourceTag = resolveSourceTag(sourceCommit);
+  const releaseMetadata = resolveReleaseMetadata(sourceCommit);
   const nextIndex = {
-    indexVersion: "1.0",
+    indexVersion: "2.0",
     sourceRepo: "https://github.com/vana-com/data-connectors",
     generatedAt: registry.lastUpdated ?? new Date().toISOString(),
+    signature: null,
     connectors: {},
   };
 
@@ -249,7 +288,9 @@ function main() {
       description: entry.description,
       sourceFiles: entry.files,
       publishedAt: entry.publishedAt ?? entry.lastUpdated ?? registry.lastUpdated,
-      gitRef: entry.gitRef ?? gitRef,
+      sourceTag: entry.sourceTag ?? entry.gitRef ?? sourceTag,
+      sourceCommit: entry.sourceCommit ?? entry.gitRef ?? sourceCommit,
+      releaseId: entry.releaseId ?? releaseMetadata.releaseId,
       pageApiVersion: metadata.page_api_version,
       manifestSha256: sha256Buffer(manifestBuffer),
       scriptSha256: sha256Buffer(scriptBuffer),
@@ -263,7 +304,12 @@ function main() {
           )?.artifactSha256 ?? sha256Buffer(artifactBuffer))
         : sha256Buffer(artifactBuffer),
       artifactPath: artifactPath.slice(repoRoot.length + 1),
-      artifactUrl: `${repoBaseUrl}/${artifactPath.slice(repoRoot.length + 1)}`,
+      artifactUrl: buildArtifactUrl({
+        artifactRelativePath: artifactPath.slice(repoRoot.length + 1),
+        releaseTag: releaseMetadata.releaseTag,
+        repo: releaseMetadata.repo,
+        sourceCommit,
+      }),
       scopes: (metadata.scopes ?? []).map((scopeEntry) =>
         typeof scopeEntry === "string" ? scopeEntry : scopeEntry.scope
       ),

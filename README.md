@@ -80,6 +80,21 @@ test-connector.cjs                 # Standalone test runner
 create-connector.sh                # Quick autonomous scaffold script
 ```
 
+## Distribution contract
+
+`data-connectors` is the canonical connector distribution source for both
+`data-connect` and `context-gateway`.
+
+- `connector-index.json` is the authoritative release index.
+- `registry.json` remains connector-local compatibility data only while
+  consumers finish migrating old assumptions away.
+- `artifacts/<connector>/<connector>-<version>.tgz` is the immutable bundle
+  format consumed by installers.
+- `@opendatalabs/data-connectors-tools/installer-core` exposes the supported
+  install/update contract used by consumer repos.
+- `connector-installer` is the supported CLI wrapper for lock generation,
+  installation, verification, and update checks.
+
 ### Connectors
 
 Each connector lives in `connectors/<company>/`. A connector bundle keeps its runtime assets together inside that directory. A connector usually consists of:

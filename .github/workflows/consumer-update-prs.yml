@@ -8,6 +8,8 @@ on:
       - "connector-index.json"
       - "artifacts/**"
       - "packages/connector-installer-core/**"
+      - "packages/connector-installer-cli/**"
+      - "schemas/connector-index.schema.json"
       - "package.json"
 
 permissions:

@@ -1,0 +1,55 @@
+name: Publish Connector Release Index
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "connector-index.json"
+      - "registry.json"
+      - "artifacts/**"
+      - "packages/connector-installer-core/**"
+      - "packages/connector-installer-cli/**"
+      - "schemas/connector-index.schema.json"
+      - "scripts/generate-connector-index.mjs"
+      - "package.json"
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Resolve source metadata
+        id: meta
+        run: |
+          echo "source_commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "release_tag=connectors-${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+          echo "release_id=github-${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Regenerate connector index for release assets
+        env:
+          CONNECTOR_SOURCE_COMMIT: ${{ steps.meta.outputs.source_commit }}
+          CONNECTOR_SOURCE_TAG: main
+          CONNECTOR_RELEASE_TAG: ${{ steps.meta.outputs.release_tag }}
+          CONNECTOR_RELEASE_ID: ${{ steps.meta.outputs.release_id }}
+          CONNECTOR_USE_RELEASE_ASSETS: "1"
+        run: node scripts/generate-connector-index.mjs
+
+      - name: Publish release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.release_tag }}
+          name: Connector artifacts ${{ steps.meta.outputs.release_tag }}
+          files: |
+            connector-index.json
+            artifacts/**/*.tgz

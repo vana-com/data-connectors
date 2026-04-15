@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/vana-com/data-connectors/schemas/connector-index.schema.json",
+  "title": "Connector Index v2",
+  "type": "object",
+  "required": [
+    "indexVersion",
+    "sourceRepo",
+    "generatedAt",
+    "connectors"
+  ],
+  "properties": {
+    "indexVersion": {
+      "const": "2.0"
+    },
+    "sourceRepo": {
+      "type": "string",
+      "format": "uri"
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "signature": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "algorithm",
+        "keyId",
+        "signature"
+      ],
+      "properties": {
+        "algorithm": {
+          "type": "string"
+        },
+        "keyId": {
+          "type": "string"
+        },
+        "signature": {
+          "type": "string"
+        }
+      }
+    },
+    "connectors": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/indexEntry"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sourceFiles": {
+      "type": "object",
+      "required": [
+        "script",
+        "metadata"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "script": {
+          "type": "string"
+        },
+        "metadata": {
+          "type": "string"
+        }
+      }
+    },
+    "indexEntry": {
+      "type": "object",
+      "required": [
+        "connectorId",
+        "company",
+        "version",
+        "name",
+        "description",
+        "sourceFiles",
+        "publishedAt",
+        "sourceTag",
+        "sourceCommit",
+        "releaseId",
+        "manifestSha256",
+        "scriptSha256",
+        "artifactSha256",
+        "artifactUrl"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "connectorId": {
+          "type": "string"
+        },
+        "company": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "sourceFiles": {
+          "$ref": "#/$defs/sourceFiles"
+        },
+        "publishedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "sourceTag": {
+          "type": "string"
+        },
+        "sourceCommit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "releaseId": {
+          "type": "string"
+        },
+        "manifestSha256": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "scriptSha256": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "artifactSha256": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "artifactPath": {
+          "type": "string"
+        },
+        "artifactUrl": {
+          "type": "string",
+          "format": "uri"
+        },
+        "scopes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "consumerMetadata": {
+          "type": [
+            "object",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}
