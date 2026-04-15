@@ -229,6 +229,16 @@
       "name": "Whole Foods Market",
       "status": "experimental",
       "description": "Exports your Whole Foods Market order history (via Amazon) and product nutrition data.",
+      "consumerMetadata": {
+        "sourceId": "wholefoods",
+        "displayName": "Whole Foods Market",
+        "brandDomain": "wholefoodsmarket.com",
+        "aliases": [
+          "whole foods"
+        ],
+        "iconKey": "wholefoods",
+        "defaultScope": "wholefoods.orders"
+      },
       "files": {
         "script": "wholefoods/wholefoods-playwright.js",
         "metadata": "wholefoods/wholefoods-playwright.json"
@@ -261,6 +271,13 @@
       "name": "H-E-B",
       "status": "experimental",
       "description": "Exports your H-E-B account profile, order history, and product nutrition data.",
+      "consumerMetadata": {
+        "sourceId": "heb",
+        "displayName": "H-E-B",
+        "brandDomain": "heb.com",
+        "iconKey": "heb",
+        "defaultScope": "heb.orders"
+      },
       "files": {
         "script": "heb/heb-playwright.js",
         "metadata": "heb/heb-playwright.json"
