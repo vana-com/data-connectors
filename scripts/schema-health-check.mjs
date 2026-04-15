@@ -366,6 +366,8 @@ const missingSchemaFile = scopeResults.filter((r) => !r.schemaFileExists);
 const missingGateway = scopeResults.filter(
   (r) => r.gatewayStatus === "missing"
 );
+const blockingMissingGateway = missingGateway.filter((r) => r.isNew);
+const inheritedMissingGateway = missingGateway.filter((r) => !r.isNew);
 const gatewayErrors = scopeResults.filter((r) => r.gatewayStatus === "error");
 const metadataDrift = scopeResults.filter(
   (r) => r.metadataMismatches && r.metadataMismatches.length > 0
@@ -377,6 +379,8 @@ const summary = {
   fullyConsistent: fullyConsistent.length,
   missingSchemaFile: missingSchemaFile.length,
   missingGateway: missingGateway.length,
+  blockingMissingGateway: blockingMissingGateway.length,
+  inheritedMissingGateway: inheritedMissingGateway.length,
   gatewayErrors: gatewayErrors.length,
   metadataDrift: metadataDrift.length,
   orphanedSchemas: orphanedSchemas.length,
@@ -385,6 +389,12 @@ const summary = {
 const issueCount =
   summary.missingSchemaFile +
   summary.missingGateway +
+  summary.gatewayErrors +
+  summary.metadataDrift +
+  summary.orphanedSchemas;
+const blockingIssueCount =
+  summary.missingSchemaFile +
+  summary.blockingMissingGateway +
   summary.gatewayErrors +
   summary.metadataDrift +
   summary.orphanedSchemas;
@@ -406,13 +416,17 @@ if (jsonOutput) {
 }
 
 // Human-readable summary always goes to stderr
-if (issueCount === 0) {
+if (blockingIssueCount === 0 && issueCount === 0) {
   process.stderr.write(
     `Schema health check PASSED: all ${summary.total} scopes are consistent.\n`
   );
+} else if (blockingIssueCount === 0) {
+  process.stderr.write(
+    `Schema health check PASSED with ${issueCount} inherited non-blocking issue(s).\n\n`
+  );
 } else {
   process.stderr.write(
-    `Schema health check FAILED: ${issueCount} issue(s) found\n\n`
+    `Schema health check FAILED: ${blockingIssueCount} blocking issue(s) found (${issueCount} total issue(s)).\n\n`
   );
 
   if (missingSchemaFile.length > 0) {
@@ -427,7 +441,7 @@ if (issueCount === 0) {
   if (missingGateway.length > 0) {
     process.stderr.write("Not registered in Gateway:\n");
     for (const r of missingGateway) {
-      const tag = r.isNew ? " [added in this PR]" : "";
+      const tag = r.isNew ? " [added in this PR]" : " [pre-existing debt]";
       process.stderr.write(`  - ${r.scope} (connector: ${r.connector})${tag}\n`);
     }
     process.stderr.write("\n");
@@ -463,9 +477,15 @@ if (issueCount === 0) {
     process.stderr.write("\n");
   }
 
-  process.stderr.write(
-    "These issues must be resolved before connectors can be used by Personal Servers.\n"
-  );
+  if (blockingIssueCount > 0) {
+    process.stderr.write(
+      "These blocking issues must be resolved before connectors can be used by Personal Servers.\n"
+    );
+  } else {
+    process.stderr.write(
+      "Inherited Gateway registration debt remains. This PR does not introduce new Gateway registration gaps.\n"
+    );
+  }
 }
 
-process.exit(issueCount === 0 ? 0 : 1);
+process.exit(blockingIssueCount === 0 ? 0 : 1);

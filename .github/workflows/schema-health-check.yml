@@ -51,17 +51,24 @@ jobs:
               GW_ERRORS=$(jq -r '.summary.gatewayErrors' report.json)
               META_DRIFT=$(jq -r '.summary.metadataDrift' report.json)
               ORPHANS=$(jq -r '.summary.orphanedSchemas' report.json)
+              BLOCKING_MISSING_GW=$(jq -r '.summary.blockingMissingGateway // 0' report.json)
+              INHERITED_MISSING_GW=$(jq -r '.summary.inheritedMissingGateway // 0' report.json)
 
               ISSUES=$((MISSING_FILE + MISSING_GW + GW_ERRORS + META_DRIFT + ORPHANS))
+              BLOCKING_ISSUES=$((MISSING_FILE + BLOCKING_MISSING_GW + GW_ERRORS + META_DRIFT + ORPHANS))
 
-              if [ "$ISSUES" = "0" ]; then
+              if [ "$BLOCKING_ISSUES" = "0" ] && [ "$ISSUES" = "0" ]; then
                 echo "## Schema Health Check — All Clear"
                 echo ""
                 echo "All $TOTAL scopes are fully consistent (local schema files + Gateway registration)."
-              else
-                echo "## Schema Health Check — $ISSUES issue(s) found"
+              elif [ "$BLOCKING_ISSUES" = "0" ]; then
+                echo "## Schema Health Check — Non-blocking inherited issues"
                 echo ""
-                echo "$CONSISTENT/$TOTAL scopes consistent | $MISSING_FILE missing schema files | $MISSING_GW not in Gateway | $META_DRIFT metadata drift | $ORPHANS orphaned"
+                echo "$CONSISTENT/$TOTAL scopes consistent | $INHERITED_MISSING_GW inherited Gateway gap(s) | no new blocking issues in this PR"
+              else
+                echo "## Schema Health Check — $BLOCKING_ISSUES blocking issue(s) found"
+                echo ""
+                echo "$CONSISTENT/$TOTAL scopes consistent | $MISSING_FILE missing schema files | $BLOCKING_MISSING_GW new Gateway gap(s) | $INHERITED_MISSING_GW inherited Gateway gap(s) | $META_DRIFT metadata drift | $ORPHANS orphaned"
                 echo ""
                 echo "<details>"
                 echo "<summary>View issues</summary>"
@@ -112,7 +119,7 @@ jobs:
 
                 echo "</details>"
                 echo ""
-                echo "> These issues should be resolved before connectors can be used by Personal Servers."
+                echo "> New blocking issues must be resolved before connectors can be used by Personal Servers. Inherited Gateway registration debt remains visible but does not fail this PR."
               fi
 
               echo 'COMMENT_EOF'
