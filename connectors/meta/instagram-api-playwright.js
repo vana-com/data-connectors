@@ -26,6 +26,25 @@ const DISCOVERY_POLL_MS = 250;
 let PLATFORM_LOGIN = process.env.USER_LOGIN_INSTAGRAM || '';
 let PLATFORM_PASSWORD = process.env.USER_PASSWORD_INSTAGRAM || '';
 
+const MAX_LOGIN_ATTEMPTS = 3;
+
+// Re-prompt up to maxAttempts times. attempt(values, attemptIndex) returns:
+//   { ok: true, value }            → return value
+//   { ok: false, error: 'msg' }    → re-prompt with `error: 'msg'`
+//   throws                          → propagate (e.g. user cancelled)
+const promptWithRetry = async (buildSpec, attempt, maxAttempts = MAX_LOGIN_ATTEMPTS) => {
+  let lastError = null;
+  for (let i = 0; i < maxAttempts; i++) {
+    const spec = buildSpec();
+    if (lastError) spec.error = lastError;
+    const values = await page.requestInput(spec);
+    const result = await attempt(values, i);
+    if (result.ok) return result.value;
+    lastError = result.error;
+  }
+  throw new Error('Too many failed attempts: ' + (lastError || 'unknown reason'));
+};
+
 // ─── In-page fetch helper ────────────────────────────────────
 
 const fetchApi = async (url, options) => {
@@ -253,7 +272,7 @@ const handleAuthPlatformChallenge = async (challengeUrl) => {
   await safeGoto(fullUrl);
   await page.sleep(2000);
 
-  const { code } = await page.requestInput({
+  const buildSpec = () => ({
     message: 'Enter Instagram 2FA code',
     schema: {
       type: 'object',
@@ -263,46 +282,52 @@ const handleAuthPlatformChallenge = async (challengeUrl) => {
       required: ['code'],
     },
   });
-  const trimmedCode = String(code || '').trim();
-  if (!/^\d{4,8}$/.test(trimmedCode)) {
-    throw new Error('Invalid challenge code supplied: "' + code + '"');
-  }
 
-  await page.setData('status', 'Submitting challenge code...');
-  const submitResult = await page.evaluate(`
-    (() => {
-      const input = document.querySelector('input[type="text"]');
-      if (!input) return { ok: false, reason: 'no text input found' };
-      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
-      setter.call(input, ${JSON.stringify(trimmedCode)});
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-      input.dispatchEvent(new Event('change', { bubbles: true }));
-      const buttons = Array.from(document.querySelectorAll('[role="button"], button'));
-      const cont = buttons.find(b => (b.textContent || '').trim().toLowerCase() === 'continue');
-      if (!cont) return { ok: false, reason: 'no Continue button found' };
-      cont.click();
-      return { ok: true };
-    })()
-  `);
-  if (!submitResult || submitResult.ok !== true) {
-    throw new Error(
-      'Failed to submit challenge code: ' +
-        ((submitResult && submitResult.reason) || 'unknown')
-    );
-  }
+  try {
+    await promptWithRetry(buildSpec, async (values) => {
+      const trimmedCode = String((values && values.code) || '').trim();
+      if (!/^\d{4,8}$/.test(trimmedCode)) {
+        return { ok: false, error: 'Invalid code format — must be 4-8 digits' };
+      }
 
-  await page.setData('status', 'Waiting for session cookie...');
-  for (let attempt = 0; attempt < 15; attempt++) {
-    await page.sleep(1000);
-    const ds = await readDsUserId();
-    if (ds) {
-      await page.setData('status', 'Challenge cleared');
-      return;
+      await page.setData('status', 'Submitting challenge code...');
+      const submitResult = await page.evaluate(`
+        (() => {
+          const input = document.querySelector('input[type="text"]');
+          if (!input) return { ok: false, reason: 'no text input found' };
+          const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+          setter.call(input, ${JSON.stringify(trimmedCode)});
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+          const buttons = Array.from(document.querySelectorAll('[role="button"], button'));
+          const cont = buttons.find(b => (b.textContent || '').trim().toLowerCase() === 'continue');
+          if (!cont) return { ok: false, reason: 'no Continue button found' };
+          cont.click();
+          return { ok: true };
+        })()
+      `);
+      if (!submitResult || submitResult.ok !== true) {
+        const reason = (submitResult && submitResult.reason) || 'unknown';
+        return { ok: false, error: 'Failed to submit code: ' + reason };
+      }
+
+      await page.setData('status', 'Waiting for session cookie...');
+      for (let pollAttempt = 0; pollAttempt < 15; pollAttempt++) {
+        await page.sleep(1000);
+        const ds = await readDsUserId();
+        if (ds) {
+          await page.setData('status', 'Challenge cleared');
+          return { ok: true, value: undefined };
+        }
+      }
+      return { ok: false, error: 'Code rejected — verification cookie never appeared' };
+    });
+  } catch (e) {
+    if (e && typeof e.message === 'string' && e.message.startsWith('Too many failed attempts: ')) {
+      throw new Error('Challenge verification failed: ' + e.message.slice('Too many failed attempts: '.length));
     }
+    throw e;
   }
-  throw new Error(
-    'Challenge code submitted but ds_user_id cookie never appeared — code may have been rejected'
-  );
 };
 
 const performLogin = async () => {
@@ -311,8 +336,26 @@ const performLogin = async () => {
     throw new Error('csrftoken cookie missing after visiting instagram.com — cannot submit login');
   }
 
-  if (!PLATFORM_LOGIN || !PLATFORM_PASSWORD) {
-    const creds = await page.requestInput({
+  const submitCredentials = async () => {
+    await page.setData('status', 'Submitting login credentials...');
+    const wrappedPwd = IG_PWD_PREFIX + Math.floor(Date.now() / 1000) + ':' + PLATFORM_PASSWORD;
+    return await postLoginAjax(LOGIN_URL, csrftoken, {
+      username: PLATFORM_LOGIN,
+      enc_password: wrappedPwd,
+      queryParams: '{}',
+      optIntoOneTap: 'false',
+      trustedDeviceRecords: '{}',
+    });
+  };
+
+  let result;
+  if (PLATFORM_LOGIN && PLATFORM_PASSWORD) {
+    result = await submitCredentials();
+    if (result.kind === 'error') {
+      throw new Error('Instagram login failed: ' + (result.message || 'unknown reason'));
+    }
+  } else {
+    const buildCredsSpec = () => ({
       message: 'Log in to Instagram',
       schema: {
         type: 'object',
@@ -323,26 +366,32 @@ const performLogin = async () => {
         required: ['username', 'password'],
       },
     });
-    PLATFORM_LOGIN = creds.username;
-    PLATFORM_PASSWORD = creds.password;
-  }
 
-  await page.setData('status', 'Submitting login credentials...');
-  const wrappedPwd = IG_PWD_PREFIX + Math.floor(Date.now() / 1000) + ':' + PLATFORM_PASSWORD;
-  const result = await postLoginAjax(LOGIN_URL, csrftoken, {
-    username: PLATFORM_LOGIN,
-    enc_password: wrappedPwd,
-    queryParams: '{}',
-    optIntoOneTap: 'false',
-    trustedDeviceRecords: '{}',
-  });
+    try {
+      result = await promptWithRetry(buildCredsSpec, async (creds) => {
+        PLATFORM_LOGIN = creds.username;
+        PLATFORM_PASSWORD = creds.password;
+        const inner = await submitCredentials();
+        if (inner.kind === 'ok') return { ok: true, value: { kind: 'ok' } };
+        if (inner.kind === 'two_factor') return { ok: true, value: inner };
+        if (inner.kind === 'auth_platform') return { ok: true, value: inner };
+        if (inner.kind === 'checkpoint') return { ok: true, value: inner };
+        return { ok: false, error: inner.message || 'Login failed' };
+      });
+    } catch (e) {
+      if (e && typeof e.message === 'string' && e.message.startsWith('Too many failed attempts: ')) {
+        throw new Error('Too many failed login attempts: ' + e.message.slice('Too many failed attempts: '.length));
+      }
+      throw e;
+    }
+  }
 
   if (result.kind === 'ok') {
     return;
   }
 
   if (result.kind === 'two_factor') {
-    const { code } = await page.requestInput({
+    const buildCodeSpec = () => ({
       message: 'Enter your Instagram two-factor verification code',
       schema: {
         type: 'object',
@@ -350,16 +399,25 @@ const performLogin = async () => {
         required: ['code'],
       },
     });
-    const refreshedCsrf = (await readCsrfToken()) || csrftoken;
-    const second = await postLoginAjax(TWO_FACTOR_URL, refreshedCsrf, {
-      username: PLATFORM_LOGIN,
-      verificationCode: String(code).trim(),
-      identifier: result.info.twoFactorIdentifier,
-      queryParams: '{}',
-      trust_signal_v2: 'true',
-    });
-    if (second.kind !== 'ok') {
-      throw new Error('Two-factor verification failed: ' + (second.message || second.kind));
+
+    try {
+      await promptWithRetry(buildCodeSpec, async (values) => {
+        const refreshedCsrf = (await readCsrfToken()) || csrftoken;
+        const second = await postLoginAjax(TWO_FACTOR_URL, refreshedCsrf, {
+          username: PLATFORM_LOGIN,
+          verificationCode: String((values && values.code) || '').trim(),
+          identifier: result.info.twoFactorIdentifier,
+          queryParams: '{}',
+          trust_signal_v2: 'true',
+        });
+        if (second.kind === 'ok') return { ok: true, value: undefined };
+        return { ok: false, error: second.message || second.kind };
+      });
+    } catch (e) {
+      if (e && typeof e.message === 'string' && e.message.startsWith('Too many failed attempts: ')) {
+        throw new Error('Two-factor verification failed: ' + e.message.slice('Too many failed attempts: '.length));
+      }
+      throw e;
     }
     return;
   }
