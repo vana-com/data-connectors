@@ -201,8 +201,8 @@
         "gitRef": "feat/instagram-api-playwright-connector",
         "pageApiVersion": 1,
         "manifestSha256": "sha256:737c94f03092aa07ba8648be3347850b48ff6be55bf2dba7e2a384fabc39f0ff",
-        "scriptSha256": "sha256:f28873c5db5c72384e922cb99b92de87b20178f0fdf36e372d7d0778a91df662",
-        "artifactSha256": "sha256:b0951416ec8832896034db84fd3e00d460ff25c357c4b68112a1b46a6fa43496",
+        "scriptSha256": "sha256:e8475045475ba3e1a9b2df680e6dc57e719c33478c818e0881f5f50bc091fc6b",
+        "artifactSha256": "sha256:09d69fad8e10d761fa9d4a6a94788f2c7d9bcc83487b93ada3e996a05daadbea",
         "artifactPath": "artifacts/google-api-playwright/google-api-playwright-1.0.0.tgz",
         "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/feat/instagram-api-playwright-connector/artifacts/google-api-playwright/google-api-playwright-1.0.0.tgz",
         "scopes": [

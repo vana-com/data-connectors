@@ -24,7 +24,7 @@ const IDENTIFIER_URL =
   'https://accounts.google.com/v3/signin/identifier?flowName=GlifWebSignIn&flowEntry=AddSession';
 
 const PAGE_SIZE = 100;
-const MAX_PAGES = 50;
+const MAX_PAGES = 5;
 const MAX_LOGIN_STEPS = 24;
 const URL_CHANGE_TIMEOUT_MS = 30000;
 const URL_POLL_INTERVAL_MS = 500;
