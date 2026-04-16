@@ -16,7 +16,7 @@
 
 const IG_APP_ID = '936619743392459';
 const PLATFORM = 'instagram';
-const VERSION = '2.0.0-api-playwright';
+const VERSION = '2.0.1-api-playwright';
 const CANONICAL_SCOPES = [
   'instagram.profile',
   'instagram.posts',
@@ -33,8 +33,17 @@ const DISCOVERY_TIMEOUT_MS = 20000;
 const DISCOVERY_POLL_MS = 250;
 const MAX_LOGIN_ATTEMPTS = 3;
 
-let PLATFORM_LOGIN = process.env.USER_LOGIN_INSTAGRAM || '';
-let PLATFORM_PASSWORD = process.env.USER_PASSWORD_INSTAGRAM || '';
+const readOptionalProcessEnv = (key) => {
+  if (typeof process === 'undefined' || !process?.env) {
+    return '';
+  }
+
+  const value = process.env[key];
+  return typeof value === 'string' ? value : '';
+};
+
+let PLATFORM_LOGIN = readOptionalProcessEnv('USER_LOGIN_INSTAGRAM');
+let PLATFORM_PASSWORD = readOptionalProcessEnv('USER_PASSWORD_INSTAGRAM');
 
 const makeConnectorError = (
   errorClass,
