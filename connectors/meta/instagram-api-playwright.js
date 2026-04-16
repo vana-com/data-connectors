@@ -16,7 +16,7 @@
 
 const IG_APP_ID = '936619743392459';
 const PLATFORM = 'instagram';
-const VERSION = '2.0.2-api-playwright';
+const VERSION = '2.0.3-api-playwright';
 const CANONICAL_SCOPES = [
   'instagram.profile',
   'instagram.posts',
@@ -29,6 +29,8 @@ const FRIENDSHIP_PAGE_SIZE = 50;
 const REQUEST_DELAY_MS = 800;
 const AUTH_SETTLE_DELAY_MS = 2500;
 const RATE_LIMIT_BACKOFF_MS = [3000, 7000, 15000];
+const PROFILE_CAPTURE_WAIT_MS = 3000;
+const PROFILE_CAPTURE_MAX_ATTEMPTS = 15;
 const MAX_POSTS_PAGES = 50;
 const MAX_FRIENDSHIP_PAGES = 2000;
 const DISCOVERY_TIMEOUT_MS = 20000;
@@ -951,10 +953,90 @@ const mapProfile = (u, fallbackUsername) => {
   };
 };
 
+const normalizeCapturedProfileUser = (user) => ({
+  ...user,
+  biography: user.biography ?? user.bio ?? null,
+  profile_pic_url_hd:
+    user.profile_pic_url_hd ?? user.hd_profile_pic_url_info?.url ?? null,
+  edge_followed_by:
+    user.edge_followed_by ??
+    (user.follower_count != null ? { count: user.follower_count } : null),
+  edge_follow:
+    user.edge_follow ??
+    (user.following_count != null ? { count: user.following_count } : null),
+  edge_owner_to_timeline_media:
+    user.edge_owner_to_timeline_media ??
+    (user.media_count != null ? { count: user.media_count } : null),
+  is_business_account:
+    user.is_business_account ?? user.is_business ?? null,
+  followed_by_viewer:
+    user.followed_by_viewer ?? user.viewer_data?.followed_by_viewer ?? null,
+  follows_viewer:
+    user.follows_viewer ?? user.viewer_data?.follows_viewer ?? null,
+  requested_by_viewer:
+    user.requested_by_viewer ?? user.viewer_data?.requested_by_viewer ?? null,
+  has_requested_viewer:
+    user.has_requested_viewer ?? user.viewer_data?.has_requested_viewer ?? null,
+  blocked_by_viewer:
+    user.blocked_by_viewer ?? user.viewer_data?.blocked_by_viewer ?? null,
+  has_blocked_viewer:
+    user.has_blocked_viewer ?? user.viewer_data?.has_blocked_viewer ?? null,
+  restricted_by_viewer:
+    user.restricted_by_viewer ?? user.viewer_data?.restricted_by_viewer ?? null,
+  is_guardian_of_viewer:
+    user.is_guardian_of_viewer ?? user.viewer_data?.is_guardian_of_viewer ?? null,
+  is_supervised_by_viewer:
+    user.is_supervised_by_viewer ?? user.viewer_data?.is_supervised_by_viewer ?? null,
+});
+
+const collectProfileViaPageCapture = async (username) => {
+  await page.clearNetworkCaptures();
+  await page.captureNetwork({
+    urlPattern: '/graphql',
+    bodyPattern:
+      'PolarisProfilePageContentQuery|ProfilePageQuery|UserByUsernameQuery',
+    key: 'instagramProfileResponse',
+  });
+
+  await safeGoto(
+    'https://www.instagram.com/' + encodeURIComponent(username) + '/',
+  );
+  await page.sleep(PROFILE_CAPTURE_WAIT_MS);
+
+  for (let attempt = 0; attempt < PROFILE_CAPTURE_MAX_ATTEMPTS; attempt++) {
+    const response = await page.getCapturedResponse('instagramProfileResponse');
+    const user =
+      response?.data?.data?.user ??
+      response?.data?.user ??
+      response?.user ??
+      null;
+
+    if (user) {
+      return mapProfile(normalizeCapturedProfileUser(user), username);
+    }
+
+    await page.sleep(1000);
+  }
+
+  throw new Error(
+    'profile fallback capture did not yield a usable user payload for ' +
+      username,
+  );
+};
+
 const collectProfile = async (username) => {
   const url = 'https://www.instagram.com/api/v1/users/web_profile_info/?username=' + encodeURIComponent(username);
   const res = await fetchApi(url);
-  if (res._error) throw new Error('profile fetch failed: ' + res._error);
+  if (res._error) {
+    if (isRateLimitError(res)) {
+      await page.setData(
+        'status',
+        'Instagram profile API rate limited; falling back to profile page capture...',
+      );
+      return collectProfileViaPageCapture(username);
+    }
+    throw new Error('profile fetch failed: ' + res._error);
+  }
   const user = res.data && res.data.data && res.data.data.user;
   if (!user) throw new Error('profile: no user in response for ' + username);
   return mapProfile(user, username);
