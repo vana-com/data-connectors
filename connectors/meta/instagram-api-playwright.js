@@ -15,20 +15,177 @@
  */
 
 const IG_APP_ID = '936619743392459';
+const PLATFORM = 'instagram';
+const VERSION = '2.0.3-api-playwright';
+const CANONICAL_SCOPES = [
+  'instagram.profile',
+  'instagram.posts',
+  'instagram.followers',
+  'instagram.following',
+  'instagram.ads',
+];
 const POSTS_PAGE_SIZE = 12;
 const FRIENDSHIP_PAGE_SIZE = 50;
 const REQUEST_DELAY_MS = 800;
+const AUTH_SETTLE_DELAY_MS = 2500;
+const RATE_LIMIT_BACKOFF_MS = [3000, 7000, 15000];
+const PROFILE_CAPTURE_WAIT_MS = 3000;
+const PROFILE_CAPTURE_MAX_ATTEMPTS = 15;
 const MAX_POSTS_PAGES = 50;
 const MAX_FRIENDSHIP_PAGES = 2000;
 const DISCOVERY_TIMEOUT_MS = 20000;
 const DISCOVERY_POLL_MS = 250;
+const MAX_LOGIN_ATTEMPTS = 3;
+const MAX_RATE_LIMIT_RETRIES = RATE_LIMIT_BACKOFF_MS.length;
 
-let PLATFORM_LOGIN = process.env.USER_LOGIN_INSTAGRAM || '';
-let PLATFORM_PASSWORD = process.env.USER_PASSWORD_INSTAGRAM || '';
+const readOptionalProcessEnv = (key) => {
+  if (typeof process === 'undefined' || !process?.env) {
+    return '';
+  }
+
+  const value = process.env[key];
+  return typeof value === 'string' ? value : '';
+};
+
+let PLATFORM_LOGIN = readOptionalProcessEnv('USER_LOGIN_INSTAGRAM');
+let PLATFORM_PASSWORD = readOptionalProcessEnv('USER_PASSWORD_INSTAGRAM');
+
+const makeConnectorError = (
+  errorClass,
+  reason,
+  disposition,
+  extras = {},
+) => ({
+  errorClass,
+  reason,
+  disposition,
+  ...extras,
+});
+
+const makeFatalRunError = (errorClass, reason, phase = 'collect') => {
+  const error = new Error(reason);
+  error.telemetryError = makeConnectorError(errorClass, reason, 'fatal', {
+    phase,
+  });
+  return error;
+};
+
+const inferErrorClass = (message, fallback = 'runtime_error') => {
+  const text = String(message || '').toLowerCase();
+  if (text.includes('429') || text.includes('rate limit')) {
+    return 'rate_limited';
+  }
+  if (
+    text.includes('auth') ||
+    text.includes('login') ||
+    text.includes('password') ||
+    text.includes('credential')
+  ) {
+    return 'auth_failed';
+  }
+  if (text.includes('timeout') || text.includes('timed out')) {
+    return 'timeout';
+  }
+  if (
+    text.includes('network') ||
+    text.includes('fetch') ||
+    text.includes('net::') ||
+    text.includes('http ')
+  ) {
+    return 'network_error';
+  }
+  if (text.includes('selector') || text.includes('not found')) {
+    return 'selector_error';
+  }
+  return fallback;
+};
+
+const buildResult = ({ requestedScopes, scopes, errors, exportSummary }) => ({
+  requestedScopes: [...requestedScopes],
+  timestamp: new Date().toISOString(),
+  version: VERSION,
+  platform: PLATFORM,
+  exportSummary,
+  errors,
+  ...scopes,
+});
+
+const buildEmptyResult = (requestedScopes, errors) =>
+  buildResult({
+    requestedScopes,
+    scopes: {},
+    errors,
+    exportSummary: {
+      count: 0,
+      label: 'items',
+      details: {
+        posts: 0,
+        followers: 0,
+        following: 0,
+        advertisers: 0,
+        adTopics: 0,
+        categories: 0,
+      },
+    },
+  });
+
+const resolveRequestedScopes = () => {
+  const raw =
+    typeof page.requestedScopes === 'function' ? page.requestedScopes() : null;
+  if (raw == null) {
+    return [...CANONICAL_SCOPES];
+  }
+  if (!Array.isArray(raw) || raw.length === 0) {
+    throw makeFatalRunError(
+      'protocol_violation',
+      'Instagram connector received an empty or invalid requestedScopes array.',
+      'init',
+    );
+  }
+  const deduped = Array.from(new Set(raw));
+  const invalid = deduped.filter((scope) => !CANONICAL_SCOPES.includes(scope));
+  if (invalid.length > 0) {
+    throw makeFatalRunError(
+      'protocol_violation',
+      `Instagram connector received unsupported requestedScopes: ${invalid.join(', ')}.`,
+      'init',
+    );
+  }
+  return deduped;
+};
+
+const setAuthState = async (state) => {
+  try {
+    await page.setData('auth_state', state);
+  } catch (error) {
+    // best effort — auth-state breadcrumbs must never fail the run
+  }
+};
 
 // ─── In-page fetch helper ────────────────────────────────────
 
-const fetchApi = async (url, options) => {
+const normalizeRetryAfterMs = (value) => {
+  if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+    return value;
+  }
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (/^\d+$/.test(trimmed)) {
+    return Number(trimmed) * 1000;
+  }
+
+  const parsed = Date.parse(trimmed);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+
+  return Math.max(parsed - Date.now(), 0);
+};
+
+const fetchApiOnce = async (url, options) => {
   const opts = options || {};
   const urlStr = JSON.stringify(url);
   const requestSpec = {
@@ -51,7 +208,11 @@ const fetchApi = async (url, options) => {
           if (spec.body !== null && spec.body !== undefined) init.body = spec.body;
           const r = await fetch(${urlStr}, init);
           if (!r.ok) {
-            return { _error: 'http ' + r.status + ' ' + r.statusText };
+            return {
+              _error: 'http ' + r.status + ' ' + r.statusText,
+              _status: r.status,
+              _retryAfter: r.headers.get('retry-after'),
+            };
           }
           if (spec.asText) {
             return { _ok: true, text: await r.text() };
@@ -65,6 +226,40 @@ const fetchApi = async (url, options) => {
   } catch (e) {
     return { _error: 'evaluate error: ' + (e && e.message ? e.message : String(e)) };
   }
+};
+
+const isRateLimitError = (result) => {
+  if (!result?._error) {
+    return false;
+  }
+
+  if (result._status === 429) {
+    return true;
+  }
+
+  return /429|rate limit|too many requests/i.test(String(result._error));
+};
+
+const fetchApi = async (url, options) => {
+  const opts = options || {};
+
+  for (let attempt = 0; attempt <= MAX_RATE_LIMIT_RETRIES; attempt++) {
+    const result = await fetchApiOnce(url, opts);
+    if (!isRateLimitError(result) || attempt === MAX_RATE_LIMIT_RETRIES) {
+      return result;
+    }
+
+    const retryAfterMs = normalizeRetryAfterMs(result._retryAfter);
+    const backoffMs =
+      retryAfterMs && retryAfterMs > 0
+        ? retryAfterMs
+        : RATE_LIMIT_BACKOFF_MS[Math.min(attempt, RATE_LIMIT_BACKOFF_MS.length - 1)];
+
+    await page.setData('status', `Instagram rate limited; retrying in ${Math.ceil(backoffMs / 1000)}s...`);
+    await page.sleep(backoffMs);
+  }
+
+  return { _error: 'http 429 Too Many Requests', _status: 429 };
 };
 
 // ─── Login (API-based) ───────────────────────────────────────
@@ -81,6 +276,98 @@ const IG_PWD_PREFIX = '#PWD_INSTAGRAM_BROWSER:0:';
 // regularly times out because `load` never fires. `domcontentloaded` is enough for
 // connector replay (cookies + first-paint fetches) and is what opensteer uses.
 const safeGoto = (url) => page.goto(url, { waitUntil: 'domcontentloaded' });
+
+const readAuthUiSnapshot = async () => {
+  try {
+    return await page.evaluate(`
+      (() => {
+        const textOf = (el) => (el && el.textContent ? el.textContent.trim() : '');
+        const headings = Array.from(document.querySelectorAll('h1, h2, [role="heading"]'))
+          .map(textOf)
+          .filter(Boolean)
+          .slice(0, 5);
+        const buttons = Array.from(document.querySelectorAll('button, [role="button"]'))
+          .map(textOf)
+          .filter(Boolean)
+          .slice(0, 6);
+        const userSelector = 'input[name="username"], input[name="email"], input[aria-label*="Username"]';
+        const passSelector = 'input[name="password"], input[name="pass"], input[aria-label*="Password"]';
+        return {
+          currentUrl: location.href,
+          title: document.title || null,
+          stillOnLoginForm:
+            Boolean(document.querySelector(userSelector)) &&
+            Boolean(document.querySelector(passSelector)),
+          hasOtpInput:
+            Boolean(document.querySelector('input[name="verificationCode"]')) ||
+            Boolean(document.querySelector('input[name="security_code"]')) ||
+            Boolean(document.querySelector('input[aria-label*="Security Code"]')) ||
+            Boolean(document.querySelector('input[name="approvals_code"]')) ||
+            Boolean(document.querySelector('input[autocomplete="one-time-code"]')),
+          headings,
+          buttons,
+        };
+      })()
+    `);
+  } catch (error) {
+    return null;
+  }
+};
+
+const buildAuthState = async (stage, extras = {}) => {
+  const snapshot = (await readAuthUiSnapshot()) || {};
+  return {
+    stage,
+    ...snapshot,
+    ...extras,
+  };
+};
+
+const readSessionEvidence = async () => {
+  const [authUi, dsUserId, webInfo] = await Promise.all([
+    readAuthUiSnapshot(),
+    readDsUserId(),
+    fetchWebInfo(),
+  ]);
+
+  let hasLoggedInChrome = false;
+  try {
+    hasLoggedInChrome = await page.evaluate(`
+      (() =>
+        Boolean(document.querySelector('svg[aria-label="Home"], a[href="/direct/inbox/"]'))
+      )()
+    `);
+  } catch (error) {
+    hasLoggedInChrome = false;
+  }
+
+  return {
+    authUi: authUi || {},
+    dsUserId: dsUserId || null,
+    webInfo: webInfo || null,
+    hasLoggedInChrome,
+  };
+};
+
+const sessionLooksAuthenticated = (evidence) => {
+  if (!evidence) {
+    return false;
+  }
+
+  if (!evidence.dsUserId) {
+    return false;
+  }
+
+  if (evidence.authUi?.stillOnLoginForm) {
+    return false;
+  }
+
+  if (!evidence.webInfo?.username) {
+    return false;
+  }
+
+  return evidence.hasLoggedInChrome || evidence.authUi?.currentUrl === 'https://www.instagram.com/';
+};
 
 const readCsrfToken = async () => {
   try {
@@ -245,7 +532,68 @@ const readDsUserId = async () => {
   `);
 };
 
+const INVALID_CREDENTIAL_PATTERNS = [
+  /incorrect/i,
+  /wrong password/i,
+  /invalid password/i,
+  /try again/i,
+  /sorry, your password was incorrect/i,
+];
+
+const isInvalidCredentialMessage = (message) =>
+  INVALID_CREDENTIAL_PATTERNS.some((pattern) =>
+    pattern.test(String(message || '')),
+  );
+
+const getCredentialPromptMessage = (attempt, lastError) => {
+  if (!lastError) {
+    return 'Log in to Instagram';
+  }
+  return `Instagram login failed: ${lastError}. Please try again.`;
+};
+
+const promptForCredentials = async (attempt, lastError = null) => {
+  const supportsRequestInput = typeof page.requestInput === 'function';
+  if (attempt === 1 && PLATFORM_LOGIN && PLATFORM_PASSWORD) {
+    return {
+      username: PLATFORM_LOGIN,
+      password: PLATFORM_PASSWORD,
+      source: 'env',
+    };
+  }
+  if (!supportsRequestInput) {
+    throw makeFatalRunError(
+      'auth_failed',
+      lastError
+        ? `Instagram login failed: ${lastError}`
+        : 'Instagram credentials are required but requestInput is unavailable.',
+      'auth',
+    );
+  }
+  const creds = await page.requestInput({
+    message: getCredentialPromptMessage(attempt, lastError),
+    schema: {
+      type: 'object',
+      properties: {
+        username: { type: 'string', title: 'Instagram username, email, or phone' },
+        password: { type: 'string', format: 'password', title: 'Password' },
+      },
+      required: ['username', 'password'],
+    },
+  });
+  return {
+    username: creds.username,
+    password: creds.password,
+    source: 'prompt',
+  };
+};
+
 const handleAuthPlatformChallenge = async (challengeUrl) => {
+  await setAuthState(
+    await buildAuthState('auth_platform_challenge', {
+      challengeUrl,
+    }),
+  );
   await page.setData('status', 'Navigating Instagram auth challenge...');
   const fullUrl = challengeUrl.startsWith('http')
     ? challengeUrl
@@ -296,6 +644,12 @@ const handleAuthPlatformChallenge = async (challengeUrl) => {
     await page.sleep(1000);
     const ds = await readDsUserId();
     if (ds) {
+      await setAuthState(
+        await buildAuthState('authenticated', {
+          challengeCleared: true,
+          dsUserId: ds,
+        }),
+      );
       await page.setData('status', 'Challenge cleared');
       return;
     }
@@ -310,104 +664,182 @@ const performLogin = async () => {
   if (!csrftoken) {
     throw new Error('csrftoken cookie missing after visiting instagram.com — cannot submit login');
   }
+  let lastError = null;
 
-  if (!PLATFORM_LOGIN || !PLATFORM_PASSWORD) {
-    const creds = await page.requestInput({
-      message: 'Log in to Instagram',
-      schema: {
-        type: 'object',
-        properties: {
-          username: { type: 'string', title: 'Instagram username, email, or phone' },
-          password: { type: 'string', format: 'password', title: 'Password' },
-        },
-        required: ['username', 'password'],
-      },
-    });
-    PLATFORM_LOGIN = creds.username;
-    PLATFORM_PASSWORD = creds.password;
-  }
+  for (let attempt = 1; attempt <= MAX_LOGIN_ATTEMPTS; attempt++) {
+    const creds = await promptForCredentials(attempt, lastError);
+    PLATFORM_LOGIN = String(creds.username || '').trim();
+    PLATFORM_PASSWORD = String(creds.password || '');
 
-  await page.setData('status', 'Submitting login credentials...');
-  const wrappedPwd = IG_PWD_PREFIX + Math.floor(Date.now() / 1000) + ':' + PLATFORM_PASSWORD;
-  const result = await postLoginAjax(LOGIN_URL, csrftoken, {
-    username: PLATFORM_LOGIN,
-    enc_password: wrappedPwd,
-    queryParams: '{}',
-    optIntoOneTap: 'false',
-    trustedDeviceRecords: '{}',
-  });
-
-  if (result.kind === 'ok') {
-    return;
-  }
-
-  if (result.kind === 'two_factor') {
-    const { code } = await page.requestInput({
-      message: 'Enter your Instagram two-factor verification code',
-      schema: {
-        type: 'object',
-        properties: { code: { type: 'string', title: '6-digit verification code' } },
-        required: ['code'],
-      },
-    });
-    const refreshedCsrf = (await readCsrfToken()) || csrftoken;
-    const second = await postLoginAjax(TWO_FACTOR_URL, refreshedCsrf, {
-      username: PLATFORM_LOGIN,
-      verificationCode: String(code).trim(),
-      identifier: result.info.twoFactorIdentifier,
-      queryParams: '{}',
-      trust_signal_v2: 'true',
-    });
-    if (second.kind !== 'ok') {
-      throw new Error('Two-factor verification failed: ' + (second.message || second.kind));
-    }
-    return;
-  }
-
-  if (result.kind === 'auth_platform') {
-    await handleAuthPlatformChallenge(result.url);
-    return;
-  }
-
-  if (result.kind === 'checkpoint') {
-    await page.setData(
-      'status',
-      'Login API returned checkpoint challenge — falling back to headed login',
+    await setAuthState(
+      await buildAuthState('submitting_credentials', {
+        attempt,
+        credentialSource: creds.source,
+      }),
     );
-    return;
+    await page.setData('status', 'Submitting login credentials...');
+    const wrappedPwd =
+      IG_PWD_PREFIX + Math.floor(Date.now() / 1000) + ':' + PLATFORM_PASSWORD;
+    const result = await postLoginAjax(LOGIN_URL, csrftoken, {
+      username: PLATFORM_LOGIN,
+      enc_password: wrappedPwd,
+      queryParams: '{}',
+      optIntoOneTap: 'false',
+      trustedDeviceRecords: '{}',
+    });
+
+    if (result.kind === 'ok') {
+      await setAuthState(
+        await buildAuthState('submitted_credentials', {
+          attempt,
+          loginResult: 'ok',
+        }),
+      );
+      return;
+    }
+
+    if (result.kind === 'two_factor') {
+      await setAuthState(
+        await buildAuthState('otp_required', {
+          attempt,
+          loginResult: 'two_factor',
+        }),
+      );
+      const { code } = await page.requestInput({
+        message: 'Enter your Instagram two-factor verification code',
+        schema: {
+          type: 'object',
+          properties: { code: { type: 'string', title: '6-digit verification code' } },
+          required: ['code'],
+        },
+      });
+      const refreshedCsrf = (await readCsrfToken()) || csrftoken;
+      const second = await postLoginAjax(TWO_FACTOR_URL, refreshedCsrf, {
+        username: PLATFORM_LOGIN,
+        verificationCode: String(code).trim(),
+        identifier: result.info.twoFactorIdentifier,
+        queryParams: '{}',
+        trust_signal_v2: 'true',
+      });
+      if (second.kind !== 'ok') {
+        await setAuthState(
+          await buildAuthState('otp_failed', {
+            attempt,
+            apiMessage: second.message || second.kind,
+          }),
+        );
+        throw new Error('Two-factor verification failed: ' + (second.message || second.kind));
+      }
+      await setAuthState(
+        await buildAuthState('submitted_otp', {
+          attempt,
+        }),
+      );
+      return;
+    }
+
+    if (result.kind === 'auth_platform') {
+      await handleAuthPlatformChallenge(result.url);
+      return;
+    }
+
+    if (result.kind === 'checkpoint') {
+      await setAuthState(
+        await buildAuthState('checkpoint_required', {
+          attempt,
+          checkpointUrl: result.url,
+        }),
+      );
+      await page.setData(
+        'status',
+        'Login API returned checkpoint challenge — falling back to headed login',
+      );
+      return;
+    }
+
+    const message = result.message || result.kind;
+    if (isInvalidCredentialMessage(message)) {
+      lastError = message;
+      await setAuthState(
+        await buildAuthState('invalid_credentials', {
+          attempt,
+          apiMessage: message,
+        }),
+      );
+      if (attempt === MAX_LOGIN_ATTEMPTS) {
+        break;
+      }
+      continue;
+    }
+
+    await setAuthState(
+      await buildAuthState('login_api_error', {
+        attempt,
+        apiMessage: message,
+      }),
+    );
+    throw new Error('Instagram login failed: ' + message);
   }
 
-  throw new Error('Instagram login failed: ' + (result.message || result.kind));
+  throw new Error(
+    `Instagram login failed after ${MAX_LOGIN_ATTEMPTS} attempts: ${lastError || 'invalid credentials'}`,
+  );
 };
 
 const checkLoginStatus = async () => {
-  const info = await fetchWebInfo();
-  return !!(info && info.username);
+  const evidence = await readSessionEvidence();
+  return sessionLooksAuthenticated(evidence);
 };
 
 const ensureLoggedIn = async () => {
+  await setAuthState(await buildAuthState('checking_login'));
   await page.setData('status', 'Checking login status...');
   await safeGoto('https://www.instagram.com/');
-  await page.sleep(2000);
+  await page.sleep(AUTH_SETTLE_DELAY_MS);
+  await dismissInterstitials();
 
-  let info = await fetchWebInfo();
-  if (info && info.username) {
+  let evidence = await readSessionEvidence();
+  if (sessionLooksAuthenticated(evidence)) {
+    await setAuthState(
+      await buildAuthState('authenticated', {
+        restoredSession: true,
+        dsUserId: evidence.dsUserId,
+      }),
+    );
     await page.setData('status', 'Session restored');
-    return info;
+    return evidence.webInfo;
   }
 
+  await setAuthState(await buildAuthState('login_required'));
   await page.setData('status', 'Logging in...');
   await performLogin();
 
   for (let attempt = 0; attempt < 3; attempt++) {
-    info = await fetchWebInfo();
-    if (info && info.username) {
+    await safeGoto('https://www.instagram.com/');
+    await page.sleep(AUTH_SETTLE_DELAY_MS);
+    await dismissInterstitials();
+    evidence = await readSessionEvidence();
+    if (sessionLooksAuthenticated(evidence)) {
+      await setAuthState(
+        await buildAuthState('authenticated', {
+          restoredSession: false,
+          dsUserId: evidence.dsUserId,
+        }),
+      );
       await page.setData('status', 'Login successful');
-      return info;
+      return evidence.webInfo;
     }
     await page.sleep(1500);
   }
 
+  await setAuthState(
+    await buildAuthState('login_api_did_not_establish_session', {
+      dsUserId: evidence?.dsUserId || null,
+      hasLoggedInChrome: evidence?.hasLoggedInChrome || false,
+    }),
+  );
+
+  await setAuthState(await buildAuthState('manual_verification_required'));
   const { headed } = await page.showBrowser('https://www.instagram.com/accounts/login/');
   if (!headed) {
     throw new Error('Instagram login failed and headed fallback unavailable');
@@ -421,11 +853,18 @@ const ensureLoggedIn = async () => {
   await page.goHeadless();
   await dismissInterstitials();
 
-  info = await fetchWebInfo();
-  if (!info || !info.username) {
+  evidence = await readSessionEvidence();
+  if (!sessionLooksAuthenticated(evidence)) {
+    await setAuthState(await buildAuthState('auth_failed_after_fallback'));
     throw new Error('Instagram login failed after headed fallback');
   }
-  return info;
+  await setAuthState(
+    await buildAuthState('authenticated', {
+      completedManualFallback: true,
+      dsUserId: evidence.dsUserId,
+    }),
+  );
+  return evidence.webInfo;
 };
 
 // ─── Profile collector ───────────────────────────────────────
@@ -514,10 +953,90 @@ const mapProfile = (u, fallbackUsername) => {
   };
 };
 
+const normalizeCapturedProfileUser = (user) => ({
+  ...user,
+  biography: user.biography ?? user.bio ?? null,
+  profile_pic_url_hd:
+    user.profile_pic_url_hd ?? user.hd_profile_pic_url_info?.url ?? null,
+  edge_followed_by:
+    user.edge_followed_by ??
+    (user.follower_count != null ? { count: user.follower_count } : null),
+  edge_follow:
+    user.edge_follow ??
+    (user.following_count != null ? { count: user.following_count } : null),
+  edge_owner_to_timeline_media:
+    user.edge_owner_to_timeline_media ??
+    (user.media_count != null ? { count: user.media_count } : null),
+  is_business_account:
+    user.is_business_account ?? user.is_business ?? null,
+  followed_by_viewer:
+    user.followed_by_viewer ?? user.viewer_data?.followed_by_viewer ?? null,
+  follows_viewer:
+    user.follows_viewer ?? user.viewer_data?.follows_viewer ?? null,
+  requested_by_viewer:
+    user.requested_by_viewer ?? user.viewer_data?.requested_by_viewer ?? null,
+  has_requested_viewer:
+    user.has_requested_viewer ?? user.viewer_data?.has_requested_viewer ?? null,
+  blocked_by_viewer:
+    user.blocked_by_viewer ?? user.viewer_data?.blocked_by_viewer ?? null,
+  has_blocked_viewer:
+    user.has_blocked_viewer ?? user.viewer_data?.has_blocked_viewer ?? null,
+  restricted_by_viewer:
+    user.restricted_by_viewer ?? user.viewer_data?.restricted_by_viewer ?? null,
+  is_guardian_of_viewer:
+    user.is_guardian_of_viewer ?? user.viewer_data?.is_guardian_of_viewer ?? null,
+  is_supervised_by_viewer:
+    user.is_supervised_by_viewer ?? user.viewer_data?.is_supervised_by_viewer ?? null,
+});
+
+const collectProfileViaPageCapture = async (username) => {
+  await page.clearNetworkCaptures();
+  await page.captureNetwork({
+    urlPattern: '/graphql',
+    bodyPattern:
+      'PolarisProfilePageContentQuery|ProfilePageQuery|UserByUsernameQuery',
+    key: 'instagramProfileResponse',
+  });
+
+  await safeGoto(
+    'https://www.instagram.com/' + encodeURIComponent(username) + '/',
+  );
+  await page.sleep(PROFILE_CAPTURE_WAIT_MS);
+
+  for (let attempt = 0; attempt < PROFILE_CAPTURE_MAX_ATTEMPTS; attempt++) {
+    const response = await page.getCapturedResponse('instagramProfileResponse');
+    const user =
+      response?.data?.data?.user ??
+      response?.data?.user ??
+      response?.user ??
+      null;
+
+    if (user) {
+      return mapProfile(normalizeCapturedProfileUser(user), username);
+    }
+
+    await page.sleep(1000);
+  }
+
+  throw new Error(
+    'profile fallback capture did not yield a usable user payload for ' +
+      username,
+  );
+};
+
 const collectProfile = async (username) => {
   const url = 'https://www.instagram.com/api/v1/users/web_profile_info/?username=' + encodeURIComponent(username);
   const res = await fetchApi(url);
-  if (res._error) throw new Error('profile fetch failed: ' + res._error);
+  if (res._error) {
+    if (isRateLimitError(res)) {
+      await page.setData(
+        'status',
+        'Instagram profile API rate limited; falling back to profile page capture...',
+      );
+      return collectProfileViaPageCapture(username);
+    }
+    throw new Error('profile fetch failed: ' + res._error);
+  }
   const user = res.data && res.data.data && res.data.data.user;
   if (!user) throw new Error('profile: no user in response for ' + username);
   return mapProfile(user, username);
@@ -575,6 +1094,7 @@ const collectPosts = async (userId, onProgress) => {
   const seen = new Set();
   let maxId = null;
   let pageNum = 0;
+  let issue = null;
   while (pageNum < MAX_POSTS_PAGES) {
     pageNum++;
     const params = new URLSearchParams({ count: String(POSTS_PAGE_SIZE) });
@@ -583,11 +1103,23 @@ const collectPosts = async (userId, onProgress) => {
     const res = await fetchApi(url);
     if (res._error) {
       if (pageNum === 1) throw new Error('posts page 1 failed: ' + res._error);
+      issue = makeConnectorError(
+        'upstream_error',
+        `Instagram posts pagination failed after ${posts.length} posts: ${res._error}`,
+        'degraded',
+        { scope: 'instagram.posts', phase: 'collect' },
+      );
       break;
     }
     const data = res.data || {};
     if (data.status && data.status !== 'ok') {
       if (pageNum === 1) throw new Error('posts status=' + data.status + ' message=' + (data.message || ''));
+      issue = makeConnectorError(
+        'upstream_error',
+        `Instagram posts pagination returned status=${data.status}: ${data.message || 'unknown error'}`,
+        'degraded',
+        { scope: 'instagram.posts', phase: 'collect' },
+      );
       break;
     }
     const items = data.items || [];
@@ -602,7 +1134,15 @@ const collectPosts = async (userId, onProgress) => {
     maxId = data.next_max_id;
     await page.sleep(REQUEST_DELAY_MS);
   }
-  return posts;
+  if (!issue && pageNum === MAX_POSTS_PAGES && maxId) {
+    issue = makeConnectorError(
+      'upstream_error',
+      `Instagram posts pagination exceeded the connector page limit (${MAX_POSTS_PAGES}).`,
+      'degraded',
+      { scope: 'instagram.posts', phase: 'collect' },
+    );
+  }
+  return { posts, error: issue };
 };
 
 // ─── Followers / Following ───────────────────────────────────
@@ -618,11 +1158,12 @@ const mapFriendshipUser = (u) => ({
   has_anonymous_profile_picture: u.has_anonymous_profile_picture != null ? !!u.has_anonymous_profile_picture : null,
 });
 
-const collectFriendshipList = async (userId, kind, onProgress) => {
+const collectFriendshipList = async (userId, kind, expectedCount, onProgress) => {
   const list = [];
   const seen = new Set();
   let maxId = null;
   let pageNum = 0;
+  let issue = null;
   while (pageNum < MAX_FRIENDSHIP_PAGES) {
     pageNum++;
     const params = new URLSearchParams({
@@ -634,6 +1175,12 @@ const collectFriendshipList = async (userId, kind, onProgress) => {
     const res = await fetchApi(url);
     if (res._error) {
       if (pageNum === 1) throw new Error(kind + ' page 1 failed: ' + res._error);
+      issue = makeConnectorError(
+        'upstream_error',
+        `Instagram ${kind} pagination failed after ${list.length} records: ${res._error}`,
+        'degraded',
+        { scope: `instagram.${kind}`, phase: 'collect' },
+      );
       break;
     }
     const data = res.data || {};
@@ -649,7 +1196,29 @@ const collectFriendshipList = async (userId, kind, onProgress) => {
     maxId = data.next_max_id;
     await page.sleep(REQUEST_DELAY_MS);
   }
-  return list;
+  if (
+    !issue &&
+    typeof expectedCount === 'number' &&
+    expectedCount > 0 &&
+    list.length < expectedCount &&
+    maxId
+  ) {
+    issue = makeConnectorError(
+      'upstream_error',
+      `Instagram ${kind} collection stopped before the expected count (${list.length}/${expectedCount}).`,
+      'degraded',
+      { scope: `instagram.${kind}`, phase: 'collect' },
+    );
+  }
+  if (!issue && pageNum === MAX_FRIENDSHIP_PAGES && maxId) {
+    issue = makeConnectorError(
+      'upstream_error',
+      `Instagram ${kind} pagination exceeded the connector page limit (${MAX_FRIENDSHIP_PAGES}).`,
+      'degraded',
+      { scope: `instagram.${kind}`, phase: 'collect' },
+    );
+  }
+  return { records: list, error: issue };
 };
 
 // ─── Ads: SSR preloader extraction (advertisers + ad_topics) ─
@@ -931,153 +1500,289 @@ const collectAdCategories = async () => {
 
 // ─── Result transform ────────────────────────────────────────
 
-const buildResult = (state) => {
-  const profile = state.profile;
-  const posts = state.posts || [];
-  const followers = state.followers || [];
-  const following = state.following || [];
-  const advertisers = state.advertisers || [];
-  const adTopics = state.ad_topics || [];
-  const categories = state.categories || [];
+const createProgressTracker = (requestedScopes) => {
+  const requested = new Set(requestedScopes);
+  const steps = [];
+  // Profile is always fetched to resolve the logged-in account id.
+  steps.push('Profile');
+  if (requested.has('instagram.posts')) steps.push('Posts');
+  if (requested.has('instagram.followers')) steps.push('Followers');
+  if (requested.has('instagram.following')) steps.push('Following');
+  if (requested.has('instagram.ads')) steps.push('Ads');
 
-  const errors = {};
-  if (state.advertisersError) errors.advertisers = state.advertisersError;
-  if (state.adTopicsError) errors.ad_topics = state.adTopicsError;
-  if (state.categoriesError) errors.categories = state.categoriesError;
-
-  const totalCount = posts.length + followers.length + following.length;
-  const detailParts = [
-    profile ? '1 profile' : null,
-    posts.length + ' posts',
-    followers.length + ' followers',
-    following.length + ' following',
-    advertisers.length + ' advertisers',
-    adTopics.length + ' ad topics',
-    categories.length + ' targeting categories',
-  ].filter(Boolean);
-
-  const result = {
-    'instagram.profile': profile,
-    'instagram.posts': { posts },
-    'instagram.followers': { followers },
-    'instagram.following': { following },
-    'instagram.ads': {
-      advertisers,
-      ad_topics: adTopics,
-      categories,
+  const total = steps.length;
+  let current = 0;
+  return {
+    total,
+    async update(label, message, count) {
+      if (!steps.includes(label)) {
+        return;
+      }
+      current = Math.max(current, steps.indexOf(label) + 1);
+      await page.setProgress({
+        phase: { step: current, total, label },
+        message,
+        ...(count !== undefined ? { count } : {}),
+      });
     },
-    exportSummary: {
-      count: totalCount,
-      label: 'items',
-      details: detailParts.join(', '),
-    },
-    timestamp: new Date().toISOString(),
-    version: '1.0.0-api-playwright',
-    platform: 'instagram',
   };
-  if (Object.keys(errors).length > 0) {
-    result.collectionErrors = errors;
-  }
-  return result;
 };
 
 // ─── Main flow ───────────────────────────────────────────────
 
 (async () => {
-  const TOTAL_STEPS = 5;
-
-  const identity = await ensureLoggedIn();
-  const username = identity.username;
-  if (!username) {
-    await page.setData('error', 'Could not determine username after login');
-    return { error: 'no username' };
-  }
-  await page.setData('status', 'Logged in as @' + username);
-
-  await safeGoto('https://www.instagram.com/');
-  await page.sleep(1500);
-
-  const state = { identity };
-
-  await page.setProgress({
-    phase: { step: 1, total: TOTAL_STEPS, label: 'Profile' },
-    message: 'Fetching profile for @' + username,
-  });
-  state.profile = await collectProfile(username);
-  const userId = state.profile.id || state.profile.pk;
-  if (!userId) {
-    await page.setData('error', 'Profile fetched but no user id present');
-    return { error: 'no user id' };
-  }
-
-  await page.setProgress({
-    phase: { step: 2, total: TOTAL_STEPS, label: 'Posts' },
-    message: 'Fetching posts...',
-  });
-  state.posts = await collectPosts(userId, async (n) => {
-    await page.setProgress({
-      phase: { step: 2, total: TOTAL_STEPS, label: 'Posts' },
-      message: 'Captured ' + n + ' posts',
-      count: n,
-    });
-  });
-
-  await page.setProgress({
-    phase: { step: 3, total: TOTAL_STEPS, label: 'Followers' },
-    message: 'Fetching followers...',
-  });
-  state.followers = await collectFriendshipList(userId, 'followers', async (n) => {
-    await page.setProgress({
-      phase: { step: 3, total: TOTAL_STEPS, label: 'Followers' },
-      message: 'Captured ' + n + ' followers',
-      count: n,
-    });
-  });
-
-  await page.setProgress({
-    phase: { step: 4, total: TOTAL_STEPS, label: 'Following' },
-    message: 'Fetching following...',
-  });
-  state.following = await collectFriendshipList(userId, 'following', async (n) => {
-    await page.setProgress({
-      phase: { step: 4, total: TOTAL_STEPS, label: 'Following' },
-      message: 'Captured ' + n + ' following',
-      count: n,
-    });
-  });
-
-  await page.setProgress({
-    phase: { step: 5, total: TOTAL_STEPS, label: 'Ads' },
-    message: 'Fetching advertisers...',
-  });
+  let requestedScopes = [...CANONICAL_SCOPES];
+  let initError = null;
   try {
-    state.advertisers = await collectAdvertisers();
-  } catch (e) {
-    state.advertisersError = (e && e.message) || String(e);
+    requestedScopes = resolveRequestedScopes();
+  } catch (error) {
+    initError = error;
   }
 
-  await page.setProgress({
-    phase: { step: 5, total: TOTAL_STEPS, label: 'Ads' },
-    message: 'Fetching ad topics...',
-  });
   try {
-    state.ad_topics = await collectAdTopics();
-  } catch (e) {
-    state.adTopicsError = (e && e.message) || String(e);
-  }
+    if (initError) {
+      throw initError;
+    }
 
-  await page.setProgress({
-    phase: { step: 5, total: TOTAL_STEPS, label: 'Ads' },
-    message: 'Discovering ad categories query...',
-  });
-  try {
-    state.categories = await collectAdCategories();
-  } catch (e) {
-    state.categoriesError = (e && e.message) || String(e);
-  }
+    const wantsScope = (scope) => requestedScopes.includes(scope);
+    const wantsProfile = wantsScope('instagram.profile');
+    const wantsPosts = wantsScope('instagram.posts');
+    const wantsFollowers = wantsScope('instagram.followers');
+    const wantsFollowing = wantsScope('instagram.following');
+    const wantsAds = wantsScope('instagram.ads');
+    const progress = createProgressTracker(requestedScopes);
 
-  const result = buildResult(state);
-  await page.setData('result', result);
-  await page.setData('status', 'Complete: ' + result.exportSummary.details);
-  return { success: true, data: result };
+    const identity = await ensureLoggedIn();
+    const username = identity.username;
+    if (!username) {
+      throw makeFatalRunError(
+        'auth_failed',
+        'Could not determine username after Instagram login.',
+        'auth',
+      );
+    }
+    await page.setData('status', 'Logged in as @' + username);
+
+    await safeGoto('https://www.instagram.com/');
+    await page.sleep(1500);
+
+    const state = { identity };
+    const scopes = {};
+    const errors = [];
+
+    await progress.update('Profile', 'Fetching profile for @' + username);
+    state.profile = await collectProfile(username);
+    const userId = state.profile.id || state.profile.pk;
+    if (!userId) {
+      throw makeFatalRunError(
+        'runtime_error',
+        'Profile fetched but no user id was present.',
+      );
+    }
+
+    if (wantsProfile) {
+      scopes['instagram.profile'] = state.profile;
+    }
+
+    if (wantsPosts) {
+      await progress.update('Posts', 'Fetching posts...');
+      try {
+        const postsResult = await collectPosts(userId, async (n) => {
+          await progress.update('Posts', 'Captured ' + n + ' posts', n);
+        });
+        state.posts = postsResult.posts;
+        scopes['instagram.posts'] = { posts: state.posts };
+        if (postsResult.error) {
+          errors.push(postsResult.error);
+        }
+      } catch (error) {
+        errors.push(
+          makeConnectorError(
+            inferErrorClass(error?.message || String(error), 'upstream_error'),
+            `Instagram posts collection failed: ${error?.message || String(error)}`,
+            'omitted',
+            { scope: 'instagram.posts', phase: 'collect' },
+          ),
+        );
+      }
+    }
+
+    if (wantsFollowers) {
+      await progress.update('Followers', 'Fetching followers...');
+      try {
+        const followersResult = await collectFriendshipList(
+          userId,
+          'followers',
+          state.profile.follower_count,
+          async (n) => {
+            await progress.update('Followers', 'Captured ' + n + ' followers', n);
+          },
+        );
+        state.followers = followersResult.records;
+        scopes['instagram.followers'] = { followers: state.followers };
+        if (followersResult.error) {
+          errors.push(followersResult.error);
+        }
+      } catch (error) {
+        errors.push(
+          makeConnectorError(
+            inferErrorClass(error?.message || String(error), 'upstream_error'),
+            `Instagram followers collection failed: ${error?.message || String(error)}`,
+            'omitted',
+            { scope: 'instagram.followers', phase: 'collect' },
+          ),
+        );
+      }
+    }
+
+    if (wantsFollowing) {
+      await progress.update('Following', 'Fetching following...');
+      try {
+        const followingResult = await collectFriendshipList(
+          userId,
+          'following',
+          state.profile.following_count,
+          async (n) => {
+            await progress.update('Following', 'Captured ' + n + ' following', n);
+          },
+        );
+        state.following = followingResult.records;
+        scopes['instagram.following'] = {
+          following: state.following,
+          accounts: state.following,
+          total: state.following.length,
+        };
+        if (followingResult.error) {
+          errors.push(followingResult.error);
+        }
+      } catch (error) {
+        errors.push(
+          makeConnectorError(
+            inferErrorClass(error?.message || String(error), 'upstream_error'),
+            `Instagram following collection failed: ${error?.message || String(error)}`,
+            'omitted',
+            { scope: 'instagram.following', phase: 'collect' },
+          ),
+        );
+      }
+    }
+
+    if (wantsAds) {
+      const adsFailures = [];
+      let advertisersSucceeded = false;
+      let adTopicsSucceeded = false;
+      let categoriesSucceeded = false;
+
+      await progress.update('Ads', 'Fetching advertisers...');
+      try {
+        state.advertisers = await collectAdvertisers();
+        advertisersSucceeded = true;
+      } catch (error) {
+        adsFailures.push(
+          `advertisers: ${error?.message || String(error)}`,
+        );
+      }
+
+      await progress.update('Ads', 'Fetching ad topics...');
+      try {
+        state.ad_topics = await collectAdTopics();
+        adTopicsSucceeded = true;
+      } catch (error) {
+        adsFailures.push(
+          `ad_topics: ${error?.message || String(error)}`,
+        );
+      }
+
+      await progress.update('Ads', 'Discovering ad categories query...');
+      try {
+        state.categories = await collectAdCategories();
+        categoriesSucceeded = true;
+      } catch (error) {
+        adsFailures.push(
+          `categories: ${error?.message || String(error)}`,
+        );
+      }
+
+      const adsProduced =
+        advertisersSucceeded || adTopicsSucceeded || categoriesSucceeded;
+      if (adsProduced) {
+        scopes['instagram.ads'] = {
+          advertisers: state.advertisers || [],
+          ad_topics: state.ad_topics || [],
+          categories: state.categories || [],
+        };
+      }
+
+      if (adsFailures.length > 0) {
+        errors.push(
+          makeConnectorError(
+            inferErrorClass(adsFailures[0], 'upstream_error'),
+            `Instagram ads collection ${adsProduced ? 'partially failed' : 'failed'}: ${adsFailures.join('; ')}`,
+            adsProduced ? 'degraded' : 'omitted',
+            { scope: 'instagram.ads', phase: 'collect' },
+          ),
+        );
+      }
+    }
+
+    const posts = scopes['instagram.posts']?.posts || [];
+    const followers = scopes['instagram.followers']?.followers || [];
+    const following = scopes['instagram.following']?.following || [];
+    const advertisers = scopes['instagram.ads']?.advertisers || [];
+    const adTopics = scopes['instagram.ads']?.ad_topics || [];
+    const categories = scopes['instagram.ads']?.categories || [];
+    const detailParts = [];
+    if (wantsProfile && scopes['instagram.profile']) detailParts.push('1 profile');
+    if (wantsPosts) detailParts.push(posts.length + ' posts');
+    if (wantsFollowers) detailParts.push(followers.length + ' followers');
+    if (wantsFollowing) detailParts.push(following.length + ' following');
+    if (wantsAds) {
+      detailParts.push(advertisers.length + ' advertisers');
+      detailParts.push(adTopics.length + ' ad topics');
+      detailParts.push(categories.length + ' targeting categories');
+    }
+
+    const totalCount =
+      posts.length +
+      followers.length +
+      following.length +
+      advertisers.length +
+      adTopics.length +
+      categories.length;
+
+    const result = buildResult({
+      requestedScopes,
+      scopes,
+      errors,
+      exportSummary: {
+        count: totalCount,
+        label: totalCount === 1 ? 'item' : 'items',
+        details: {
+          posts: posts.length,
+          followers: followers.length,
+          following: following.length,
+          advertisers: advertisers.length,
+          adTopics: adTopics.length,
+          categories: categories.length,
+        },
+      },
+    });
+
+    await page.setData('result', result);
+    await page.setData('status', 'Complete: ' + detailParts.join(', '));
+    return result;
+  } catch (error) {
+    const telemetryError =
+      error?.telemetryError ||
+      makeConnectorError(
+        inferErrorClass(error?.message || String(error)),
+        error?.message || String(error),
+        'fatal',
+        { phase: 'collect' },
+      );
+    const result = buildEmptyResult(requestedScopes, [telemetryError]);
+    await page.setData('result', result);
+    await page.setData('error', telemetryError.reason);
+    return result;
+  }
 })();

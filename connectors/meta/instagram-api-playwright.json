@@ -2,7 +2,7 @@
   "manifest_version": "1.0",
   "connector_id": "instagram-api-playwright",
   "source_id": "instagram",
-  "version": "1.0.0",
+  "version": "2.0.3",
   "name": "Instagram (API)",
   "company": "Meta",
   "description": "Exports your Instagram profile, posts, followers, following, and ad interests using API-first network replay (no DOM scraping for data).",
@@ -45,5 +45,14 @@
   "exportFrequency": "daily",
   "vectorize_config": {
     "documents": "caption"
+  },
+  "consumer_metadata": {
+    "display_name": "Instagram (API)",
+    "brand_domain": "instagram.com",
+    "aliases": [
+      "meta"
+    ],
+    "icon_key": "instagram",
+    "default_scope": "instagram.profile"
   }
 }

@@ -74,6 +74,12 @@ function resolveCommittedArtifactRef(existingIndex) {
   return null;
 }
 
+function findExistingVersion(existingIndex, connectorId, version) {
+  return existingIndex?.connectors?.[connectorId]?.find(
+    (existingVersion) => existingVersion.version === version
+  ) ?? null;
+}
+
 function sha256Buffer(buffer) {
   return `sha256:${createHash("sha256").update(buffer).digest("hex")}`;
 }
@@ -212,73 +218,92 @@ function main() {
   }
 
   const expectedArtifactPaths = new Set();
+  const requiredArtifactPaths = new Set();
 
   for (const entry of registry.connectors) {
-    const metadata = readJson(join(repoRoot, "connectors", entry.files.metadata));
-    const bundle = createArtifactBundle(entry, metadata);
-    const artifactDir = join(artifactsDir, entry.id);
-    mkdirSync(artifactDir, { recursive: true });
-    const artifactFilename = `${entry.id}-${entry.version}.tgz`;
-    const artifactPath = join(artifactDir, artifactFilename);
-    const tempArtifactPath = join(dirname(bundle.bundleDir), artifactFilename);
+    const existingVersion = findExistingVersion(existingIndex, entry.id, entry.version);
+    let packaged;
 
-    execFileSync("tar", [
-      "--sort=name",
-      "--mtime=@0",
-      "--owner=0",
-      "--group=0",
-      "--numeric-owner",
-      "--pax-option=delete=atime,delete=ctime",
-      "-czf",
-      tempArtifactPath,
-      "-C",
-      bundle.bundleDir,
-      ".",
-    ]);
+    if (existingVersion) {
+      packaged = {
+        ...existingVersion,
+        connectorId: entry.id,
+        company: entry.company,
+        version: entry.version,
+        name: entry.name,
+        status: entry.status,
+        description: entry.description,
+        sourceFiles: entry.files,
+        consumerMetadata: entry.consumerMetadata ?? existingVersion.consumerMetadata ?? null,
+      };
+    } else {
+      const metadata = readJson(join(repoRoot, "connectors", entry.files.metadata));
+      const bundle = createArtifactBundle(entry, metadata);
+      const artifactDir = join(artifactsDir, entry.id);
+      mkdirSync(artifactDir, { recursive: true });
+      const artifactFilename = `${entry.id}-${entry.version}.tgz`;
+      const artifactPath = join(artifactDir, artifactFilename);
+      const tempArtifactPath = join(dirname(bundle.bundleDir), artifactFilename);
 
-    const manifestBuffer = readFileSync(bundle.metadataSource);
-    const scriptBuffer = readFileSync(bundle.scriptSource);
-    const artifactBuffer = readFileSync(tempArtifactPath);
+      execFileSync("tar", [
+        "--sort=name",
+        "--mtime=@0",
+        "--owner=0",
+        "--group=0",
+        "--numeric-owner",
+        "--pax-option=delete=atime,delete=ctime",
+        "-czf",
+        tempArtifactPath,
+        "-C",
+        bundle.bundleDir,
+        ".",
+      ]);
 
-    const packaged = {
-      connectorId: entry.id,
-      company: entry.company,
-      version: entry.version,
-      name: entry.name,
-      status: entry.status,
-      description: entry.description,
-      sourceFiles: entry.files,
-      publishedAt: entry.publishedAt ?? entry.lastUpdated ?? registry.lastUpdated,
-      gitRef: entry.gitRef ?? gitRef,
-      pageApiVersion: metadata.page_api_version,
-      manifestSha256: sha256Buffer(manifestBuffer),
-      scriptSha256: sha256Buffer(scriptBuffer),
-      // In check mode, reuse the committed artifact checksum instead of
-      // recomputing it. Tarball bytes are not reproducible across Node/tar
-      // versions even with --sort=name --mtime=@0 flags, so recomputing
-      // causes spurious drift detection in CI.
-      artifactSha256: checkMode
-        ? (existingIndex?.connectors?.[entry.id]?.find(
-            (v) => v.version === entry.version
-          )?.artifactSha256 ?? sha256Buffer(artifactBuffer))
-        : sha256Buffer(artifactBuffer),
-      artifactPath: artifactPath.slice(repoRoot.length + 1),
-      artifactUrl: `${repoBaseUrl}/${artifactPath.slice(repoRoot.length + 1)}`,
-      scopes: (metadata.scopes ?? []).map((scopeEntry) =>
-        typeof scopeEntry === "string" ? scopeEntry : scopeEntry.scope
-      ),
-      consumerMetadata: entry.consumerMetadata ?? null,
-    };
+      const manifestBuffer = readFileSync(bundle.metadataSource);
+      const scriptBuffer = readFileSync(bundle.scriptSource);
+      const artifactBuffer = readFileSync(tempArtifactPath);
 
-    if (!checkMode) {
-      writeFileSync(artifactPath, artifactBuffer);
+      packaged = {
+        connectorId: entry.id,
+        company: entry.company,
+        version: entry.version,
+        name: entry.name,
+        status: entry.status,
+        description: entry.description,
+        sourceFiles: entry.files,
+        publishedAt: entry.publishedAt ?? entry.lastUpdated ?? registry.lastUpdated,
+        gitRef: entry.gitRef ?? gitRef,
+        pageApiVersion: metadata.page_api_version,
+        manifestSha256: sha256Buffer(manifestBuffer),
+        scriptSha256: sha256Buffer(scriptBuffer),
+        artifactSha256: checkMode
+          ? (existingVersion?.artifactSha256 ?? sha256Buffer(artifactBuffer))
+          : sha256Buffer(artifactBuffer),
+        artifactPath: artifactPath.slice(repoRoot.length + 1),
+        artifactUrl: `${repoBaseUrl}/${artifactPath.slice(repoRoot.length + 1)}`,
+        scopes: (metadata.scopes ?? []).map((scopeEntry) =>
+          typeof scopeEntry === "string" ? scopeEntry : scopeEntry.scope
+        ),
+        consumerMetadata: entry.consumerMetadata ?? null,
+      };
+
+      if (!checkMode) {
+        writeFileSync(artifactPath, artifactBuffer);
+      }
+
+      rmSync(dirname(bundle.bundleDir), { recursive: true, force: true });
     }
 
     expectedArtifactPaths.add(packaged.artifactPath);
-    rmSync(dirname(bundle.bundleDir), { recursive: true, force: true });
+    requiredArtifactPaths.add(packaged.artifactPath);
 
     const previousVersions = existingIndex?.connectors?.[entry.id] ?? [];
     const retained = previousVersions.filter((version) => version.version !== entry.version);
+    for (const retainedVersion of retained) {
+      if (retainedVersion.artifactPath) {
+        expectedArtifactPaths.add(retainedVersion.artifactPath);
+      }
+    }
     nextIndex.connectors[entry.id] = [...retained, packaged];
   }
 
@@ -293,7 +318,7 @@ function main() {
       );
     }
 
-    for (const artifactPath of expectedArtifactPaths) {
+    for (const artifactPath of requiredArtifactPaths) {
       if (!existsSync(join(repoRoot, artifactPath))) {
         throw new Error(`Missing artifact: ${artifactPath}`);
       }
