@@ -16,7 +16,7 @@
 
 const IG_APP_ID = '936619743392459';
 const PLATFORM = 'instagram';
-const VERSION = '2.0.1-api-playwright';
+const VERSION = '2.0.2-api-playwright';
 const CANONICAL_SCOPES = [
   'instagram.profile',
   'instagram.posts',
@@ -27,11 +27,14 @@ const CANONICAL_SCOPES = [
 const POSTS_PAGE_SIZE = 12;
 const FRIENDSHIP_PAGE_SIZE = 50;
 const REQUEST_DELAY_MS = 800;
+const AUTH_SETTLE_DELAY_MS = 2500;
+const RATE_LIMIT_BACKOFF_MS = [3000, 7000, 15000];
 const MAX_POSTS_PAGES = 50;
 const MAX_FRIENDSHIP_PAGES = 2000;
 const DISCOVERY_TIMEOUT_MS = 20000;
 const DISCOVERY_POLL_MS = 250;
 const MAX_LOGIN_ATTEMPTS = 3;
+const MAX_RATE_LIMIT_RETRIES = RATE_LIMIT_BACKOFF_MS.length;
 
 const readOptionalProcessEnv = (key) => {
   if (typeof process === 'undefined' || !process?.env) {
@@ -67,6 +70,9 @@ const makeFatalRunError = (errorClass, reason, phase = 'collect') => {
 
 const inferErrorClass = (message, fallback = 'runtime_error') => {
   const text = String(message || '').toLowerCase();
+  if (text.includes('429') || text.includes('rate limit')) {
+    return 'rate_limited';
+  }
   if (
     text.includes('auth') ||
     text.includes('login') ||
@@ -156,7 +162,28 @@ const setAuthState = async (state) => {
 
 // ─── In-page fetch helper ────────────────────────────────────
 
-const fetchApi = async (url, options) => {
+const normalizeRetryAfterMs = (value) => {
+  if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+    return value;
+  }
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (/^\d+$/.test(trimmed)) {
+    return Number(trimmed) * 1000;
+  }
+
+  const parsed = Date.parse(trimmed);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+
+  return Math.max(parsed - Date.now(), 0);
+};
+
+const fetchApiOnce = async (url, options) => {
   const opts = options || {};
   const urlStr = JSON.stringify(url);
   const requestSpec = {
@@ -179,7 +206,11 @@ const fetchApi = async (url, options) => {
           if (spec.body !== null && spec.body !== undefined) init.body = spec.body;
           const r = await fetch(${urlStr}, init);
           if (!r.ok) {
-            return { _error: 'http ' + r.status + ' ' + r.statusText };
+            return {
+              _error: 'http ' + r.status + ' ' + r.statusText,
+              _status: r.status,
+              _retryAfter: r.headers.get('retry-after'),
+            };
           }
           if (spec.asText) {
             return { _ok: true, text: await r.text() };
@@ -193,6 +224,40 @@ const fetchApi = async (url, options) => {
   } catch (e) {
     return { _error: 'evaluate error: ' + (e && e.message ? e.message : String(e)) };
   }
+};
+
+const isRateLimitError = (result) => {
+  if (!result?._error) {
+    return false;
+  }
+
+  if (result._status === 429) {
+    return true;
+  }
+
+  return /429|rate limit|too many requests/i.test(String(result._error));
+};
+
+const fetchApi = async (url, options) => {
+  const opts = options || {};
+
+  for (let attempt = 0; attempt <= MAX_RATE_LIMIT_RETRIES; attempt++) {
+    const result = await fetchApiOnce(url, opts);
+    if (!isRateLimitError(result) || attempt === MAX_RATE_LIMIT_RETRIES) {
+      return result;
+    }
+
+    const retryAfterMs = normalizeRetryAfterMs(result._retryAfter);
+    const backoffMs =
+      retryAfterMs && retryAfterMs > 0
+        ? retryAfterMs
+        : RATE_LIMIT_BACKOFF_MS[Math.min(attempt, RATE_LIMIT_BACKOFF_MS.length - 1)];
+
+    await page.setData('status', `Instagram rate limited; retrying in ${Math.ceil(backoffMs / 1000)}s...`);
+    await page.sleep(backoffMs);
+  }
+
+  return { _error: 'http 429 Too Many Requests', _status: 429 };
 };
 
 // ─── Login (API-based) ───────────────────────────────────────
@@ -254,6 +319,52 @@ const buildAuthState = async (stage, extras = {}) => {
     ...snapshot,
     ...extras,
   };
+};
+
+const readSessionEvidence = async () => {
+  const [authUi, dsUserId, webInfo] = await Promise.all([
+    readAuthUiSnapshot(),
+    readDsUserId(),
+    fetchWebInfo(),
+  ]);
+
+  let hasLoggedInChrome = false;
+  try {
+    hasLoggedInChrome = await page.evaluate(`
+      (() =>
+        Boolean(document.querySelector('svg[aria-label="Home"], a[href="/direct/inbox/"]'))
+      )()
+    `);
+  } catch (error) {
+    hasLoggedInChrome = false;
+  }
+
+  return {
+    authUi: authUi || {},
+    dsUserId: dsUserId || null,
+    webInfo: webInfo || null,
+    hasLoggedInChrome,
+  };
+};
+
+const sessionLooksAuthenticated = (evidence) => {
+  if (!evidence) {
+    return false;
+  }
+
+  if (!evidence.dsUserId) {
+    return false;
+  }
+
+  if (evidence.authUi?.stillOnLoginForm) {
+    return false;
+  }
+
+  if (!evidence.webInfo?.username) {
+    return false;
+  }
+
+  return evidence.hasLoggedInChrome || evidence.authUi?.currentUrl === 'https://www.instagram.com/';
 };
 
 const readCsrfToken = async () => {
@@ -674,25 +785,27 @@ const performLogin = async () => {
 };
 
 const checkLoginStatus = async () => {
-  const info = await fetchWebInfo();
-  return !!(info && info.username);
+  const evidence = await readSessionEvidence();
+  return sessionLooksAuthenticated(evidence);
 };
 
 const ensureLoggedIn = async () => {
   await setAuthState(await buildAuthState('checking_login'));
   await page.setData('status', 'Checking login status...');
   await safeGoto('https://www.instagram.com/');
-  await page.sleep(2000);
+  await page.sleep(AUTH_SETTLE_DELAY_MS);
+  await dismissInterstitials();
 
-  let info = await fetchWebInfo();
-  if (info && info.username) {
+  let evidence = await readSessionEvidence();
+  if (sessionLooksAuthenticated(evidence)) {
     await setAuthState(
       await buildAuthState('authenticated', {
         restoredSession: true,
+        dsUserId: evidence.dsUserId,
       }),
     );
     await page.setData('status', 'Session restored');
-    return info;
+    return evidence.webInfo;
   }
 
   await setAuthState(await buildAuthState('login_required'));
@@ -700,18 +813,29 @@ const ensureLoggedIn = async () => {
   await performLogin();
 
   for (let attempt = 0; attempt < 3; attempt++) {
-    info = await fetchWebInfo();
-    if (info && info.username) {
+    await safeGoto('https://www.instagram.com/');
+    await page.sleep(AUTH_SETTLE_DELAY_MS);
+    await dismissInterstitials();
+    evidence = await readSessionEvidence();
+    if (sessionLooksAuthenticated(evidence)) {
       await setAuthState(
         await buildAuthState('authenticated', {
           restoredSession: false,
+          dsUserId: evidence.dsUserId,
         }),
       );
       await page.setData('status', 'Login successful');
-      return info;
+      return evidence.webInfo;
     }
     await page.sleep(1500);
   }
+
+  await setAuthState(
+    await buildAuthState('login_api_did_not_establish_session', {
+      dsUserId: evidence?.dsUserId || null,
+      hasLoggedInChrome: evidence?.hasLoggedInChrome || false,
+    }),
+  );
 
   await setAuthState(await buildAuthState('manual_verification_required'));
   const { headed } = await page.showBrowser('https://www.instagram.com/accounts/login/');
@@ -727,17 +851,18 @@ const ensureLoggedIn = async () => {
   await page.goHeadless();
   await dismissInterstitials();
 
-  info = await fetchWebInfo();
-  if (!info || !info.username) {
+  evidence = await readSessionEvidence();
+  if (!sessionLooksAuthenticated(evidence)) {
     await setAuthState(await buildAuthState('auth_failed_after_fallback'));
     throw new Error('Instagram login failed after headed fallback');
   }
   await setAuthState(
     await buildAuthState('authenticated', {
       completedManualFallback: true,
+      dsUserId: evidence.dsUserId,
     }),
   );
-  return info;
+  return evidence.webInfo;
 };
 
 // ─── Profile collector ───────────────────────────────────────
