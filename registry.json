@@ -81,10 +81,11 @@
     {
       "id": "instagram-api-playwright",
       "company": "meta",
-      "version": "1.0.0",
+      "version": "2.0.0",
       "name": "Instagram (API)",
       "status": "experimental",
       "description": "Exports your Instagram profile, posts, followers, following, and ad interests using API-first network replay (no DOM scraping for data).",
+      "gitRef": "fix/instagram-api-compat",
       "consumerMetadata": {
         "sourceId": "instagram",
         "displayName": "Instagram (API)",
