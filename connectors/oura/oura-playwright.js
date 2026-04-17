@@ -315,6 +315,23 @@ const doLogin = async () => {
 
       await page.sleep(3000);
 
+      // Step 1a: Detect "email not found" error state
+      const emailNotRecognized = await page.evaluate(`
+        (() => {
+          const text = (document.body.textContent || '').toLowerCase();
+          return text.includes('your email not found') ||
+                 text.includes('email you entered is not associated with your oura account');
+        })()
+      `);
+      if (emailNotRecognized) {
+        await page.setData('status', 'Email not recognized by Oura.');
+        throw makeFatalRunError(
+          'auth_failed',
+          'The email you entered is not associated with an Oura account. Double-check the address you use to sign in at cloud.ouraring.com, or create an Oura account first.',
+          'auth',
+        );
+      }
+
       // Step 2: Click "Send code" button
       await page.setData('status', 'Requesting verification code...');
       try {
