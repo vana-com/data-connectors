@@ -16,7 +16,7 @@
 
 const IG_APP_ID = '936619743392459';
 const PLATFORM = 'instagram';
-const VERSION = '2.0.3-api-playwright';
+const VERSION = '2.0.4-api-playwright';
 const CANONICAL_SCOPES = [
   'instagram.profile',
   'instagram.posts',
@@ -30,7 +30,7 @@ const REQUEST_DELAY_MS = 800;
 const AUTH_SETTLE_DELAY_MS = 2500;
 const RATE_LIMIT_BACKOFF_MS = [3000, 7000, 15000];
 const PROFILE_CAPTURE_WAIT_MS = 3000;
-const PROFILE_CAPTURE_MAX_ATTEMPTS = 15;
+const PROFILE_CAPTURE_MAX_ATTEMPTS = 30;
 const MAX_POSTS_PAGES = 50;
 const MAX_FRIENDSHIP_PAGES = 2000;
 const DISCOVERY_TIMEOUT_MS = 20000;
@@ -162,6 +162,53 @@ const setAuthState = async (state) => {
   }
 };
 
+const promptWithRetry = async (
+  buildSpec,
+  attempt,
+  maxAttempts = MAX_LOGIN_ATTEMPTS,
+) => {
+  let lastError = null;
+  for (let i = 0; i < maxAttempts; i++) {
+    const spec = buildSpec();
+    if (lastError) {
+      spec.error = lastError;
+    }
+    const values = await page.requestInput(spec);
+    const result = await attempt(values, i);
+    if (result.ok) {
+      return result.value;
+    }
+    lastError = result.error;
+  }
+  throw new Error(
+    'Too many failed attempts: ' + (lastError || 'unknown reason'),
+  );
+};
+
+let collectorTrace = {};
+
+const setCollectorTraceSection = async (section, patch) => {
+  try {
+    const previous =
+      collectorTrace &&
+      typeof collectorTrace === 'object' &&
+      collectorTrace[section] &&
+      typeof collectorTrace[section] === 'object'
+        ? collectorTrace[section]
+        : {};
+    collectorTrace = {
+      ...collectorTrace,
+      [section]: {
+        ...previous,
+        ...patch,
+      },
+    };
+    await page.setData('collector_trace', collectorTrace);
+  } catch (error) {
+    // best effort — collector breadcrumbs must never fail the run
+  }
+};
+
 // ─── In-page fetch helper ────────────────────────────────────
 
 const normalizeRetryAfterMs = (value) => {
@@ -246,7 +293,10 @@ const fetchApi = async (url, options) => {
   for (let attempt = 0; attempt <= MAX_RATE_LIMIT_RETRIES; attempt++) {
     const result = await fetchApiOnce(url, opts);
     if (!isRateLimitError(result) || attempt === MAX_RATE_LIMIT_RETRIES) {
-      return result;
+      return {
+        ...result,
+        _attempts: attempt + 1,
+      };
     }
 
     const retryAfterMs = normalizeRetryAfterMs(result._retryAfter);
@@ -259,7 +309,7 @@ const fetchApi = async (url, options) => {
     await page.sleep(backoffMs);
   }
 
-  return { _error: 'http 429 Too Many Requests', _status: 429 };
+  return { _error: 'http 429 Too Many Requests', _status: 429, _attempts: MAX_RATE_LIMIT_RETRIES + 1 };
 };
 
 // ─── Login (API-based) ───────────────────────────────────────
@@ -272,29 +322,65 @@ const LOGIN_URL = 'https://www.instagram.com/api/v1/web/accounts/login/ajax/';
 const TWO_FACTOR_URL = 'https://www.instagram.com/api/v1/web/accounts/login/ajax/two_factor/';
 const IG_PWD_PREFIX = '#PWD_INSTAGRAM_BROWSER:0:';
 
-// Instagram is an SPA with long-polling XHR; the default page.goto `waitUntil: 'load'`
-// regularly times out because `load` never fires. `domcontentloaded` is enough for
-// connector replay (cookies + first-paint fetches) and is what opensteer uses.
-const safeGoto = (url) => page.goto(url, { waitUntil: 'domcontentloaded' });
+// Instagram is an SPA with long-polling XHR, so we keep `domcontentloaded`
+// but wrap navigation in the prod connector's timeout + retry loop.
+const withTimeout = async (promise, ms, label) => {
+  let timeoutId = null;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timeoutId = setTimeout(
+          () => reject(new Error(`${label} timed out after ${ms}ms`)),
+          ms,
+        );
+      }),
+    ]);
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
+};
+
+const safeGoto = async (url, options = {}) => {
+  const { attempts = 3, timeout = 15000, betweenMs = 2000 } = options;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      await withTimeout(
+        page.goto(url, { waitUntil: 'domcontentloaded', timeout }),
+        timeout + 5000,
+        `goto ${url}`,
+      );
+      return true;
+    } catch (error) {
+      const message = error?.message || String(error);
+      console.error(
+        `[instagram-api-playwright] Navigation attempt ${attempt}/${attempts} failed for ${url}: ${message}`,
+      );
+      if (attempt < attempts) {
+        await page.sleep(betweenMs);
+      }
+    }
+  }
+  return false;
+};
 
 const readAuthUiSnapshot = async () => {
   try {
     return await page.evaluate(`
       (() => {
-        const textOf = (el) => (el && el.textContent ? el.textContent.trim() : '');
+        const textOf = (el) => (el && el.textContent ? el.textContent.trim().toLowerCase() : '');
         const headings = Array.from(document.querySelectorAll('h1, h2, [role="heading"]'))
           .map(textOf)
-          .filter(Boolean)
-          .slice(0, 5);
+          .filter(Boolean);
         const buttons = Array.from(document.querySelectorAll('button, [role="button"]'))
           .map(textOf)
-          .filter(Boolean)
-          .slice(0, 6);
+          .filter(Boolean);
         const userSelector = 'input[name="username"], input[name="email"], input[aria-label*="Username"]';
         const passSelector = 'input[name="password"], input[name="pass"], input[aria-label*="Password"]';
         return {
-          currentUrl: location.href,
-          title: document.title || null,
+          currentPath: location.pathname || '/',
           stillOnLoginForm:
             Boolean(document.querySelector(userSelector)) &&
             Boolean(document.querySelector(passSelector)),
@@ -304,8 +390,19 @@ const readAuthUiSnapshot = async () => {
             Boolean(document.querySelector('input[aria-label*="Security Code"]')) ||
             Boolean(document.querySelector('input[name="approvals_code"]')) ||
             Boolean(document.querySelector('input[autocomplete="one-time-code"]')),
-          headings,
-          buttons,
+          hasCookiePrompt:
+            buttons.some((text) => text.includes('allow all cookies')) ||
+            buttons.some((text) => text.includes('allow essential and optional cookies')) ||
+            buttons.some((text) => text.includes('decline optional cookies')) ||
+            buttons.some((text) => text.includes('accept all')),
+          hasNotNowPrompt:
+            buttons.includes('not now') || buttons.includes('skip'),
+          hasSecurityPrompt: buttons.includes('this was me'),
+          hasFacebookLogin: buttons.some((text) => text.includes('facebook')),
+          hasChallengeHeading:
+            headings.some((text) => text.includes('security code')) ||
+            headings.some((text) => text.includes('confirm')) ||
+            headings.some((text) => text.includes('challenge')),
         };
       })()
     `);
@@ -366,7 +463,7 @@ const sessionLooksAuthenticated = (evidence) => {
     return false;
   }
 
-  return evidence.hasLoggedInChrome || evidence.authUi?.currentUrl === 'https://www.instagram.com/';
+  return evidence.hasLoggedInChrome || evidence.authUi?.currentPath === '/';
 };
 
 const readCsrfToken = async () => {
@@ -545,49 +642,6 @@ const isInvalidCredentialMessage = (message) =>
     pattern.test(String(message || '')),
   );
 
-const getCredentialPromptMessage = (attempt, lastError) => {
-  if (!lastError) {
-    return 'Log in to Instagram';
-  }
-  return `Instagram login failed: ${lastError}. Please try again.`;
-};
-
-const promptForCredentials = async (attempt, lastError = null) => {
-  const supportsRequestInput = typeof page.requestInput === 'function';
-  if (attempt === 1 && PLATFORM_LOGIN && PLATFORM_PASSWORD) {
-    return {
-      username: PLATFORM_LOGIN,
-      password: PLATFORM_PASSWORD,
-      source: 'env',
-    };
-  }
-  if (!supportsRequestInput) {
-    throw makeFatalRunError(
-      'auth_failed',
-      lastError
-        ? `Instagram login failed: ${lastError}`
-        : 'Instagram credentials are required but requestInput is unavailable.',
-      'auth',
-    );
-  }
-  const creds = await page.requestInput({
-    message: getCredentialPromptMessage(attempt, lastError),
-    schema: {
-      type: 'object',
-      properties: {
-        username: { type: 'string', title: 'Instagram username, email, or phone' },
-        password: { type: 'string', format: 'password', title: 'Password' },
-      },
-      required: ['username', 'password'],
-    },
-  });
-  return {
-    username: creds.username,
-    password: creds.password,
-    source: 'prompt',
-  };
-};
-
 const handleAuthPlatformChallenge = async (challengeUrl) => {
   await setAuthState(
     await buildAuthState('auth_platform_challenge', {
@@ -598,10 +652,13 @@ const handleAuthPlatformChallenge = async (challengeUrl) => {
   const fullUrl = challengeUrl.startsWith('http')
     ? challengeUrl
     : 'https://www.instagram.com' + challengeUrl;
-  await safeGoto(fullUrl);
+  const challengeReachable = await safeGoto(fullUrl);
+  if (!challengeReachable) {
+    throw new Error('Could not reach Instagram auth challenge page');
+  }
   await page.sleep(2000);
 
-  const { code } = await page.requestInput({
+  const buildSpec = () => ({
     message: 'Enter Instagram 2FA code',
     schema: {
       type: 'object',
@@ -611,52 +668,78 @@ const handleAuthPlatformChallenge = async (challengeUrl) => {
       required: ['code'],
     },
   });
-  const trimmedCode = String(code || '').trim();
-  if (!/^\d{4,8}$/.test(trimmedCode)) {
-    throw new Error('Invalid challenge code supplied: "' + code + '"');
-  }
 
-  await page.setData('status', 'Submitting challenge code...');
-  const submitResult = await page.evaluate(`
-    (() => {
-      const input = document.querySelector('input[type="text"]');
-      if (!input) return { ok: false, reason: 'no text input found' };
-      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
-      setter.call(input, ${JSON.stringify(trimmedCode)});
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-      input.dispatchEvent(new Event('change', { bubbles: true }));
-      const buttons = Array.from(document.querySelectorAll('[role="button"], button'));
-      const cont = buttons.find(b => (b.textContent || '').trim().toLowerCase() === 'continue');
-      if (!cont) return { ok: false, reason: 'no Continue button found' };
-      cont.click();
-      return { ok: true };
-    })()
-  `);
-  if (!submitResult || submitResult.ok !== true) {
-    throw new Error(
-      'Failed to submit challenge code: ' +
-        ((submitResult && submitResult.reason) || 'unknown')
-    );
-  }
+  try {
+    await promptWithRetry(buildSpec, async (values, attemptIndex) => {
+      const attempt = attemptIndex + 1;
+      const trimmedCode = String((values && values.code) || '').trim();
+      if (!/^\d{4,8}$/.test(trimmedCode)) {
+        await setAuthState(
+          await buildAuthState('auth_platform_code_invalid', {
+            attempt,
+            apiMessage: 'Invalid code format',
+          }),
+        );
+        return { ok: false, error: 'Invalid code format — must be 4-8 digits' };
+      }
 
-  await page.setData('status', 'Waiting for session cookie...');
-  for (let attempt = 0; attempt < 15; attempt++) {
-    await page.sleep(1000);
-    const ds = await readDsUserId();
-    if (ds) {
+      await page.setData('status', 'Submitting challenge code...');
+      const submitResult = await page.evaluate(`
+        (() => {
+          const input = document.querySelector('input[type="text"]');
+          if (!input) return { ok: false, reason: 'no text input found' };
+          const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+          setter.call(input, ${JSON.stringify(trimmedCode)});
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+          const buttons = Array.from(document.querySelectorAll('[role="button"], button'));
+          const cont = buttons.find(b => (b.textContent || '').trim().toLowerCase() === 'continue');
+          if (!cont) return { ok: false, reason: 'no Continue button found' };
+          cont.click();
+          return { ok: true };
+        })()
+      `);
+      if (!submitResult || submitResult.ok !== true) {
+        const reason = (submitResult && submitResult.reason) || 'unknown';
+        await setAuthState(
+          await buildAuthState('auth_platform_code_failed', {
+            attempt,
+            apiMessage: reason,
+          }),
+        );
+        return { ok: false, error: 'Failed to submit code: ' + reason };
+      }
+
+      await page.setData('status', 'Waiting for session cookie...');
+      for (let pollAttempt = 0; pollAttempt < 15; pollAttempt++) {
+        await page.sleep(1000);
+        const ds = await readDsUserId();
+        if (ds) {
+          await setAuthState(
+            await buildAuthState('authenticated', {
+              challengeCleared: true,
+              dsUserId: ds,
+            }),
+          );
+          await page.setData('status', 'Challenge cleared');
+          return { ok: true, value: undefined };
+        }
+      }
+
       await setAuthState(
-        await buildAuthState('authenticated', {
-          challengeCleared: true,
-          dsUserId: ds,
+        await buildAuthState('auth_platform_code_failed', {
+          attempt,
+          apiMessage: 'verification cookie never appeared',
         }),
       );
-      await page.setData('status', 'Challenge cleared');
-      return;
+      return { ok: false, error: 'Code rejected — verification cookie never appeared' };
+    });
+  } catch (e) {
+    if (e && typeof e.message === 'string' && e.message.startsWith('Too many failed attempts: ')) {
+      throw new Error('Challenge verification failed: ' + e.message.slice('Too many failed attempts: '.length));
     }
+    throw e;
   }
-  throw new Error(
-    'Challenge code submitted but ds_user_id cookie never appeared — code may have been rejected'
-  );
 };
 
 const performLogin = async () => {
@@ -664,126 +747,184 @@ const performLogin = async () => {
   if (!csrftoken) {
     throw new Error('csrftoken cookie missing after visiting instagram.com — cannot submit login');
   }
-  let lastError = null;
 
-  for (let attempt = 1; attempt <= MAX_LOGIN_ATTEMPTS; attempt++) {
-    const creds = await promptForCredentials(attempt, lastError);
-    PLATFORM_LOGIN = String(creds.username || '').trim();
-    PLATFORM_PASSWORD = String(creds.password || '');
-
+  const submitCredentials = async (attempt, credentialSource) => {
     await setAuthState(
       await buildAuthState('submitting_credentials', {
         attempt,
-        credentialSource: creds.source,
+        credentialSource,
       }),
     );
     await page.setData('status', 'Submitting login credentials...');
     const wrappedPwd =
       IG_PWD_PREFIX + Math.floor(Date.now() / 1000) + ':' + PLATFORM_PASSWORD;
-    const result = await postLoginAjax(LOGIN_URL, csrftoken, {
+    return await postLoginAjax(LOGIN_URL, csrftoken, {
       username: PLATFORM_LOGIN,
       enc_password: wrappedPwd,
       queryParams: '{}',
       optIntoOneTap: 'false',
       trustedDeviceRecords: '{}',
     });
+  };
 
-    if (result.kind === 'ok') {
+  let result;
+  if (PLATFORM_LOGIN && PLATFORM_PASSWORD) {
+    result = await submitCredentials(1, 'env');
+    if (result.kind === 'error') {
+      const message = result.message || 'unknown reason';
       await setAuthState(
-        await buildAuthState('submitted_credentials', {
-          attempt,
-          loginResult: 'ok',
-        }),
+        await buildAuthState(
+          isInvalidCredentialMessage(message)
+            ? 'invalid_credentials'
+            : 'login_api_error',
+          {
+            attempt: 1,
+            apiMessage: message,
+            credentialSource: 'env',
+          },
+        ),
       );
-      return;
+      throw new Error('Instagram login failed: ' + message);
     }
-
-    if (result.kind === 'two_factor') {
-      await setAuthState(
-        await buildAuthState('otp_required', {
-          attempt,
-          loginResult: 'two_factor',
-        }),
-      );
-      const { code } = await page.requestInput({
-        message: 'Enter your Instagram two-factor verification code',
-        schema: {
-          type: 'object',
-          properties: { code: { type: 'string', title: '6-digit verification code' } },
-          required: ['code'],
+  } else {
+    const buildCredsSpec = () => ({
+      message: 'Log in to Instagram',
+      schema: {
+        type: 'object',
+        properties: {
+          username: {
+            type: 'string',
+            title: 'Instagram username, email, or phone',
+          },
+          password: { type: 'string', format: 'password', title: 'Password' },
         },
+        required: ['username', 'password'],
+      },
+    });
+
+    try {
+      result = await promptWithRetry(buildCredsSpec, async (creds, attemptIndex) => {
+        const attempt = attemptIndex + 1;
+        PLATFORM_LOGIN = String(creds.username || '').trim();
+        PLATFORM_PASSWORD = String(creds.password || '');
+        const inner = await submitCredentials(attempt, 'prompt');
+        if (inner.kind === 'ok') {
+          await setAuthState(
+            await buildAuthState('submitted_credentials', {
+              attempt,
+              loginResult: 'ok',
+            }),
+          );
+          return { ok: true, value: inner };
+        }
+        if (inner.kind === 'two_factor') return { ok: true, value: inner };
+        if (inner.kind === 'auth_platform') return { ok: true, value: inner };
+        if (inner.kind === 'checkpoint') return { ok: true, value: inner };
+
+        const message = inner.message || 'Login failed';
+        await setAuthState(
+          await buildAuthState(
+            isInvalidCredentialMessage(message)
+              ? 'invalid_credentials'
+              : 'login_api_error',
+            {
+              attempt,
+              apiMessage: message,
+              credentialSource: 'prompt',
+            },
+          ),
+        );
+        return { ok: false, error: message };
       });
-      const refreshedCsrf = (await readCsrfToken()) || csrftoken;
-      const second = await postLoginAjax(TWO_FACTOR_URL, refreshedCsrf, {
-        username: PLATFORM_LOGIN,
-        verificationCode: String(code).trim(),
-        identifier: result.info.twoFactorIdentifier,
-        queryParams: '{}',
-        trust_signal_v2: 'true',
-      });
-      if (second.kind !== 'ok') {
+    } catch (e) {
+      if (e && typeof e.message === 'string' && e.message.startsWith('Too many failed attempts: ')) {
+        throw new Error('Too many failed login attempts: ' + e.message.slice('Too many failed attempts: '.length));
+      }
+      throw e;
+    }
+  }
+
+  if (result.kind === 'ok') {
+    return;
+  }
+
+  if (result.kind === 'two_factor') {
+    await setAuthState(
+      await buildAuthState('otp_required', {
+        loginResult: 'two_factor',
+      }),
+    );
+    const buildCodeSpec = () => ({
+      message: 'Enter your Instagram two-factor verification code',
+      schema: {
+        type: 'object',
+        properties: { code: { type: 'string', title: '6-digit verification code' } },
+        required: ['code'],
+      },
+    });
+
+    try {
+      await promptWithRetry(buildCodeSpec, async (values, attemptIndex) => {
+        const attempt = attemptIndex + 1;
+        const refreshedCsrf = (await readCsrfToken()) || csrftoken;
+        const second = await postLoginAjax(TWO_FACTOR_URL, refreshedCsrf, {
+          username: PLATFORM_LOGIN,
+          verificationCode: String((values && values.code) || '').trim(),
+          identifier: result.info.twoFactorIdentifier,
+          queryParams: '{}',
+          trust_signal_v2: 'true',
+        });
+        if (second.kind === 'ok') {
+          await setAuthState(
+            await buildAuthState('submitted_otp', {
+              attempt,
+            }),
+          );
+          return { ok: true, value: undefined };
+        }
+        const message = second.message || second.kind;
         await setAuthState(
           await buildAuthState('otp_failed', {
             attempt,
-            apiMessage: second.message || second.kind,
+            apiMessage: message,
           }),
         );
-        throw new Error('Two-factor verification failed: ' + (second.message || second.kind));
+        return { ok: false, error: message };
+      });
+    } catch (e) {
+      if (e && typeof e.message === 'string' && e.message.startsWith('Too many failed attempts: ')) {
+        throw new Error('Two-factor verification failed: ' + e.message.slice('Too many failed attempts: '.length));
       }
-      await setAuthState(
-        await buildAuthState('submitted_otp', {
-          attempt,
-        }),
-      );
-      return;
+      throw e;
     }
-
-    if (result.kind === 'auth_platform') {
-      await handleAuthPlatformChallenge(result.url);
-      return;
-    }
-
-    if (result.kind === 'checkpoint') {
-      await setAuthState(
-        await buildAuthState('checkpoint_required', {
-          attempt,
-          checkpointUrl: result.url,
-        }),
-      );
-      await page.setData(
-        'status',
-        'Login API returned checkpoint challenge — falling back to headed login',
-      );
-      return;
-    }
-
-    const message = result.message || result.kind;
-    if (isInvalidCredentialMessage(message)) {
-      lastError = message;
-      await setAuthState(
-        await buildAuthState('invalid_credentials', {
-          attempt,
-          apiMessage: message,
-        }),
-      );
-      if (attempt === MAX_LOGIN_ATTEMPTS) {
-        break;
-      }
-      continue;
-    }
-
-    await setAuthState(
-      await buildAuthState('login_api_error', {
-        attempt,
-        apiMessage: message,
-      }),
-    );
-    throw new Error('Instagram login failed: ' + message);
+    return;
   }
 
-  throw new Error(
-    `Instagram login failed after ${MAX_LOGIN_ATTEMPTS} attempts: ${lastError || 'invalid credentials'}`,
+  if (result.kind === 'auth_platform') {
+    await handleAuthPlatformChallenge(result.url);
+    return;
+  }
+
+  if (result.kind === 'checkpoint') {
+    await setAuthState(
+      await buildAuthState('checkpoint_required', {
+        checkpointUrl: result.url,
+      }),
+    );
+    await page.setData(
+      'status',
+      'Login API returned checkpoint challenge — falling back to headed login',
+    );
+    return;
+  }
+
+  const message = result.message || result.kind;
+  await setAuthState(
+    await buildAuthState('login_api_error', {
+      apiMessage: message,
+    }),
   );
+  throw new Error('Instagram login failed: ' + message);
 };
 
 const checkLoginStatus = async () => {
@@ -990,12 +1131,19 @@ const normalizeCapturedProfileUser = (user) => ({
 });
 
 const collectProfileViaPageCapture = async (username) => {
-  await page.clearNetworkCaptures();
+  await setCollectorTraceSection('profileBootstrap', {
+    method: 'profile_page_capture',
+    username,
+    outcome: 'capture_registered',
+  });
+
+  await page.setData('status', 'Fetching profile for @' + username + ' via profile page capture...');
+
   await page.captureNetwork({
     urlPattern: '/graphql',
     bodyPattern:
       'PolarisProfilePageContentQuery|ProfilePageQuery|UserByUsernameQuery',
-    key: 'instagramProfileResponse',
+    key: 'profileResponse',
   });
 
   await safeGoto(
@@ -1004,7 +1152,8 @@ const collectProfileViaPageCapture = async (username) => {
   await page.sleep(PROFILE_CAPTURE_WAIT_MS);
 
   for (let attempt = 0; attempt < PROFILE_CAPTURE_MAX_ATTEMPTS; attempt++) {
-    const response = await page.getCapturedResponse('instagramProfileResponse');
+    await page.sleep(1000);
+    const response = await page.getCapturedResponse('profileResponse');
     const user =
       response?.data?.data?.user ??
       response?.data?.user ??
@@ -1012,33 +1161,70 @@ const collectProfileViaPageCapture = async (username) => {
       null;
 
     if (user) {
+      await setCollectorTraceSection('profileBootstrap', {
+        method: 'profile_page_capture',
+        outcome: 'success',
+        captureAttempts: attempt + 1,
+      });
       return mapProfile(normalizeCapturedProfileUser(user), username);
     }
-
-    await page.sleep(1000);
   }
 
+  await setCollectorTraceSection('profileBootstrap', {
+    method: 'profile_page_capture',
+    outcome: 'capture_missing',
+    captureAttempts: PROFILE_CAPTURE_MAX_ATTEMPTS,
+  });
+
+  await page.setData('status', 'Profile page capture unavailable; retrying via Instagram profile API...');
+
   throw new Error(
-    'profile fallback capture did not yield a usable user payload for ' +
+    'profile page capture did not yield a usable user payload for ' +
       username,
   );
 };
 
 const collectProfile = async (username) => {
+  try {
+    return await collectProfileViaPageCapture(username);
+  } catch (captureError) {
+    await setCollectorTraceSection('profileBootstrap', {
+      method: 'profile_page_capture',
+      outcome: 'fallback_to_web_profile_info',
+      captureError: captureError?.message || String(captureError),
+    });
+  }
+
+  await page.setData('status', 'Fetching Instagram profile via API...');
+
   const url = 'https://www.instagram.com/api/v1/users/web_profile_info/?username=' + encodeURIComponent(username);
   const res = await fetchApi(url);
   if (res._error) {
-    if (isRateLimitError(res)) {
-      await page.setData(
-        'status',
-        'Instagram profile API rate limited; falling back to profile page capture...',
-      );
-      return collectProfileViaPageCapture(username);
-    }
+    await setCollectorTraceSection('profileBootstrap', {
+      method: 'web_profile_info',
+      outcome: isRateLimitError(res) ? 'rate_limited' : 'error',
+      httpStatus: res._status || null,
+      attempts: res._attempts || 1,
+      errorClass: inferErrorClass(res._error, 'upstream_error'),
+      message: res._error,
+    });
     throw new Error('profile fetch failed: ' + res._error);
   }
   const user = res.data && res.data.data && res.data.data.user;
-  if (!user) throw new Error('profile: no user in response for ' + username);
+  if (!user) {
+    await setCollectorTraceSection('profileBootstrap', {
+      method: 'web_profile_info',
+      outcome: 'missing_user',
+      attempts: res._attempts || 1,
+    });
+    throw new Error('profile: no user in response for ' + username);
+  }
+  await setCollectorTraceSection('profileBootstrap', {
+    method: 'web_profile_info',
+    outcome: 'success',
+    httpStatus: 200,
+    attempts: res._attempts || 1,
+  });
   return mapProfile(user, username);
 };
 
@@ -1264,7 +1450,11 @@ const isTopicsNodeData = (d) => {
 };
 
 const fetchAccountsCenterHtml = async (path) => {
-  await safeGoto('https://accountscenter.instagram.com' + path);
+  const fullUrl = 'https://accountscenter.instagram.com' + path;
+  const reachable = await safeGoto(fullUrl);
+  if (!reachable) {
+    throw new Error('accounts center page could not be reached for ' + path);
+  }
   await page.sleep(1500);
   const html = await page.evaluate(`document.documentElement.outerHTML`);
   if (typeof html !== 'string' || html.length === 0) {
@@ -1273,67 +1463,152 @@ const fetchAccountsCenterHtml = async (path) => {
   return html;
 };
 
+const scrapeAccountsCenterDialogList = async () => {
+  return await page.evaluate(`
+    (() => {
+      const dialog = document.querySelector('[role="dialog"]');
+      if (!dialog) return [];
+      const items = dialog.querySelectorAll('[role="list"] [role="listitem"]');
+      return Array.from(items)
+        .map((el) => (el.textContent || '').trim())
+        .filter((text) => text.length > 0);
+    })()
+  `);
+};
+
+const collectAdvertisersViaDialog = async () => {
+  await page.setData('status', 'Falling back to advertiser dialog capture...');
+  const reachable = await safeGoto('https://accountscenter.instagram.com/ads/');
+  if (!reachable) {
+    throw new Error('advertisers dialog page could not be reached');
+  }
+  await page.sleep(4000);
+
+  const clicked = await page.evaluate(`
+    (() => {
+      const btn = document.querySelector('[role="button"][aria-label*="advertiser" i]');
+      if (!btn) return false;
+      btn.click();
+      return true;
+    })()
+  `);
+  if (!clicked) {
+    throw new Error('advertisers dialog trigger not found');
+  }
+
+  await page.sleep(2000);
+  const advertiserNames = await scrapeAccountsCenterDialogList();
+
+  await page.evaluate(`
+    (() => {
+      const dialog = document.querySelector('[role="dialog"]');
+      const close = dialog?.querySelector('[aria-label="Close" i]');
+      if (close) close.click();
+    })()
+  `);
+  await page.sleep(1000);
+
+  return advertiserNames.map((name) => ({ name, sources: ['dialog'] }));
+};
+
+const collectAdTopicsViaDialog = async () => {
+  await page.setData('status', 'Falling back to ad topics dialog capture...');
+  const reachable = await safeGoto('https://accountscenter.instagram.com/ads/ad_topics/');
+  if (!reachable) {
+    throw new Error('ad topics dialog page could not be reached');
+  }
+  await page.sleep(3000);
+
+  const topicNames = await page.evaluate(`
+    (() => {
+      const dialog = document.querySelector('[role="dialog"]');
+      if (!dialog) return [];
+      const items = dialog.querySelectorAll('[role="list"] [role="listitem"]');
+      return Array.from(items)
+        .map((el) => (el.textContent || '').trim())
+        .filter(
+          (text) =>
+            text.length > 0 &&
+            !text.toLowerCase().includes('special topic') &&
+            !text.toLowerCase().includes('see less'),
+        );
+    })()
+  `);
+
+  return topicNames.map((name) => ({ id: null, name, raw: null }));
+};
+
 const collectAdvertisers = async () => {
-  const html = await fetchAccountsCenterHtml('/ads/');
-  const blocks = extractDataSjsBlocks(html);
-  const data = findBlockByShape(blocks, isApcNodeData);
-  if (!data) throw new Error('advertisers: apcNode preloader not found in /ads/ HTML');
-  const apc = data.fxcal_settings.apcNode;
+  try {
+    const html = await fetchAccountsCenterHtml('/ads/');
+    const blocks = extractDataSjsBlocks(html);
+    const data = findBlockByShape(blocks, isApcNodeData);
+    if (!data) throw new Error('advertisers: apcNode preloader not found in /ads/ HTML');
+    const apc = data.fxcal_settings.apcNode;
 
-  const byName = new Map();
-  const upsert = (name, source, patch) => {
-    const existing = byName.get(name);
-    if (existing) {
-      if (!existing.sources.includes(source)) existing.sources.push(source);
-      for (const k in patch) {
-        if (patch[k] !== undefined && existing[k] === undefined) existing[k] = patch[k];
+    const byName = new Map();
+    const upsert = (name, source, patch) => {
+      const existing = byName.get(name);
+      if (existing) {
+        if (!existing.sources.includes(source)) existing.sources.push(source);
+        for (const k in patch) {
+          if (patch[k] !== undefined && existing[k] === undefined) existing[k] = patch[k];
+        }
+      } else {
+        byName.set(name, Object.assign({ name, sources: [source] }, patch));
       }
-    } else {
-      byName.set(name, Object.assign({ name, sources: [source] }, patch));
-    }
-  };
+    };
 
-  const addCollection = (nodes, source) => {
-    for (const node of nodes || []) {
-      const name = node && node.advertiser && node.advertiser.advertiser_name;
-      if (!name) continue;
-      upsert(name, source, {
-        pic: node.advertiser.advertiser_pic,
-        token: node.token,
-        ad_image_url: node.ad && node.ad.image_url,
-        display_title: node.display_content && node.display_content.overall_title,
+    const addCollection = (nodes, source) => {
+      for (const node of nodes || []) {
+        const name = node && node.advertiser && node.advertiser.advertiser_name;
+        if (!name) continue;
+        upsert(name, source, {
+          pic: node.advertiser.advertiser_pic,
+          token: node.token,
+          ad_image_url: node.ad && node.ad.image_url,
+          display_title: node.display_content && node.display_content.overall_title,
+        });
+      }
+    };
+    addCollection(apc.recently_interacted_ad_collection && apc.recently_interacted_ad_collection.nodes, 'recently_interacted');
+    addCollection(apc.saved_ad_collection && apc.saved_ad_collection.nodes, 'saved');
+    addCollection(apc.recommended_ad_collection && apc.recommended_ad_collection.nodes, 'recommended');
+    for (const adv of apc.advertisers_data_v2 || []) {
+      if (!adv || !adv.advertiser_name) continue;
+      upsert(adv.advertiser_name, 'all_advertisers', {
+        id: adv.id,
+        page_id: adv.page_id,
+        identity_id: adv.identity_id,
+        image_url: adv.image_url,
+        fb_follows_count: adv.fb_follows_count,
+        is_hidden: adv.is_hidden,
       });
     }
-  };
-  addCollection(apc.recently_interacted_ad_collection && apc.recently_interacted_ad_collection.nodes, 'recently_interacted');
-  addCollection(apc.saved_ad_collection && apc.saved_ad_collection.nodes, 'saved');
-  addCollection(apc.recommended_ad_collection && apc.recommended_ad_collection.nodes, 'recommended');
-  for (const adv of apc.advertisers_data_v2 || []) {
-    if (!adv || !adv.advertiser_name) continue;
-    upsert(adv.advertiser_name, 'all_advertisers', {
-      id: adv.id,
-      page_id: adv.page_id,
-      identity_id: adv.identity_id,
-      image_url: adv.image_url,
-      fb_follows_count: adv.fb_follows_count,
-      is_hidden: adv.is_hidden,
-    });
+    return Array.from(byName.values());
+  } catch (error) {
+    await page.setData('status', 'Advertiser HTML extraction failed; retrying via dialog...');
+    return await collectAdvertisersViaDialog();
   }
-  return Array.from(byName.values());
 };
 
 const collectAdTopics = async () => {
-  const html = await fetchAccountsCenterHtml('/ads/ad_topics/');
-  const blocks = extractDataSjsBlocks(html);
-  const data = findBlockByShape(blocks, isTopicsNodeData);
-  if (!data) throw new Error('ad_topics: ddt preloader not found in /ads/ad_topics/ HTML');
-  const ddt = data.fxcal_settings.node.ad_topics_control_content.ad_topics_control_ddt_section_content;
-  const rawTopics = ddt.ad_topics_control_ddt_section_topics || [];
-  return rawTopics.map((raw) => ({
-    id: raw && raw.id,
-    name: (raw && (raw.name || raw.topic_name)) || null,
-    raw,
-  }));
+  try {
+    const html = await fetchAccountsCenterHtml('/ads/ad_topics/');
+    const blocks = extractDataSjsBlocks(html);
+    const data = findBlockByShape(blocks, isTopicsNodeData);
+    if (!data) throw new Error('ad_topics: ddt preloader not found in /ads/ad_topics/ HTML');
+    const ddt = data.fxcal_settings.node.ad_topics_control_content.ad_topics_control_ddt_section_content;
+    const rawTopics = ddt.ad_topics_control_ddt_section_topics || [];
+    return rawTopics.map((raw) => ({
+      id: raw && raw.id,
+      name: (raw && (raw.name || raw.topic_name)) || null,
+      raw,
+    }));
+  } catch (error) {
+    await page.setData('status', 'Ad topics HTML extraction failed; retrying via dialog...');
+    return await collectAdTopicsViaDialog();
+  }
 };
 
 // ─── Ads: ad_categories with runtime discovery ───────────────
@@ -1673,7 +1948,7 @@ const createProgressTracker = (requestedScopes) => {
       let adTopicsSucceeded = false;
       let categoriesSucceeded = false;
 
-      await progress.update('Ads', 'Fetching advertisers...');
+      await progress.update('Ads', 'Fetching advertisers from Accounts Center...');
       try {
         state.advertisers = await collectAdvertisers();
         advertisersSucceeded = true;

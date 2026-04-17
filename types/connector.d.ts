@@ -79,6 +79,8 @@ export interface RequestInputPayload {
   message: string;
   /** JSON Schema describing the expected response shape (optional) */
   schema?: Record<string, unknown>;
+  /** Optional inline error message from a previous failed attempt. */
+  error?: string;
 }
 
 /**
