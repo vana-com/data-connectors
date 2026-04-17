@@ -2,7 +2,7 @@
   "manifest_version": "1.0",
   "connector_id": "instagram-api-playwright",
   "source_id": "instagram",
-  "version": "2.0.4",
+  "version": "2.0.5",
   "name": "Instagram",
   "company": "Meta",
   "description": "Exports your Instagram profile, posts, followers, following, and ad interests using API-first network replay (no DOM scraping for data).",

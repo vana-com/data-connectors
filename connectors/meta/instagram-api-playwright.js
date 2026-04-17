@@ -16,7 +16,7 @@
 
 const IG_APP_ID = '936619743392459';
 const PLATFORM = 'instagram';
-const VERSION = '2.0.4-api-playwright';
+const VERSION = '2.0.5-api-playwright';
 const CANONICAL_SCOPES = [
   'instagram.profile',
   'instagram.posts',
@@ -187,6 +187,8 @@ const promptWithRetry = async (
 
 let collectorTrace = {};
 
+const traceTimestamp = () => new Date().toISOString();
+
 const setCollectorTraceSection = async (section, patch) => {
   try {
     const previous =
@@ -200,7 +202,9 @@ const setCollectorTraceSection = async (section, patch) => {
       ...collectorTrace,
       [section]: {
         ...previous,
+        startedAt: previous.startedAt || traceTimestamp(),
         ...patch,
+        updatedAt: patch.updatedAt || traceTimestamp(),
       },
     };
     await page.setData('collector_trace', collectorTrace);
@@ -1132,12 +1136,18 @@ const normalizeCapturedProfileUser = (user) => ({
 
 const collectProfileViaPageCapture = async (username) => {
   await setCollectorTraceSection('profileBootstrap', {
+    phase: 'profileBootstrap',
     method: 'profile_page_capture',
     username,
-    outcome: 'capture_registered',
+    step: 'capture_registered',
+    status: 'capture_registered',
+    captureKey: 'profileResponse',
   });
 
   await page.setData('status', 'Fetching profile for @' + username + ' via profile page capture...');
+
+  const profileUrl =
+    'https://www.instagram.com/' + encodeURIComponent(username) + '/';
 
   await page.captureNetwork({
     urlPattern: '/graphql',
@@ -1146,12 +1156,42 @@ const collectProfileViaPageCapture = async (username) => {
     key: 'profileResponse',
   });
 
-  await safeGoto(
-    'https://www.instagram.com/' + encodeURIComponent(username) + '/',
-  );
+  await setCollectorTraceSection('profileBootstrap', {
+    method: 'profile_page_capture',
+    step: 'navigate_profile_page',
+    status: 'waiting_navigation',
+    targetUrl: profileUrl,
+  });
+
+  const reachable = await safeGoto(profileUrl);
+  if (!reachable) {
+    await setCollectorTraceSection('profileBootstrap', {
+      method: 'profile_page_capture',
+      step: 'navigate_profile_page',
+      status: 'error',
+      outcome: 'page_unreachable',
+      targetUrl: profileUrl,
+    });
+    throw new Error('profile page could not be reached for ' + username);
+  }
+
+  await setCollectorTraceSection('profileBootstrap', {
+    method: 'profile_page_capture',
+    step: 'wait_for_profile_capture',
+    status: 'waiting_initial_capture_window',
+    targetUrl: profileUrl,
+  });
   await page.sleep(PROFILE_CAPTURE_WAIT_MS);
 
   for (let attempt = 0; attempt < PROFILE_CAPTURE_MAX_ATTEMPTS; attempt++) {
+    await setCollectorTraceSection('profileBootstrap', {
+      method: 'profile_page_capture',
+      step: 'wait_for_profile_capture',
+      status: 'waiting_for_capture_response',
+      attempt: attempt + 1,
+      maxAttempts: PROFILE_CAPTURE_MAX_ATTEMPTS,
+      captureKey: 'profileResponse',
+    });
     await page.sleep(1000);
     const response = await page.getCapturedResponse('profileResponse');
     const user =
@@ -1163,8 +1203,11 @@ const collectProfileViaPageCapture = async (username) => {
     if (user) {
       await setCollectorTraceSection('profileBootstrap', {
         method: 'profile_page_capture',
+        step: 'wait_for_profile_capture',
+        status: 'success',
         outcome: 'success',
-        captureAttempts: attempt + 1,
+        attempt: attempt + 1,
+        maxAttempts: PROFILE_CAPTURE_MAX_ATTEMPTS,
       });
       return mapProfile(normalizeCapturedProfileUser(user), username);
     }
@@ -1172,8 +1215,11 @@ const collectProfileViaPageCapture = async (username) => {
 
   await setCollectorTraceSection('profileBootstrap', {
     method: 'profile_page_capture',
+    step: 'wait_for_profile_capture',
+    status: 'capture_missing',
     outcome: 'capture_missing',
-    captureAttempts: PROFILE_CAPTURE_MAX_ATTEMPTS,
+    attempt: PROFILE_CAPTURE_MAX_ATTEMPTS,
+    maxAttempts: PROFILE_CAPTURE_MAX_ATTEMPTS,
   });
 
   await page.setData('status', 'Profile page capture unavailable; retrying via Instagram profile API...');
@@ -1190,6 +1236,8 @@ const collectProfile = async (username) => {
   } catch (captureError) {
     await setCollectorTraceSection('profileBootstrap', {
       method: 'profile_page_capture',
+      step: 'fallback_to_web_profile_info',
+      status: 'fallback',
       outcome: 'fallback_to_web_profile_info',
       captureError: captureError?.message || String(captureError),
     });
@@ -1202,6 +1250,8 @@ const collectProfile = async (username) => {
   if (res._error) {
     await setCollectorTraceSection('profileBootstrap', {
       method: 'web_profile_info',
+      step: 'fetch_web_profile_info',
+      status: isRateLimitError(res) ? 'rate_limited' : 'error',
       outcome: isRateLimitError(res) ? 'rate_limited' : 'error',
       httpStatus: res._status || null,
       attempts: res._attempts || 1,
@@ -1214,6 +1264,8 @@ const collectProfile = async (username) => {
   if (!user) {
     await setCollectorTraceSection('profileBootstrap', {
       method: 'web_profile_info',
+      step: 'fetch_web_profile_info',
+      status: 'missing_user',
       outcome: 'missing_user',
       attempts: res._attempts || 1,
     });
@@ -1221,6 +1273,8 @@ const collectProfile = async (username) => {
   }
   await setCollectorTraceSection('profileBootstrap', {
     method: 'web_profile_info',
+    step: 'fetch_web_profile_info',
+    status: 'success',
     outcome: 'success',
     httpStatus: 200,
     attempts: res._attempts || 1,
@@ -1449,16 +1503,69 @@ const isTopicsNodeData = (d) => {
   return !!ddt;
 };
 
-const fetchAccountsCenterHtml = async (path) => {
+const fetchAccountsCenterHtml = async (path, traceSection) => {
   const fullUrl = 'https://accountscenter.instagram.com' + path;
+  if (traceSection) {
+    await setCollectorTraceSection(traceSection, {
+      phase: traceSection,
+      method: 'accounts_center_html',
+      step: 'navigate_accounts_center',
+      status: 'waiting_navigation',
+      path,
+      targetUrl: fullUrl,
+    });
+  }
   const reachable = await safeGoto(fullUrl);
   if (!reachable) {
+    if (traceSection) {
+      await setCollectorTraceSection(traceSection, {
+        phase: traceSection,
+        method: 'accounts_center_html',
+        step: 'navigate_accounts_center',
+        status: 'error',
+        outcome: 'page_unreachable',
+        path,
+        targetUrl: fullUrl,
+      });
+    }
     throw new Error('accounts center page could not be reached for ' + path);
+  }
+  if (traceSection) {
+    await setCollectorTraceSection(traceSection, {
+      phase: traceSection,
+      method: 'accounts_center_html',
+      step: 'read_accounts_center_html',
+      status: 'waiting_html',
+      path,
+      targetUrl: fullUrl,
+    });
   }
   await page.sleep(1500);
   const html = await page.evaluate(`document.documentElement.outerHTML`);
   if (typeof html !== 'string' || html.length === 0) {
+    if (traceSection) {
+      await setCollectorTraceSection(traceSection, {
+        phase: traceSection,
+        method: 'accounts_center_html',
+        step: 'read_accounts_center_html',
+        status: 'error',
+        outcome: 'empty_html',
+        path,
+        targetUrl: fullUrl,
+      });
+    }
     throw new Error('accounts center HTML fetch returned empty for ' + path);
+  }
+  if (traceSection) {
+    await setCollectorTraceSection(traceSection, {
+      phase: traceSection,
+      method: 'accounts_center_html',
+      step: 'read_accounts_center_html',
+      status: 'success',
+      path,
+      htmlLength: html.length,
+      targetUrl: fullUrl,
+    });
   }
   return html;
 };
@@ -1478,12 +1585,32 @@ const scrapeAccountsCenterDialogList = async () => {
 
 const collectAdvertisersViaDialog = async () => {
   await page.setData('status', 'Falling back to advertiser dialog capture...');
+  await setCollectorTraceSection('advertisers', {
+    phase: 'advertisers',
+    method: 'dialog_fallback',
+    step: 'navigate_advertiser_dialog',
+    status: 'waiting_navigation',
+    targetUrl: 'https://accountscenter.instagram.com/ads/',
+  });
   const reachable = await safeGoto('https://accountscenter.instagram.com/ads/');
   if (!reachable) {
+    await setCollectorTraceSection('advertisers', {
+      phase: 'advertisers',
+      method: 'dialog_fallback',
+      step: 'navigate_advertiser_dialog',
+      status: 'error',
+      outcome: 'page_unreachable',
+    });
     throw new Error('advertisers dialog page could not be reached');
   }
   await page.sleep(4000);
 
+  await setCollectorTraceSection('advertisers', {
+    phase: 'advertisers',
+    method: 'dialog_fallback',
+    step: 'open_advertiser_dialog',
+    status: 'opening_dialog',
+  });
   const clicked = await page.evaluate(`
     (() => {
       const btn = document.querySelector('[role="button"][aria-label*="advertiser" i]');
@@ -1493,10 +1620,23 @@ const collectAdvertisersViaDialog = async () => {
     })()
   `);
   if (!clicked) {
+    await setCollectorTraceSection('advertisers', {
+      phase: 'advertisers',
+      method: 'dialog_fallback',
+      step: 'open_advertiser_dialog',
+      status: 'error',
+      outcome: 'dialog_trigger_missing',
+    });
     throw new Error('advertisers dialog trigger not found');
   }
 
   await page.sleep(2000);
+  await setCollectorTraceSection('advertisers', {
+    phase: 'advertisers',
+    method: 'dialog_fallback',
+    step: 'read_advertiser_dialog',
+    status: 'reading_dialog',
+  });
   const advertiserNames = await scrapeAccountsCenterDialogList();
 
   await page.evaluate(`
@@ -1508,17 +1648,45 @@ const collectAdvertisersViaDialog = async () => {
   `);
   await page.sleep(1000);
 
+  await setCollectorTraceSection('advertisers', {
+    phase: 'advertisers',
+    method: 'dialog_fallback',
+    step: 'read_advertiser_dialog',
+    status: 'success',
+    outcome: 'success',
+    advertiserCount: advertiserNames.length,
+  });
   return advertiserNames.map((name) => ({ name, sources: ['dialog'] }));
 };
 
 const collectAdTopicsViaDialog = async () => {
   await page.setData('status', 'Falling back to ad topics dialog capture...');
+  await setCollectorTraceSection('adTopics', {
+    phase: 'adTopics',
+    method: 'dialog_fallback',
+    step: 'navigate_ad_topics_dialog',
+    status: 'waiting_navigation',
+    targetUrl: 'https://accountscenter.instagram.com/ads/ad_topics/',
+  });
   const reachable = await safeGoto('https://accountscenter.instagram.com/ads/ad_topics/');
   if (!reachable) {
+    await setCollectorTraceSection('adTopics', {
+      phase: 'adTopics',
+      method: 'dialog_fallback',
+      step: 'navigate_ad_topics_dialog',
+      status: 'error',
+      outcome: 'page_unreachable',
+    });
     throw new Error('ad topics dialog page could not be reached');
   }
   await page.sleep(3000);
 
+  await setCollectorTraceSection('adTopics', {
+    phase: 'adTopics',
+    method: 'dialog_fallback',
+    step: 'read_ad_topics_dialog',
+    status: 'reading_dialog',
+  });
   const topicNames = await page.evaluate(`
     (() => {
       const dialog = document.querySelector('[role="dialog"]');
@@ -1535,12 +1703,26 @@ const collectAdTopicsViaDialog = async () => {
     })()
   `);
 
+  await setCollectorTraceSection('adTopics', {
+    phase: 'adTopics',
+    method: 'dialog_fallback',
+    step: 'read_ad_topics_dialog',
+    status: 'success',
+    outcome: 'success',
+    topicCount: topicNames.length,
+  });
   return topicNames.map((name) => ({ id: null, name, raw: null }));
 };
 
 const collectAdvertisers = async () => {
   try {
-    const html = await fetchAccountsCenterHtml('/ads/');
+    await setCollectorTraceSection('advertisers', {
+      phase: 'advertisers',
+      method: 'accounts_center_html',
+      step: 'start',
+      status: 'started',
+    });
+    const html = await fetchAccountsCenterHtml('/ads/', 'advertisers');
     const blocks = extractDataSjsBlocks(html);
     const data = findBlockByShape(blocks, isApcNodeData);
     if (!data) throw new Error('advertisers: apcNode preloader not found in /ads/ HTML');
@@ -1585,28 +1767,68 @@ const collectAdvertisers = async () => {
         is_hidden: adv.is_hidden,
       });
     }
-    return Array.from(byName.values());
+    const advertisers = Array.from(byName.values());
+    await setCollectorTraceSection('advertisers', {
+      phase: 'advertisers',
+      method: 'accounts_center_html',
+      step: 'parse_advertisers_html',
+      status: 'success',
+      outcome: 'success',
+      advertiserCount: advertisers.length,
+    });
+    return advertisers;
   } catch (error) {
     await page.setData('status', 'Advertiser HTML extraction failed; retrying via dialog...');
+    await setCollectorTraceSection('advertisers', {
+      phase: 'advertisers',
+      method: 'accounts_center_html',
+      step: 'fallback_to_dialog',
+      status: 'fallback',
+      outcome: 'fallback_to_dialog',
+      error: error?.message || String(error),
+    });
     return await collectAdvertisersViaDialog();
   }
 };
 
 const collectAdTopics = async () => {
   try {
-    const html = await fetchAccountsCenterHtml('/ads/ad_topics/');
+    await setCollectorTraceSection('adTopics', {
+      phase: 'adTopics',
+      method: 'accounts_center_html',
+      step: 'start',
+      status: 'started',
+    });
+    const html = await fetchAccountsCenterHtml('/ads/ad_topics/', 'adTopics');
     const blocks = extractDataSjsBlocks(html);
     const data = findBlockByShape(blocks, isTopicsNodeData);
     if (!data) throw new Error('ad_topics: ddt preloader not found in /ads/ad_topics/ HTML');
     const ddt = data.fxcal_settings.node.ad_topics_control_content.ad_topics_control_ddt_section_content;
     const rawTopics = ddt.ad_topics_control_ddt_section_topics || [];
-    return rawTopics.map((raw) => ({
+    const topics = rawTopics.map((raw) => ({
       id: raw && raw.id,
       name: (raw && (raw.name || raw.topic_name)) || null,
       raw,
     }));
+    await setCollectorTraceSection('adTopics', {
+      phase: 'adTopics',
+      method: 'accounts_center_html',
+      step: 'parse_ad_topics_html',
+      status: 'success',
+      outcome: 'success',
+      topicCount: topics.length,
+    });
+    return topics;
   } catch (error) {
     await page.setData('status', 'Ad topics HTML extraction failed; retrying via dialog...');
+    await setCollectorTraceSection('adTopics', {
+      phase: 'adTopics',
+      method: 'accounts_center_html',
+      step: 'fallback_to_dialog',
+      status: 'fallback',
+      outcome: 'fallback_to_dialog',
+      error: error?.message || String(error),
+    });
     return await collectAdTopicsViaDialog();
   }
 };
@@ -1675,10 +1897,29 @@ const readCapturedGraphql = async () => {
 };
 
 const discoverAdCategoriesQuery = async () => {
+  await setCollectorTraceSection('adCategories', {
+    phase: 'adCategories',
+    method: 'graphql_discovery',
+    step: 'navigate_ads_page',
+    status: 'waiting_navigation',
+    targetUrl: 'https://accountscenter.instagram.com/ads/',
+  });
   await safeGoto('https://accountscenter.instagram.com/ads/');
   await page.sleep(2500);
+  await setCollectorTraceSection('adCategories', {
+    phase: 'adCategories',
+    method: 'graphql_discovery',
+    step: 'install_graphql_interceptor',
+    status: 'installing_interceptor',
+  });
   await installGraphqlInterceptor();
 
+  await setCollectorTraceSection('adCategories', {
+    phase: 'adCategories',
+    method: 'graphql_discovery',
+    step: 'open_manage_info_tab',
+    status: 'opening_tab',
+  });
   const clickedTab = await page.evaluate(`
     (() => {
       const tabs = document.querySelectorAll('[role="tab"]');
@@ -1692,10 +1933,23 @@ const discoverAdCategoriesQuery = async () => {
     })()
   `);
   if (!clickedTab) {
+    await setCollectorTraceSection('adCategories', {
+      phase: 'adCategories',
+      method: 'graphql_discovery',
+      step: 'open_manage_info_tab',
+      status: 'error',
+      outcome: 'manage_info_tab_missing',
+    });
     throw new Error('ad_categories discovery: Manage info tab not found');
   }
   await page.sleep(1500);
 
+  await setCollectorTraceSection('adCategories', {
+    phase: 'adCategories',
+    method: 'graphql_discovery',
+    step: 'open_categories_link',
+    status: 'opening_link',
+  });
   const clickedLink = await page.evaluate(`
     (() => {
       const links = document.querySelectorAll('a, [role="link"]');
@@ -1709,11 +1963,28 @@ const discoverAdCategoriesQuery = async () => {
     })()
   `);
   if (!clickedLink) {
+    await setCollectorTraceSection('adCategories', {
+      phase: 'adCategories',
+      method: 'graphql_discovery',
+      step: 'open_categories_link',
+      status: 'error',
+      outcome: 'categories_link_missing',
+    });
     throw new Error('ad_categories discovery: Categories link not found');
   }
 
   const deadline = Date.now() + DISCOVERY_TIMEOUT_MS;
+  let attempts = 0;
   while (Date.now() < deadline) {
+    attempts += 1;
+    await setCollectorTraceSection('adCategories', {
+      phase: 'adCategories',
+      method: 'graphql_discovery',
+      step: 'wait_for_categories_graphql',
+      status: 'waiting_graphql',
+      attempt: attempts,
+      timeoutMs: DISCOVERY_TIMEOUT_MS,
+    });
     await page.sleep(DISCOVERY_POLL_MS);
     const entries = await readCapturedGraphql();
     for (const entry of entries) {
@@ -1729,17 +2000,44 @@ const discoverAdCategoriesQuery = async () => {
       let variables;
       try { variables = JSON.parse(variablesJson); } catch (e) { continue; }
       if (!variables || typeof variables !== 'object') continue;
+      await setCollectorTraceSection('adCategories', {
+        phase: 'adCategories',
+        method: 'graphql_discovery',
+        step: 'wait_for_categories_graphql',
+        status: 'success',
+        outcome: 'success',
+        attempt: attempts,
+        docId,
+        friendlyName,
+      });
       return { doc_id: docId, friendly_name: friendlyName, variables_template: variables };
     }
   }
+  await setCollectorTraceSection('adCategories', {
+    phase: 'adCategories',
+    method: 'graphql_discovery',
+    step: 'wait_for_categories_graphql',
+    status: 'error',
+    outcome: 'graphql_timeout',
+    attempt: attempts,
+    timeoutMs: DISCOVERY_TIMEOUT_MS,
+  });
   throw new Error('ad_categories discovery: timed out waiting for GraphQL response');
 };
 
 const collectAdCategories = async () => {
   const discovered = await discoverAdCategoriesQuery();
 
-  const html = await fetchAccountsCenterHtml('/ads/');
+  const html = await fetchAccountsCenterHtml('/ads/', 'adCategories');
   const tokens = extractMetaTokens(html);
+  await setCollectorTraceSection('adCategories', {
+    phase: 'adCategories',
+    method: 'graphql_replay',
+    step: 'replay_categories_query',
+    status: 'replaying_graphql',
+    docId: discovered.doc_id,
+    friendlyName: discovered.friendly_name,
+  });
 
   const body = new URLSearchParams({
     fb_dtsg: tokens.fb_dtsg,
@@ -1761,15 +2059,41 @@ const collectAdCategories = async () => {
     },
     body: body.toString(),
   });
-  if (replay._error) throw new Error('ad_categories replay failed: ' + replay._error);
+  if (replay._error) {
+    await setCollectorTraceSection('adCategories', {
+      phase: 'adCategories',
+      method: 'graphql_replay',
+      step: 'replay_categories_query',
+      status: 'error',
+      outcome: 'graphql_replay_error',
+      error: replay._error,
+    });
+    throw new Error('ad_categories replay failed: ' + replay._error);
+  }
   const responseJson = replay.data || {};
   if (responseJson.errors) {
+    await setCollectorTraceSection('adCategories', {
+      phase: 'adCategories',
+      method: 'graphql_replay',
+      step: 'replay_categories_query',
+      status: 'error',
+      outcome: 'graphql_response_errors',
+      errorCount: responseJson.errors.length,
+    });
     throw new Error('ad_categories graphql errors: ' + JSON.stringify(responseJson.errors));
   }
   const cats = responseJson.data &&
                responseJson.data.fxcal_settings &&
                responseJson.data.fxcal_settings.node &&
                responseJson.data.fxcal_settings.node.profile_info_categories_associated_with_you_data;
+  await setCollectorTraceSection('adCategories', {
+    phase: 'adCategories',
+    method: 'graphql_replay',
+    step: 'replay_categories_query',
+    status: 'success',
+    outcome: 'success',
+    categoryCount: Array.isArray(cats) ? cats.length : null,
+  });
   return cats || [];
 };
 

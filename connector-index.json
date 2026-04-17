@@ -1,7 +1,7 @@
 {
   "indexVersion": "1.0",
   "sourceRepo": "https://github.com/vana-com/data-connectors",
-  "generatedAt": "2026-04-15T00:00:00Z",
+  "generatedAt": "2026-04-17T00:00:00Z",
   "connectors": {
     "amazon-playwright": [
       {
@@ -552,6 +552,43 @@
         "artifactSha256": "sha256:f3b6617918b9c0ee4e49ea08a826481aa139d892be2f037f6fd4ebf9f1701a93",
         "artifactPath": "artifacts/instagram-api-playwright/instagram-api-playwright-2.0.4.tgz",
         "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/fix/instagram-api-compat/artifacts/instagram-api-playwright/instagram-api-playwright-2.0.4.tgz",
+        "scopes": [
+          "instagram.profile",
+          "instagram.posts",
+          "instagram.followers",
+          "instagram.following",
+          "instagram.ads"
+        ],
+        "consumerMetadata": {
+          "sourceId": "instagram",
+          "displayName": "Instagram",
+          "brandDomain": "instagram.com",
+          "aliases": [
+            "meta"
+          ],
+          "iconKey": "instagram",
+          "defaultScope": "instagram.profile"
+        }
+      },
+      {
+        "connectorId": "instagram-api-playwright",
+        "company": "meta",
+        "version": "2.0.5",
+        "name": "Instagram",
+        "status": "experimental",
+        "description": "Exports your Instagram profile, posts, followers, following, and ad interests using API-first network replay (no DOM scraping for data).",
+        "sourceFiles": {
+          "script": "meta/instagram-api-playwright.js",
+          "metadata": "meta/instagram-api-playwright.json"
+        },
+        "publishedAt": "2026-04-17T00:00:00Z",
+        "gitRef": "fix/instagram-api-compat",
+        "pageApiVersion": 1,
+        "manifestSha256": "sha256:de29a1df46539d9bd7e817bf6c2c71b2a2f941e66a5a3cb5f1b162ec90e33110",
+        "scriptSha256": "sha256:f57398cbf49cd7d0dd598b04d8119db804565cf6b2a164d23bae3e30b6e994f7",
+        "artifactSha256": "sha256:a28ae69cac2db52bdc7dc3bacbe4024b2963afc4ed3060ae656640cab35884f9",
+        "artifactPath": "artifacts/instagram-api-playwright/instagram-api-playwright-2.0.5.tgz",
+        "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/fix/instagram-api-compat/artifacts/instagram-api-playwright/instagram-api-playwright-2.0.5.tgz",
         "scopes": [
           "instagram.profile",
           "instagram.posts",

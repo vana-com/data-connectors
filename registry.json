@@ -1,6 +1,6 @@
 {
   "version": "2.0.0",
-  "lastUpdated": "2026-04-15T00:00:00Z",
+  "lastUpdated": "2026-04-17T00:00:00Z",
   "baseUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main/connectors",
   "connectors": [
     {
@@ -81,7 +81,7 @@
     {
       "id": "instagram-api-playwright",
       "company": "meta",
-      "version": "2.0.4",
+      "version": "2.0.5",
       "name": "Instagram",
       "status": "experimental",
       "description": "Exports your Instagram profile, posts, followers, following, and ad interests using API-first network replay (no DOM scraping for data).",
@@ -99,6 +99,10 @@
       "files": {
         "script": "meta/instagram-api-playwright.js",
         "metadata": "meta/instagram-api-playwright.json"
+      },
+      "checksums": {
+        "script": "sha256:f57398cbf49cd7d0dd598b04d8119db804565cf6b2a164d23bae3e30b6e994f7",
+        "metadata": "sha256:de29a1df46539d9bd7e817bf6c2c71b2a2f941e66a5a3cb5f1b162ec90e33110"
       }
     },
     {
@@ -107,7 +111,7 @@
       "version": "1.0.0",
       "name": "Instagram Ads",
       "status": "beta",
-      "description": "Exports your Instagram ad interests \u2014 advertisers and ad topics.",
+      "description": "Exports your Instagram ad interests — advertisers and ad topics.",
       "consumerMetadata": {
         "sourceId": "instagram",
         "displayName": "Instagram Ads",
