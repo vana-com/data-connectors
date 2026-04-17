@@ -1,0 +1,24 @@
+{
+  "name": "Factory.fm Profile",
+  "version": "1.0.0",
+  "scope": "factory.profile",
+  "dialect": "json",
+  "description": "User profile data from Factory.fm including username, bio, karma, and activity stats.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "id": { "type": "string" },
+      "username": { "type": "string" },
+      "bio": { "type": ["string", "null"] },
+      "location": { "type": ["string", "null"] },
+      "imageUrl": { "type": ["string", "null"] },
+      "karma": { "type": "number" },
+      "tag": { "type": ["string", "null"] },
+      "logCount": { "type": "integer" },
+      "followerCount": { "type": "integer" },
+      "followingCount": { "type": "integer" },
+      "createdAt": { "type": "string" }
+    },
+    "required": ["id", "username"]
+  }
+}

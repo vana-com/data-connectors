@@ -1,0 +1,19 @@
+{
+  "name": "Factory.fm Artists",
+  "version": "1.0.0",
+  "scope": "factory.artists",
+  "dialect": "json",
+  "description": "Artists whose releases the user has logged on Factory.fm.",
+  "schema": {
+    "type": "array",
+    "items": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "imageUrl": { "type": ["string", "null"] }
+      },
+      "required": ["id", "name"]
+    }
+  }
+}

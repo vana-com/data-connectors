@@ -373,6 +373,21 @@
         "script": "sha256:ab465031ce09187c70890f4498fb0d650d0ea0dd7a11d558496d834a00076188",
         "metadata": "sha256:1b43c2ab74a7dc8bb2271b5be9d6f1d1e64d3f636604332f67439663bfd62bce"
       }
+    },
+    {
+      "id": "factory-playwright",
+      "company": "factory",
+      "version": "1.0.0",
+      "name": "Factory.fm",
+      "description": "Exports your Factory.fm music listening logs, ratings, reviews, and artist data using Playwright browser automation.",
+      "files": {
+        "script": "factory/factory-playwright.js",
+        "metadata": "factory/factory-playwright.json"
+      },
+      "checksums": {
+        "script": "sha256:621ec69388462df4fa81f0a28e41d81e452631791553810a14be6b3f27d6ab4e",
+        "metadata": "sha256:db7d31afecc768bbc7aae20cf0ca1cb0b5ae15d892f3aa3f5b05dfac24eec11b"
+      }
     }
   ]
 }

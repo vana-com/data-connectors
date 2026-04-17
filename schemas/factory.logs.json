@@ -1,0 +1,45 @@
+{
+  "name": "Factory.fm Logs",
+  "version": "1.0.0",
+  "scope": "factory.logs",
+  "dialect": "json",
+  "description": "Music review/log entries from Factory.fm with ratings, review text, and full release/artist details.",
+  "schema": {
+    "type": "array",
+    "items": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "body": { "type": ["string", "null"] },
+        "rating": { "type": ["number", "null"] },
+        "createdAt": { "type": "string" },
+        "release": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "title": { "type": "string" },
+            "artist": { "type": "string" },
+            "coverImage": { "type": ["string", "null"] },
+            "spotifyId": { "type": ["string", "null"] },
+            "releaseDate": { "type": ["string", "null"] },
+            "slug": { "type": "string" },
+            "artists": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string" },
+                  "name": { "type": "string" },
+                  "imageUrl": { "type": ["string", "null"] }
+                },
+                "required": ["id", "name"]
+              }
+            }
+          },
+          "required": ["id", "title", "artist"]
+        }
+      },
+      "required": ["id", "rating", "createdAt", "release"]
+    }
+  }
+}
