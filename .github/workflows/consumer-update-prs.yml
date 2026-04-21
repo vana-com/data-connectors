@@ -79,29 +79,46 @@ jobs:
           ref: main
           path: data-connect
 
+      - name: Check for required consumer scripts
+        id: scripts_check
+        working-directory: data-connect
+        run: |
+          if [ -f scripts/resolve-connectors.js ] && [ -f scripts/generate-platform-registry.js ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Skipping update-data-connect: consumer scripts not yet on data-connect main. Remove this guard after data-connect PR #106 merges."
+          fi
+
       - uses: actions/setup-node@v4
+        if: steps.scripts_check.outputs.present == 'true'
         with:
           node-version: "20"
 
       - name: Install data-connect deps
+        if: steps.scripts_check.outputs.present == 'true'
         working-directory: data-connect
         run: npm install
 
       - name: Install local shared installer package
+        if: steps.scripts_check.outputs.present == 'true'
         working-directory: data-connect
         run: npm install --no-save ../data-connectors
 
       - name: Resolve connectors and regenerate platform registry
+        if: steps.scripts_check.outputs.present == 'true'
         working-directory: data-connect
         run: |
           node scripts/resolve-connectors.js --from-local ../data-connectors
           node scripts/generate-platform-registry.js
 
       - name: Run tests
+        if: steps.scripts_check.outputs.present == 'true'
         working-directory: data-connect
         run: npm test
 
       - name: Create pull request
+        if: steps.scripts_check.outputs.present == 'true'
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.CONSUMER_PR_TOKEN }}
