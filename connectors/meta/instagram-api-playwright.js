@@ -771,43 +771,24 @@ const performLogin = async () => {
     });
   };
 
-  let result;
-  if (PLATFORM_LOGIN && PLATFORM_PASSWORD) {
-    result = await submitCredentials(1, 'env');
-    if (result.kind === 'error') {
-      const message = result.message || 'unknown reason';
-      await setAuthState(
-        await buildAuthState(
-          isInvalidCredentialMessage(message)
-            ? 'invalid_credentials'
-            : 'login_api_error',
-          {
-            attempt: 1,
-            apiMessage: message,
-            credentialSource: 'env',
-          },
-        ),
-      );
-      throw new Error('Instagram login failed: ' + message);
-    }
-  } else {
-    const buildCredsSpec = () => ({
-      message: 'Log in to Instagram',
-      schema: {
-        type: 'object',
-        properties: {
-          username: {
-            type: 'string',
-            title: 'Instagram username, email, or phone',
-          },
-          password: { type: 'string', format: 'password', title: 'Password' },
+  const buildCredsSpec = () => ({
+    message: 'Log in to Instagram',
+    schema: {
+      type: 'object',
+      properties: {
+        username: {
+          type: 'string',
+          title: 'Instagram username, email, or phone',
         },
-        required: ['username', 'password'],
+        password: { type: 'string', format: 'password', title: 'Password' },
       },
-    });
+      required: ['username', 'password'],
+    },
+  });
 
+  const runCredentialPromptLoop = async () => {
     try {
-      result = await promptWithRetry(buildCredsSpec, async (creds, attemptIndex) => {
+      return await promptWithRetry(buildCredsSpec, async (creds, attemptIndex) => {
         const attempt = attemptIndex + 1;
         PLATFORM_LOGIN = String(creds.username || '').trim();
         PLATFORM_PASSWORD = String(creds.password || '');
@@ -846,6 +827,34 @@ const performLogin = async () => {
       }
       throw e;
     }
+  };
+
+  let result;
+  if (PLATFORM_LOGIN && PLATFORM_PASSWORD) {
+    result = await submitCredentials(1, 'env');
+    if (result.kind === 'error') {
+      const message = result.message || 'unknown reason';
+      const isInvalidCreds = isInvalidCredentialMessage(message);
+      await setAuthState(
+        await buildAuthState(
+          isInvalidCreds ? 'invalid_credentials' : 'login_api_error',
+          {
+            attempt: 1,
+            apiMessage: message,
+            credentialSource: 'env',
+          },
+        ),
+      );
+      if (isInvalidCreds) {
+        // Env credentials were wrong — fall through to prompt the user
+        // (supports bad-password canary mode and real-user fat-finger).
+        result = await runCredentialPromptLoop();
+      } else {
+        throw new Error('Instagram login failed: ' + message);
+      }
+    }
+  } else {
+    result = await runCredentialPromptLoop();
   }
 
   if (result.kind === 'ok') {
