@@ -170,6 +170,7 @@ const markWedgeIfMatches = (err) => {
   const msg = err?.message || String(err);
   if (/Command timeout:/i.test(msg)) runtimeWedgeDetected = true;
 };
+
 const setAuthState = async (state) => {
   latestAuthState = state;
 };
@@ -1040,22 +1041,33 @@ const handlePostLoginChallenge = async () => {
       "confirm it's you",
     ]);
     if (affirm) {
-      await page.evaluate(`
-        (() => {
-          const target = ${JSON.stringify(affirm)};
-          const btns = Array.from(document.querySelectorAll('button, [role="button"]'));
-          const match = btns.find((b) => (b.textContent || '').trim() === target);
-          if (!match) return;
-          try { match.focus(); } catch (_) {}
-          const mouseOpts = { bubbles: true, cancelable: true, view: window };
-          try { match.dispatchEvent(new MouseEvent('pointerdown', mouseOpts)); } catch (_) {}
-          try { match.dispatchEvent(new MouseEvent('mousedown', mouseOpts)); } catch (_) {}
-          try { match.dispatchEvent(new MouseEvent('pointerup', mouseOpts)); } catch (_) {}
-          try { match.dispatchEvent(new MouseEvent('mouseup', mouseOpts)); } catch (_) {}
-          try { match.dispatchEvent(new MouseEvent('click', mouseOpts)); } catch (_) {}
-          try { match.click(); } catch (_) {}
-        })()
-      `);
+      const escaped = affirm.replace(/"/g, '\\"');
+      let clickedViaPage = false;
+      try {
+        await page.click(
+          'button:has-text("' + escaped + '"), [role="button"]:has-text("' + escaped + '")',
+          { timeout: 3000 },
+        );
+        clickedViaPage = true;
+      } catch (_) {}
+      if (!clickedViaPage) {
+        await page.evaluate(`
+          (() => {
+            const target = ${JSON.stringify(affirm)};
+            const btns = Array.from(document.querySelectorAll('button, [role="button"]'));
+            const match = btns.find((b) => (b.textContent || '').trim() === target);
+            if (!match) return;
+            try { match.focus(); } catch (_) {}
+            const mouseOpts = { bubbles: true, cancelable: true, view: window };
+            try { match.dispatchEvent(new MouseEvent('pointerdown', mouseOpts)); } catch (_) {}
+            try { match.dispatchEvent(new MouseEvent('mousedown', mouseOpts)); } catch (_) {}
+            try { match.dispatchEvent(new MouseEvent('pointerup', mouseOpts)); } catch (_) {}
+            try { match.dispatchEvent(new MouseEvent('mouseup', mouseOpts)); } catch (_) {}
+            try { match.dispatchEvent(new MouseEvent('click', mouseOpts)); } catch (_) {}
+            try { match.click(); } catch (_) {}
+          })()
+        `);
+      }
       clicked = true;
       await page.sleep(3500);
       continue;
@@ -1121,23 +1133,57 @@ const handlePostLoginChallenge = async () => {
       'okay',
     ]);
     if (advance) {
-      await page.evaluate(`
-        (() => {
-          const target = ${JSON.stringify(advance)};
-          const btns = Array.from(document.querySelectorAll('button, [role="button"]'));
-          const match = btns.find((b) => (b.textContent || '').trim() === target);
-          if (!match) return;
-          // Try three escalating click strategies for React-rendered buttons.
-          try { match.focus(); } catch (_) {}
-          const mouseOpts = { bubbles: true, cancelable: true, view: window };
-          try { match.dispatchEvent(new MouseEvent('pointerdown', mouseOpts)); } catch (_) {}
-          try { match.dispatchEvent(new MouseEvent('mousedown', mouseOpts)); } catch (_) {}
-          try { match.dispatchEvent(new MouseEvent('pointerup', mouseOpts)); } catch (_) {}
-          try { match.dispatchEvent(new MouseEvent('mouseup', mouseOpts)); } catch (_) {}
-          try { match.dispatchEvent(new MouseEvent('click', mouseOpts)); } catch (_) {}
-          try { match.click(); } catch (_) {}
-        })()
-      `);
+      const escaped = advance.replace(/"/g, '\\"');
+      // Prefer page.click (trusted browser-level events) over evaluate-based
+      // dispatch. Instagram rejects synthesized clicks as untrusted. Use a
+      // text-match CSS selector — ":has-text()" Playwright locator syntax —
+      // with a short timeout so a misselected button doesn't stall the run.
+      let clickedViaPage = false;
+      try {
+        await page.click(
+          'button:has-text("' + escaped + '"), [role="button"]:has-text("' + escaped + '")',
+          { timeout: 3000 },
+        );
+        clickedViaPage = true;
+      } catch (_) {
+        // Fall through to evaluate-based dispatch as a last-resort fallback.
+      }
+      // Belt-and-suspenders: also focus + Enter-key the matched button.
+      // Some Instagram challenge pages treat keyboard Enter as a more
+      // "trusted" interaction signal than synthesized mouse clicks.
+      try {
+        await page.evaluate(`
+          (() => {
+            const target = ${JSON.stringify(advance)};
+            const btns = Array.from(document.querySelectorAll('button, [role="button"]'));
+            const match = btns.find((b) => (b.textContent || '').trim() === target);
+            if (match && typeof match.focus === 'function') match.focus();
+          })()
+        `);
+        if (typeof page.keyboard?.press === 'function') {
+          await page.keyboard.press('Enter');
+        } else if (typeof page.press === 'function') {
+          await page.press('body', 'Enter');
+        }
+      } catch (_) {}
+      if (!clickedViaPage) {
+        await page.evaluate(`
+          (() => {
+            const target = ${JSON.stringify(advance)};
+            const btns = Array.from(document.querySelectorAll('button, [role="button"]'));
+            const match = btns.find((b) => (b.textContent || '').trim() === target);
+            if (!match) return;
+            try { match.focus(); } catch (_) {}
+            const mouseOpts = { bubbles: true, cancelable: true, view: window };
+            try { match.dispatchEvent(new MouseEvent('pointerdown', mouseOpts)); } catch (_) {}
+            try { match.dispatchEvent(new MouseEvent('mousedown', mouseOpts)); } catch (_) {}
+            try { match.dispatchEvent(new MouseEvent('pointerup', mouseOpts)); } catch (_) {}
+            try { match.dispatchEvent(new MouseEvent('mouseup', mouseOpts)); } catch (_) {}
+            try { match.dispatchEvent(new MouseEvent('click', mouseOpts)); } catch (_) {}
+            try { match.click(); } catch (_) {}
+          })()
+        `);
+      }
       clicked = true;
       // Give the next page/step a moment to render.
       await page.sleep(3500);
@@ -1431,6 +1477,7 @@ const collectProfileViaPageCapture = async (username) => {
   await page.sleep(PROFILE_CAPTURE_WAIT_MS);
 
   for (let attempt = 0; attempt < PROFILE_CAPTURE_MAX_ATTEMPTS; attempt++) {
+    if (runtimeWedgeDetected) break;
     await setCollectorTraceSection('profileBootstrap', {
       method: 'profile_page_capture',
       step: 'wait_for_profile_capture',
@@ -1440,7 +1487,13 @@ const collectProfileViaPageCapture = async (username) => {
       captureKey: 'profileResponse',
     });
     await page.sleep(1000);
-    const response = await page.getCapturedResponse('profileResponse');
+    let response;
+    try {
+      response = await page.getCapturedResponse('profileResponse');
+    } catch (err) {
+      markWedgeIfMatches(err);
+      break;
+    }
     const user =
       response?.data?.data?.user ??
       response?.data?.user ??
@@ -1762,60 +1815,103 @@ const fetchAccountsCenterHtml = async (path, traceSection) => {
       targetUrl: fullUrl,
     });
   }
-  const reachable = await safeGoto(fullUrl);
-  if (!reachable) {
-    if (traceSection) {
-      await setCollectorTraceSection(traceSection, {
-        phase: traceSection,
-        method: 'accounts_center_html',
-        step: 'navigate_accounts_center',
-        status: 'error',
-        outcome: 'page_unreachable',
-        path,
-        targetUrl: fullUrl,
-      });
+  // Strategy: navigate to a light instagram.com page once and then XHR-fetch
+  // the Accounts Center path from the existing tab. This avoids letting the
+  // heavy Accounts Center React app load, which has been observed to wedge
+  // the remote browser runtime after 1-2 navigations. Cookies on the
+  // instagram.com domain cover accountscenter.instagram.com (subdomain).
+  const alreadyOnInstagram = await page.evaluate(
+    `(() => { try { return location.hostname.endsWith('instagram.com'); } catch (_) { return false; } })()`
+  ).catch(() => false);
+  if (!alreadyOnInstagram) {
+    const reachable = await safeGoto('https://www.instagram.com/');
+    if (!reachable) {
+      if (traceSection) {
+        await setCollectorTraceSection(traceSection, {
+          phase: traceSection,
+          method: 'accounts_center_html',
+          step: 'navigate_accounts_center',
+          status: 'error',
+          outcome: 'anchor_page_unreachable',
+          path,
+          targetUrl: fullUrl,
+        });
+      }
+      throw new Error('instagram.com anchor page could not be reached');
     }
-    throw new Error('accounts center page could not be reached for ' + path);
   }
   if (traceSection) {
     await setCollectorTraceSection(traceSection, {
       phase: traceSection,
       method: 'accounts_center_html',
       step: 'read_accounts_center_html',
-      status: 'waiting_html',
+      status: 'fetching_via_xhr',
       path,
       targetUrl: fullUrl,
     });
   }
-  await page.sleep(1500);
-  // Previously: `await page.evaluate('document.documentElement.outerHTML')` —
-  // returning the FULL Accounts Center HTML (often multi-MB) across the
-  // remote browser boundary. Large payloads are the documented cause of
-  // runtime wedges (docs/2026-04-17-instagram-runtime-root-cause-plan.md)
-  // and the motivation for the closed #168. We now project inside the page:
-  // extract the data-sjs script bodies and shallow fb_dtsg/lsd/jazoest
-  // tokens from the meta HTML, then stringify the HTML back on the host
-  // only if downstream parsers need it. Most callers immediately run
-  // `extractDataSjsBlocks(html)` — we return a preparsed blob so the host
-  // never sees the raw document.
-  const shrunk = await page.evaluate(`
-    (() => {
-      try {
-        const scripts = Array.from(document.querySelectorAll('script[type="application/json"][data-sjs]'));
-        const payloads = [];
-        for (const el of scripts) {
-          const text = el.textContent || '';
-          if (!text.includes('fxcal_settings')) continue;
-          payloads.push(text);
+  // Fetch the Accounts Center page as raw HTML via XHR. Parse data-sjs
+  // scripts inside page so we only return the small payloads we need.
+  let shrunk;
+  try {
+    shrunk = await page.evaluate(`
+      (async () => {
+        try {
+          const res = await fetch(${JSON.stringify(fullUrl)}, {
+            credentials: 'include',
+            headers: {
+              'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+              'sec-fetch-mode': 'navigate',
+              'sec-fetch-site': 'same-site',
+              'sec-fetch-dest': 'document',
+            },
+          });
+          if (!res.ok) return { error: 'xhr status ' + res.status };
+          const html = await res.text();
+          const payloads = [];
+          const re = /<script type="application\\/json"[^>]*data-sjs[^>]*>([\\s\\S]*?)<\\/script>/g;
+          let m;
+          while ((m = re.exec(html)) !== null) {
+            if (!m[1].includes('fxcal_settings')) continue;
+            payloads.push(m[1]);
+          }
+          const metaSlice = html.slice(0, 80000);
+          return { payloads, metaSlice, scriptCount: payloads.length, htmlLength: html.length };
+        } catch (err) {
+          return { error: err && err.message ? err.message : String(err) };
         }
-        const fullHtml = document.documentElement.outerHTML;
-        const metaSlice = fullHtml.slice(0, 80000);
-        return { payloads, metaSlice, scriptCount: scripts.length };
-      } catch (err) {
-        return { error: err && err.message ? err.message : String(err) };
-      }
-    })()
-  `);
+      })()
+    `);
+  } catch (err) {
+    markWedgeIfMatches(err);
+    throw err;
+  }
+  if (shrunk && shrunk.error) {
+    // Fall back to full navigation once if XHR failed (auth, CORS, etc.).
+    const reachable = await safeGoto(fullUrl);
+    if (!reachable) {
+      throw new Error('accounts center page could not be reached for ' + path);
+    }
+    await page.sleep(1500);
+    shrunk = await page.evaluate(`
+      (() => {
+        try {
+          const scripts = Array.from(document.querySelectorAll('script[type="application/json"][data-sjs]'));
+          const payloads = [];
+          for (const el of scripts) {
+            const text = el.textContent || '';
+            if (!text.includes('fxcal_settings')) continue;
+            payloads.push(text);
+          }
+          const fullHtml = document.documentElement.outerHTML;
+          const metaSlice = fullHtml.slice(0, 80000);
+          return { payloads, metaSlice, scriptCount: scripts.length };
+        } catch (err) {
+          return { error: err && err.message ? err.message : String(err) };
+        }
+      })()
+    `);
+  }
   const payloads = (shrunk && shrunk.payloads) || [];
   const metaSlice = (shrunk && shrunk.metaSlice) || '';
   // Reconstruct a minimal "html" that extractDataSjsBlocks + extractMetaTokens
