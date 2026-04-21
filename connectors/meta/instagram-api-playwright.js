@@ -154,12 +154,25 @@ const resolveRequestedScopes = () => {
   return deduped;
 };
 
+// Latest auth state, kept in-memory. Previously written to page.setData on
+// every transition (~22 writes per run). That per-write round-trip appears to
+// contribute to remote-browser runtime back-pressure that manifests as
+// `Command timeout: setData` wedges mid-run (see docs/2026-04-17-instagram-
+// runtime-root-cause-plan.md). We now accumulate in memory and emit only at
+// terminal via the result payload, keeping the on-run data surface minimal.
+let latestAuthState = null;
+
+// Set true once we see a "Command timeout:" error anywhere. Used to skip
+// subsequent page.setData/evaluate calls that would each 60s-time-out on a
+// dead runtime.
+let runtimeWedgeDetected = false;
+const markWedgeIfMatches = (err) => {
+  const msg = err?.message || String(err);
+  if (/Command timeout:/i.test(msg)) runtimeWedgeDetected = true;
+};
+
 const setAuthState = async (state) => {
-  try {
-    await page.setData('auth_state', state);
-  } catch (error) {
-    // best effort — auth-state breadcrumbs must never fail the run
-  }
+  latestAuthState = state;
 };
 
 const promptWithRetry = async (
@@ -207,7 +220,11 @@ const setCollectorTraceSection = async (section, patch) => {
         updatedAt: patch.updatedAt || traceTimestamp(),
       },
     };
-    await page.setData('collector_trace', collectorTrace);
+    // NOTE: previously `await page.setData('collector_trace', collectorTrace)`
+    // on every call (~45 writes/run, with cumulative payload growth). That
+    // pattern correlates with `Command timeout: setData` wedges in the
+    // remote-browser runtime. We now keep the trace in-memory and emit it
+    // only at terminal via the result payload.
   } catch (error) {
     // best effort — collector breadcrumbs must never fail the run
   }
@@ -771,43 +788,24 @@ const performLogin = async () => {
     });
   };
 
-  let result;
-  if (PLATFORM_LOGIN && PLATFORM_PASSWORD) {
-    result = await submitCredentials(1, 'env');
-    if (result.kind === 'error') {
-      const message = result.message || 'unknown reason';
-      await setAuthState(
-        await buildAuthState(
-          isInvalidCredentialMessage(message)
-            ? 'invalid_credentials'
-            : 'login_api_error',
-          {
-            attempt: 1,
-            apiMessage: message,
-            credentialSource: 'env',
-          },
-        ),
-      );
-      throw new Error('Instagram login failed: ' + message);
-    }
-  } else {
-    const buildCredsSpec = () => ({
-      message: 'Log in to Instagram',
-      schema: {
-        type: 'object',
-        properties: {
-          username: {
-            type: 'string',
-            title: 'Instagram username, email, or phone',
-          },
-          password: { type: 'string', format: 'password', title: 'Password' },
+  const buildCredsSpec = () => ({
+    message: 'Log in to Instagram',
+    schema: {
+      type: 'object',
+      properties: {
+        username: {
+          type: 'string',
+          title: 'Instagram username, email, or phone',
         },
-        required: ['username', 'password'],
+        password: { type: 'string', format: 'password', title: 'Password' },
       },
-    });
+      required: ['username', 'password'],
+    },
+  });
 
+  const runCredentialPromptLoop = async () => {
     try {
-      result = await promptWithRetry(buildCredsSpec, async (creds, attemptIndex) => {
+      return await promptWithRetry(buildCredsSpec, async (creds, attemptIndex) => {
         const attempt = attemptIndex + 1;
         PLATFORM_LOGIN = String(creds.username || '').trim();
         PLATFORM_PASSWORD = String(creds.password || '');
@@ -846,6 +844,34 @@ const performLogin = async () => {
       }
       throw e;
     }
+  };
+
+  let result;
+  if (PLATFORM_LOGIN && PLATFORM_PASSWORD) {
+    result = await submitCredentials(1, 'env');
+    if (result.kind === 'error') {
+      const message = result.message || 'unknown reason';
+      const isInvalidCreds = isInvalidCredentialMessage(message);
+      await setAuthState(
+        await buildAuthState(
+          isInvalidCreds ? 'invalid_credentials' : 'login_api_error',
+          {
+            attempt: 1,
+            apiMessage: message,
+            credentialSource: 'env',
+          },
+        ),
+      );
+      if (isInvalidCreds) {
+        // Env credentials were wrong — fall through to prompt the user
+        // (supports bad-password canary mode and real-user fat-finger).
+        result = await runCredentialPromptLoop();
+      } else {
+        throw new Error('Instagram login failed: ' + message);
+      }
+    }
+  } else {
+    result = await runCredentialPromptLoop();
   }
 
   if (result.kind === 'ok') {
@@ -936,6 +962,248 @@ const checkLoginStatus = async () => {
   return sessionLooksAuthenticated(evidence);
 };
 
+// Snapshot of a challenge page's actionable surface. Returned by
+// readChallengePageSnapshot below. Keep cheap/stable — no heavy DOM traversal.
+const readChallengePageSnapshot = async () => {
+  try {
+    return await page.evaluate(`
+      (() => {
+        const textOf = (el) => (el && el.textContent ? el.textContent.trim() : '');
+        const buttons = Array.from(document.querySelectorAll('button, [role="button"]'))
+          .map((el) => ({ text: textOf(el), lower: textOf(el).toLowerCase() }))
+          .filter((b) => b.text);
+        const headings = Array.from(document.querySelectorAll('h1, h2, h3, [role="heading"]'))
+          .map((el) => textOf(el))
+          .filter(Boolean);
+        const bodyText = (document.body?.innerText || '').toLowerCase();
+        const hasAnyInput = Boolean(document.querySelector('input[type="text"], input[type="tel"], input[type="number"]'));
+        return {
+          currentPath: location.pathname || '/',
+          buttons,
+          headings,
+          bodyText,
+          hasAnyInput,
+        };
+      })()
+    `);
+  } catch (error) {
+    return null;
+  }
+};
+
+// Attempt to clear an Instagram post-login challenge (/challenge/, /checkpoint/,
+// etc.) without handing off to a headed browser. Covers the common flows:
+//   (a) "This was me" / "It was me" affirmation button.
+//   (b) "Continue" / "Get started" interstitial that proceeds to next step.
+//   (c) Email-code verification: send code (if needed), prompt user with a
+//       message containing "email" so canary email worker polls and supplies.
+// Returns true if the challenge cleared (session now authenticated), false if
+// we couldn't progress the page (caller should fall back to headed). Safe to
+// call multiple times; will iterate through chained interstitials.
+const handlePostLoginChallenge = async () => {
+  const MAX_STEPS = 5;
+  let clicked = false;
+  const debugSteps = [];
+  for (let step = 0; step < MAX_STEPS; step += 1) {
+    const snap = await readChallengePageSnapshot();
+    if (snap) {
+      debugSteps.push({
+        step,
+        currentPath: snap.currentPath,
+        headings: (snap.headings || []).slice(0, 6),
+        buttons: (snap.buttons || []).slice(0, 10).map((b) => b.text),
+        bodyTextSample: (snap.bodyText || '').slice(0, 400),
+        hasAnyInput: snap.hasAnyInput,
+      });
+    }
+    await setCollectorTraceSection('challengeHandler', { steps: debugSteps });
+    if (!snap) break;
+    // Already cleared?
+    const evidence = await readSessionEvidence();
+    if (sessionLooksAuthenticated(evidence)) return true;
+
+    const buttons = snap.buttons || [];
+    const pickButton = (needles) => {
+      for (const b of buttons) {
+        for (const needle of needles) {
+          if (b.lower === needle || b.lower.includes(needle)) return b.text;
+        }
+      }
+      return null;
+    };
+
+    // (a) "This was me" / "It was me" / "Yes, it's me".
+    const affirm = pickButton([
+      'this was me',
+      "it was me",
+      "yes, it's me",
+      "yes, it was me",
+      "confirm it's you",
+    ]);
+    if (affirm) {
+      const escaped = affirm.replace(/"/g, '\\"');
+      let clickedViaPage = false;
+      try {
+        await page.click(
+          'button:has-text("' + escaped + '"), [role="button"]:has-text("' + escaped + '")',
+          { timeout: 3000 },
+        );
+        clickedViaPage = true;
+      } catch (_) {}
+      if (!clickedViaPage) {
+        await page.evaluate(`
+          (() => {
+            const target = ${JSON.stringify(affirm)};
+            const btns = Array.from(document.querySelectorAll('button, [role="button"]'));
+            const match = btns.find((b) => (b.textContent || '').trim() === target);
+            if (!match) return;
+            try { match.focus(); } catch (_) {}
+            const mouseOpts = { bubbles: true, cancelable: true, view: window };
+            try { match.dispatchEvent(new MouseEvent('pointerdown', mouseOpts)); } catch (_) {}
+            try { match.dispatchEvent(new MouseEvent('mousedown', mouseOpts)); } catch (_) {}
+            try { match.dispatchEvent(new MouseEvent('pointerup', mouseOpts)); } catch (_) {}
+            try { match.dispatchEvent(new MouseEvent('mouseup', mouseOpts)); } catch (_) {}
+            try { match.dispatchEvent(new MouseEvent('click', mouseOpts)); } catch (_) {}
+            try { match.click(); } catch (_) {}
+          })()
+        `);
+      }
+      clicked = true;
+      await page.sleep(3500);
+      continue;
+    }
+
+    // (c) Email-code verification prompt present? Detect text/heading cues.
+    const mentionsEmail =
+      snap.bodyText.includes('code we sent to') ||
+      snap.bodyText.includes('code sent to your email') ||
+      snap.bodyText.includes('enter the code') ||
+      snap.headings.some((h) => h.toLowerCase().includes('enter') && h.toLowerCase().includes('code'));
+    if (mentionsEmail && snap.hasAnyInput) {
+      // Prompt with "email" keyword so the canary email worker activates.
+      const { code } = await page.requestInput({
+        message: 'Enter the verification code sent to your email',
+        schema: {
+          type: 'object',
+          properties: {
+            code: { type: 'string', title: 'email verification code' },
+          },
+          required: ['code'],
+        },
+      });
+      const trimmed = String(code || '').trim();
+      if (!/^\d{4,8}$/.test(trimmed)) return false;
+      await page.evaluate(`
+        (() => {
+          const input = document.querySelector('input[type="text"], input[type="tel"], input[type="number"]');
+          if (!input) return;
+          const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+          setter.call(input, ${JSON.stringify(trimmed)});
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+          const btns = Array.from(document.querySelectorAll('button, [role="button"]'));
+          const cont = btns.find((b) => {
+            const t = (b.textContent || '').trim().toLowerCase();
+            return t === 'continue' || t === 'submit' || t === 'confirm' || t === 'next';
+          });
+          if (cont) cont.click();
+        })()
+      `);
+      clicked = true;
+      await page.sleep(3500);
+      continue;
+    }
+
+    // (b) Generic "Continue" / "Get started" / "Next" / "Dismiss" interstitial.
+    // Instagram often shows either (i) an "automated behavior detected" notice
+    // with only a "Dismiss" button, or (ii) a "Help us confirm it's you"
+    // multi-step flow gated on a "Next" button that kicks off an email/sms
+    // code challenge. We click the first matching button via pointer events
+    // and real event dispatch — React components sometimes ignore bare
+    // element.click() calls.
+    const advance = pickButton([
+      'continue',
+      'get started',
+      'next',
+      'not now',
+      'skip',
+      'dismiss',
+      "i understand",
+      'ok',
+      'okay',
+    ]);
+    if (advance) {
+      const escaped = advance.replace(/"/g, '\\"');
+      // Prefer page.click (trusted browser-level events) over evaluate-based
+      // dispatch. Instagram rejects synthesized clicks as untrusted. Use a
+      // text-match CSS selector — ":has-text()" Playwright locator syntax —
+      // with a short timeout so a misselected button doesn't stall the run.
+      let clickedViaPage = false;
+      try {
+        await page.click(
+          'button:has-text("' + escaped + '"), [role="button"]:has-text("' + escaped + '")',
+          { timeout: 3000 },
+        );
+        clickedViaPage = true;
+      } catch (_) {
+        // Fall through to evaluate-based dispatch as a last-resort fallback.
+      }
+      // Belt-and-suspenders: also focus + Enter-key the matched button.
+      // Some Instagram challenge pages treat keyboard Enter as a more
+      // "trusted" interaction signal than synthesized mouse clicks.
+      try {
+        await page.evaluate(`
+          (() => {
+            const target = ${JSON.stringify(advance)};
+            const btns = Array.from(document.querySelectorAll('button, [role="button"]'));
+            const match = btns.find((b) => (b.textContent || '').trim() === target);
+            if (match && typeof match.focus === 'function') match.focus();
+          })()
+        `);
+        if (typeof page.keyboard?.press === 'function') {
+          await page.keyboard.press('Enter');
+        } else if (typeof page.press === 'function') {
+          await page.press('body', 'Enter');
+        }
+      } catch (_) {}
+      if (!clickedViaPage) {
+        await page.evaluate(`
+          (() => {
+            const target = ${JSON.stringify(advance)};
+            const btns = Array.from(document.querySelectorAll('button, [role="button"]'));
+            const match = btns.find((b) => (b.textContent || '').trim() === target);
+            if (!match) return;
+            try { match.focus(); } catch (_) {}
+            const mouseOpts = { bubbles: true, cancelable: true, view: window };
+            try { match.dispatchEvent(new MouseEvent('pointerdown', mouseOpts)); } catch (_) {}
+            try { match.dispatchEvent(new MouseEvent('mousedown', mouseOpts)); } catch (_) {}
+            try { match.dispatchEvent(new MouseEvent('pointerup', mouseOpts)); } catch (_) {}
+            try { match.dispatchEvent(new MouseEvent('mouseup', mouseOpts)); } catch (_) {}
+            try { match.dispatchEvent(new MouseEvent('click', mouseOpts)); } catch (_) {}
+            try { match.click(); } catch (_) {}
+          })()
+        `);
+      }
+      clicked = true;
+      // Give the next page/step a moment to render.
+      await page.sleep(3500);
+      continue;
+    }
+
+    // Nothing actionable this step.
+    break;
+  }
+
+  if (!clicked) return false;
+
+  // Give the session a moment to settle after final click, then verify.
+  await safeGoto('https://www.instagram.com/');
+  await page.sleep(AUTH_SETTLE_DELAY_MS);
+  await dismissInterstitials();
+  const finalEvidence = await readSessionEvidence();
+  return sessionLooksAuthenticated(finalEvidence);
+};
+
 const ensureLoggedIn = async () => {
   await setAuthState(await buildAuthState('checking_login'));
   await page.setData('status', 'Checking login status...');
@@ -983,6 +1251,31 @@ const ensureLoggedIn = async () => {
       hasLoggedInChrome: evidence?.hasLoggedInChrome || false,
     }),
   );
+
+  // Before giving up, try to clear a post-login "unusual activity" challenge
+  // page programmatically ("This was me", email verification code, etc.).
+  // Instagram commonly redirects to /challenge/ after OTP when logging in
+  // from an unusual IP, and a headed fallback isn't available in the canary
+  // environment. This path is the automated equivalent.
+  const currentPath = evidence?.authUi?.currentPath || '';
+  if (currentPath.startsWith('/challenge') || currentPath.startsWith('/checkpoint')) {
+    await page.setData('status', 'Clearing Instagram verification challenge...');
+    const challengeCleared = await handlePostLoginChallenge();
+    if (challengeCleared) {
+      const postChallengeEvidence = await readSessionEvidence();
+      if (sessionLooksAuthenticated(postChallengeEvidence)) {
+        await setAuthState(
+          await buildAuthState('authenticated', {
+            restoredSession: false,
+            dsUserId: postChallengeEvidence.dsUserId,
+            challengeCleared: true,
+          }),
+        );
+        await page.setData('status', 'Login successful');
+        return postChallengeEvidence.webInfo;
+      }
+    }
+  }
 
   await setAuthState(await buildAuthState('manual_verification_required'));
   const { headed } = await page.showBrowser('https://www.instagram.com/accounts/login/');
@@ -1184,6 +1477,7 @@ const collectProfileViaPageCapture = async (username) => {
   await page.sleep(PROFILE_CAPTURE_WAIT_MS);
 
   for (let attempt = 0; attempt < PROFILE_CAPTURE_MAX_ATTEMPTS; attempt++) {
+    if (runtimeWedgeDetected) break;
     await setCollectorTraceSection('profileBootstrap', {
       method: 'profile_page_capture',
       step: 'wait_for_profile_capture',
@@ -1193,7 +1487,13 @@ const collectProfileViaPageCapture = async (username) => {
       captureKey: 'profileResponse',
     });
     await page.sleep(1000);
-    const response = await page.getCapturedResponse('profileResponse');
+    let response;
+    try {
+      response = await page.getCapturedResponse('profileResponse');
+    } catch (err) {
+      markWedgeIfMatches(err);
+      break;
+    }
     const user =
       response?.data?.data?.user ??
       response?.data?.user ??
@@ -1515,33 +1815,111 @@ const fetchAccountsCenterHtml = async (path, traceSection) => {
       targetUrl: fullUrl,
     });
   }
-  const reachable = await safeGoto(fullUrl);
-  if (!reachable) {
-    if (traceSection) {
-      await setCollectorTraceSection(traceSection, {
-        phase: traceSection,
-        method: 'accounts_center_html',
-        step: 'navigate_accounts_center',
-        status: 'error',
-        outcome: 'page_unreachable',
-        path,
-        targetUrl: fullUrl,
-      });
+  // Strategy: navigate to a light instagram.com page once and then XHR-fetch
+  // the Accounts Center path from the existing tab. This avoids letting the
+  // heavy Accounts Center React app load, which has been observed to wedge
+  // the remote browser runtime after 1-2 navigations. Cookies on the
+  // instagram.com domain cover accountscenter.instagram.com (subdomain).
+  const alreadyOnInstagram = await page.evaluate(
+    `(() => { try { return location.hostname.endsWith('instagram.com'); } catch (_) { return false; } })()`
+  ).catch(() => false);
+  if (!alreadyOnInstagram) {
+    const reachable = await safeGoto('https://www.instagram.com/');
+    if (!reachable) {
+      if (traceSection) {
+        await setCollectorTraceSection(traceSection, {
+          phase: traceSection,
+          method: 'accounts_center_html',
+          step: 'navigate_accounts_center',
+          status: 'error',
+          outcome: 'anchor_page_unreachable',
+          path,
+          targetUrl: fullUrl,
+        });
+      }
+      throw new Error('instagram.com anchor page could not be reached');
     }
-    throw new Error('accounts center page could not be reached for ' + path);
   }
   if (traceSection) {
     await setCollectorTraceSection(traceSection, {
       phase: traceSection,
       method: 'accounts_center_html',
       step: 'read_accounts_center_html',
-      status: 'waiting_html',
+      status: 'fetching_via_xhr',
       path,
       targetUrl: fullUrl,
     });
   }
-  await page.sleep(1500);
-  const html = await page.evaluate(`document.documentElement.outerHTML`);
+  // Fetch the Accounts Center page as raw HTML via XHR. Parse data-sjs
+  // scripts inside page so we only return the small payloads we need.
+  let shrunk;
+  try {
+    shrunk = await page.evaluate(`
+      (async () => {
+        try {
+          const res = await fetch(${JSON.stringify(fullUrl)}, {
+            credentials: 'include',
+            headers: {
+              'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+              'sec-fetch-mode': 'navigate',
+              'sec-fetch-site': 'same-site',
+              'sec-fetch-dest': 'document',
+            },
+          });
+          if (!res.ok) return { error: 'xhr status ' + res.status };
+          const html = await res.text();
+          const payloads = [];
+          const re = /<script type="application\\/json"[^>]*data-sjs[^>]*>([\\s\\S]*?)<\\/script>/g;
+          let m;
+          while ((m = re.exec(html)) !== null) {
+            if (!m[1].includes('fxcal_settings')) continue;
+            payloads.push(m[1]);
+          }
+          const metaSlice = html.slice(0, 80000);
+          return { payloads, metaSlice, scriptCount: payloads.length, htmlLength: html.length };
+        } catch (err) {
+          return { error: err && err.message ? err.message : String(err) };
+        }
+      })()
+    `);
+  } catch (err) {
+    markWedgeIfMatches(err);
+    throw err;
+  }
+  if (shrunk && shrunk.error) {
+    // Fall back to full navigation once if XHR failed (auth, CORS, etc.).
+    const reachable = await safeGoto(fullUrl);
+    if (!reachable) {
+      throw new Error('accounts center page could not be reached for ' + path);
+    }
+    await page.sleep(1500);
+    shrunk = await page.evaluate(`
+      (() => {
+        try {
+          const scripts = Array.from(document.querySelectorAll('script[type="application/json"][data-sjs]'));
+          const payloads = [];
+          for (const el of scripts) {
+            const text = el.textContent || '';
+            if (!text.includes('fxcal_settings')) continue;
+            payloads.push(text);
+          }
+          const fullHtml = document.documentElement.outerHTML;
+          const metaSlice = fullHtml.slice(0, 80000);
+          return { payloads, metaSlice, scriptCount: scripts.length };
+        } catch (err) {
+          return { error: err && err.message ? err.message : String(err) };
+        }
+      })()
+    `);
+  }
+  const payloads = (shrunk && shrunk.payloads) || [];
+  const metaSlice = (shrunk && shrunk.metaSlice) || '';
+  // Reconstruct a minimal "html" that extractDataSjsBlocks + extractMetaTokens
+  // can both consume: metaSlice (where tokens live) + wrapped script blobs.
+  const scriptTags = payloads
+    .map((body) => '<script type="application/json" data-sjs>' + body + '</script>')
+    .join('\n');
+  const html = metaSlice + '\n' + scriptTags;
   if (typeof html !== 'string' || html.length === 0) {
     if (traceSection) {
       await setCollectorTraceSection(traceSection, {
@@ -1885,8 +2263,30 @@ const installGraphqlInterceptor = async () => {
   `);
 };
 
-const readCapturedGraphql = async () => {
-  const raw = await page.evaluate(`JSON.stringify(window.__igAllGraphql__ || [])`);
+// Pull GraphQL captures out of the page, but only those whose response text
+// matches a given substring (e.g., the query-name we're waiting for). This
+// avoids transferring every captured GraphQL response on every poll — the
+// old implementation returned the full accumulated array every 250ms and was
+// responsible for the runtime wedge in the adCategories discovery phase.
+const readCapturedGraphql = async (matchSubstring = '') => {
+  const raw = await page.evaluate(`
+    (() => {
+      const match = ${JSON.stringify(matchSubstring || '')};
+      const all = window.__igAllGraphql__ || [];
+      const filtered = match
+        ? all.filter((e) => e && typeof e.response === 'string' && e.response.includes(match))
+        : all;
+      // Marshal only the fields we need. Also cap response length so an
+      // extremely large captured blob can't by itself push the payload over
+      // the runtime ceiling.
+      return JSON.stringify(
+        filtered.map((e) => ({
+          body: (e && typeof e.body === 'string') ? e.body.slice(0, 20000) : '',
+          response: (e && typeof e.response === 'string') ? e.response.slice(0, 200000) : '',
+        }))
+      );
+    })()
+  `);
   if (typeof raw !== 'string') return [];
   try {
     const parsed = JSON.parse(raw);
@@ -1986,10 +2386,14 @@ const discoverAdCategoriesQuery = async () => {
       timeoutMs: DISCOVERY_TIMEOUT_MS,
     });
     await page.sleep(DISCOVERY_POLL_MS);
-    const entries = await readCapturedGraphql();
+    // Pre-filter inside the page — only return entries whose response text
+    // already contains the marker we care about. Avoids pulling the full
+    // accumulated GraphQL array on every poll.
+    const entries = await readCapturedGraphql(
+      'profile_info_categories_associated_with_you_data'
+    );
     for (const entry of entries) {
       if (!entry || typeof entry.response !== 'string') continue;
-      if (!entry.response.includes('profile_info_categories_associated_with_you_data')) continue;
       let params;
       try { params = new URLSearchParams(entry.body || ''); } catch (e) { continue; }
       const docId = params.get('doc_id');
@@ -2271,35 +2675,51 @@ const createProgressTracker = (requestedScopes) => {
       let advertisersSucceeded = false;
       let adTopicsSucceeded = false;
       let categoriesSucceeded = false;
-
+      // If the remote browser runtime wedges on one page in the Accounts
+      // Center, the next page will hang too — and each setData/evaluate
+      // times out at ~60s, so unchecked we spend minutes draining dead
+      // calls. Short-circuit the remaining ads sub-phases once we detect
+      // the wedge signature ('Command timeout:').
       await progress.update('Ads', 'Fetching advertisers from Accounts Center...');
       try {
         state.advertisers = await collectAdvertisers();
         advertisersSucceeded = true;
       } catch (error) {
+        markWedgeIfMatches(error);
         adsFailures.push(
           `advertisers: ${error?.message || String(error)}`,
         );
       }
 
-      await progress.update('Ads', 'Fetching ad topics...');
-      try {
-        state.ad_topics = await collectAdTopics();
-        adTopicsSucceeded = true;
-      } catch (error) {
-        adsFailures.push(
-          `ad_topics: ${error?.message || String(error)}`,
-        );
-      }
+      if (runtimeWedgeDetected) {
+        adsFailures.push('ad_topics: skipped — remote runtime wedged');
+        adsFailures.push('categories: skipped — remote runtime wedged');
+      } else {
+        await progress.update('Ads', 'Fetching ad topics...');
+        try {
+          state.ad_topics = await collectAdTopics();
+          adTopicsSucceeded = true;
+        } catch (error) {
+          markWedgeIfMatches(error);
+          adsFailures.push(
+            `ad_topics: ${error?.message || String(error)}`,
+          );
+        }
 
-      await progress.update('Ads', 'Discovering ad categories query...');
-      try {
-        state.categories = await collectAdCategories();
-        categoriesSucceeded = true;
-      } catch (error) {
-        adsFailures.push(
-          `categories: ${error?.message || String(error)}`,
-        );
+        if (runtimeWedgeDetected) {
+          adsFailures.push('categories: skipped — remote runtime wedged');
+        } else {
+          await progress.update('Ads', 'Discovering ad categories query...');
+          try {
+            state.categories = await collectAdCategories();
+            categoriesSucceeded = true;
+          } catch (error) {
+            markWedgeIfMatches(error);
+            adsFailures.push(
+              `categories: ${error?.message || String(error)}`,
+            );
+          }
+        }
       }
 
       const adsProduced =
@@ -2367,19 +2787,39 @@ const createProgressTracker = (requestedScopes) => {
       },
     });
 
-    await page.setData('result', result);
-    await page.setData('status', 'Complete: ' + detailParts.join(', '));
+    // Flush the in-memory breadcrumbs once, at terminal, instead of on every
+    // state transition (see setAuthState/setCollectorTraceSection above).
+    // If the remote runtime wedged mid-run, skip optional breadcrumbs (each
+    // setData call would block 60s on a dead runtime). Still emit result.
+    if (!runtimeWedgeDetected) {
+      try { if (latestAuthState) await page.setData('auth_state', latestAuthState); } catch (_) { markWedgeIfMatches(_); }
+      try { await page.setData('collector_trace', collectorTrace); } catch (_) { markWedgeIfMatches(_); }
+    }
+    try { await page.setData('result', result); } catch (_) { markWedgeIfMatches(_); }
+    if (!runtimeWedgeDetected) {
+      try { await page.setData('status', 'Complete: ' + detailParts.join(', ')); } catch (_) {}
+    }
     return result;
   } catch (error) {
+    const errMsg = error?.message || String(error);
+    const runtimeWedged = /Command timeout:/i.test(errMsg);
     const telemetryError =
       error?.telemetryError ||
       makeConnectorError(
-        inferErrorClass(error?.message || String(error)),
-        error?.message || String(error),
+        inferErrorClass(errMsg),
+        errMsg,
         'fatal',
         { phase: 'collect' },
       );
     const result = buildEmptyResult(requestedScopes, [telemetryError]);
+    // If the runtime is wedged, each setData call will 60s-timeout and we
+    // waste 4+ minutes at terminal draining dead calls. Still emit result &
+    // error (these are the minimum useful telemetry), but skip the larger
+    // auth_state / collector_trace flushes in wedge cases.
+    if (!runtimeWedged) {
+      try { if (latestAuthState) await page.setData('auth_state', latestAuthState); } catch (_) {}
+      try { await page.setData('collector_trace', collectorTrace); } catch (_) {}
+    }
     await page.setData('result', result);
     await page.setData('error', telemetryError.reason);
     return result;
