@@ -36,5 +36,11 @@
   "exportFrequency": "weekly",
   "vectorize_config": {
     "documents": "name"
+  },
+  "consumer_metadata": {
+    "display_name": "H-E-B",
+    "brand_domain": "heb.com",
+    "icon_key": "heb",
+    "default_scope": "heb.orders"
   }
 }

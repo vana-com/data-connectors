@@ -51,20 +51,169 @@ const parseCount = (text) => {
 
 // ─── Login Detection ─────────────────────────────────────────
 
+const YOUTUBE_ACCOUNT_MENU_SELECTOR = [
+  'button#avatar-btn',
+  'ytd-topbar-menu-button-renderer button#avatar-btn',
+  'button[aria-label="Account menu"]',
+  '#avatar-btn yt-img-shadow img',
+  'ytd-topbar-menu-button-renderer img'
+].join(', ');
+
+const YOUTUBE_SIGN_IN_LINK_SELECTOR =
+  'a[href*="ServiceLogin"], a[href*="accounts.google.com/ServiceLogin"]';
+
+const waitForCondition = async (checkFn, { timeout = 5000, interval = 250 } = {}) => {
+  const deadline = Date.now() + timeout;
+
+  while (Date.now() < deadline) {
+    try {
+      const result = await checkFn();
+      if (result) {
+        return result;
+      }
+    } catch (err) {
+      // Retry until timeout. This is an explicit wait, not a blind fixed delay.
+    }
+
+    await page.sleep(interval);
+  }
+
+  return null;
+};
+
+const getYoutubeSessionState = async () => {
+  const currentUrl = await page.url();
+
+  const domState = await page.evaluate(`
+    (() => {
+      const accountMenu = document.querySelector(${JSON.stringify(YOUTUBE_ACCOUNT_MENU_SELECTOR)});
+      const signInLink = document.querySelector(${JSON.stringify(YOUTUBE_SIGN_IN_LINK_SELECTOR)});
+      const interstitialButtons = Array.from(
+        document.querySelectorAll('button, a, tp-yt-paper-button')
+      ).some((btn) => {
+        const text = (btn.textContent || '').trim().toLowerCase();
+        return (
+          text === 'not now' ||
+          text === 'skip' ||
+          text === 'no thanks' ||
+          text === 'continue' ||
+          text === 'done'
+        );
+      });
+
+      return {
+        hasAccountMenu: !!accountMenu,
+        hasSignInLink: !!signInLink,
+        hasInterstitialButtons: interstitialButtons,
+      };
+    })()
+  `);
+
+  return {
+    currentUrl,
+    isOnYoutube: currentUrl.includes('youtube.com'),
+    isOnGoogleAuth:
+      currentUrl.includes('accounts.google.com') ||
+      currentUrl.includes('myaccount.google.com'),
+    ...domState,
+  };
+};
+
+const waitForYoutubeLoginSurface = async (timeout = 5000) => {
+  return await waitForCondition(async () => {
+    const state = await getYoutubeSessionState();
+    if (
+      state.hasAccountMenu ||
+      state.hasSignInLink ||
+      state.isOnGoogleAuth
+    ) {
+      return state;
+    }
+
+    return null;
+  }, { timeout });
+};
+
 const checkLoginStatus = async () => {
   try {
-    const result = await page.evaluate(`
-      (() => {
-        const avatarBtn = document.querySelector(
-          'button#avatar-btn, ytd-topbar-menu-button-renderer button#avatar-btn'
-        );
-        return !!avatarBtn;
-      })()
-    `);
-    return !!result;
+    const state = await waitForYoutubeLoginSurface(1500);
+    return !!(state && state.hasAccountMenu && !state.hasSignInLink);
   } catch (err) {
     return false;
   }
+};
+
+const settleLoggedInSession = async () => {
+  try {
+    let state = await getYoutubeSessionState();
+
+    if (state.hasAccountMenu && !state.hasSignInLink) {
+      return true;
+    }
+
+    if (state.isOnGoogleAuth || !state.isOnYoutube) {
+      try {
+        await page.goto('https://www.youtube.com/');
+      } catch (err) {
+        return false;
+      }
+
+      await waitForYoutubeLoginSurface(5000);
+      state = await getYoutubeSessionState();
+    }
+
+    if (state.hasInterstitialButtons) {
+      const dismissedInterstitial = await page.evaluate(`
+        (() => {
+          const buttons = document.querySelectorAll('button, a, tp-yt-paper-button');
+          for (const btn of buttons) {
+            const text = (btn.textContent || '').trim().toLowerCase();
+            if (
+              text === 'not now' ||
+              text === 'skip' ||
+              text === 'no thanks' ||
+              text === 'continue' ||
+              text === 'done'
+            ) {
+              btn.click();
+              return true;
+            }
+          }
+          return false;
+        })()
+      `);
+
+      if (dismissedInterstitial) {
+        await waitForYoutubeLoginSurface(2500);
+        state = await getYoutubeSessionState();
+      }
+    }
+
+    return !!(state.hasAccountMenu && !state.hasSignInLink);
+  } catch (err) {
+    return false;
+  }
+};
+
+const openAvatarMenu = async () => {
+  await page.evaluate(`
+    (() => {
+      const avatarBtn = document.querySelector('button#avatar-btn');
+      if (avatarBtn) avatarBtn.click();
+    })()
+  `);
+
+  await waitForCondition(async () => {
+    const menuIsOpen = await page.evaluate(`
+      (() => {
+        return !!document.querySelector(
+          'ytd-multi-page-menu-renderer, tp-yt-paper-dialog, paper-dialog'
+        );
+      })()
+    `);
+
+    return menuIsOpen;
+  }, { timeout: 2500 });
 };
 
 // ─── Email Extraction ────────────────────────────────────────
@@ -72,13 +221,7 @@ const checkLoginStatus = async () => {
 const extractEmail = async () => {
   try {
     // Open avatar dropdown
-    await page.evaluate(`
-      (() => {
-        const avatarBtn = document.querySelector('button#avatar-btn');
-        if (avatarBtn) avatarBtn.click();
-      })()
-    `);
-    await page.sleep(1500);
+    await openAvatarMenu();
 
     const scanForEmail = `
       (() => {
@@ -118,14 +261,15 @@ const extractEmail = async () => {
         })()
       `);
       if (switched) {
-        await page.sleep(1000);
+        await waitForCondition(async () => {
+          return await page.evaluate(scanForEmail);
+        }, { timeout: 2000 });
         emailText = await page.evaluate(scanForEmail);
       }
     }
 
     // Close menu
     await page.evaluate(`(() => { document.body.click(); })()`);
-    await page.sleep(500);
 
     return emailText || null;
   } catch (err) {
@@ -137,13 +281,7 @@ const extractEmail = async () => {
 
 const getChannelUrlFromMenu = async () => {
   // Open avatar menu
-  await page.evaluate(`
-    (() => {
-      const btn = document.querySelector('button#avatar-btn');
-      if (btn) btn.click();
-    })()
-  `);
-  await page.sleep(1500);
+  await openAvatarMenu();
 
   const channelUrl = await page.evaluate(`
     (() => {
@@ -180,7 +318,6 @@ const getChannelUrlFromMenu = async () => {
 
   // Close menu
   await page.evaluate(`(() => { document.body.click(); })()`);
-  await page.sleep(300);
 
   return channelUrl;
 };
@@ -776,14 +913,28 @@ const scrapeHistory = async () => {
     // ═══ Login Phase ═══
     await page.setData('status', 'Checking login status...');
     await page.goto('https://www.youtube.com/');
-    await page.sleep(2000);
+    await waitForYoutubeLoginSurface(5000);
 
     state.isLoggedIn = await checkLoginStatus();
 
     if (!state.isLoggedIn) {
       // Navigate to Google sign-in for YouTube
       await page.goto('https://accounts.google.com/ServiceLogin?service=youtube&continue=https%3A%2F%2Fwww.youtube.com%2F');
-      await page.sleep(2000);
+      await waitForCondition(async () => {
+        const currentUrl = await page.url();
+        if (currentUrl.includes('challenge') || currentUrl.includes('youtube.com')) {
+          return true;
+        }
+
+        return await page.evaluate(`
+          !!document.querySelector('input[type="email"]') ||
+          !!document.querySelector('#identifierId') ||
+          !!document.querySelector('input[type="password"]') ||
+          !!document.querySelector('input[name="Passwd"]') ||
+          !!document.querySelector('input[name="totpPin"]') ||
+          !!document.querySelector('input[type="tel"]')
+        `);
+      }, { timeout: 5000 });
 
       // Check if Google login email field is present
       const hasEmailField = await page.evaluate(`
@@ -816,7 +967,17 @@ const scrapeHistory = async () => {
             }
           })()
         `);
-        await page.sleep(500);
+        await waitForCondition(async () => {
+          return !!(await page.evaluate(`
+            (() => {
+              const nextButton =
+                document.querySelector('#identifierNext button') ||
+                document.querySelector('button[type="submit"]') ||
+                document.querySelector('#identifierNext');
+              return nextButton && !nextButton.disabled;
+            })()
+          `));
+        }, { timeout: 2000 });
         // Click Next button
         await page.evaluate(`
           (() => {
@@ -826,7 +987,19 @@ const scrapeHistory = async () => {
             if (btn) btn.click();
           })()
         `);
-        await page.sleep(3000);
+        await waitForCondition(async () => {
+          const currentUrl = await page.url();
+          if (currentUrl.includes('challenge') || currentUrl.includes('youtube.com')) {
+            return true;
+          }
+
+          return await page.evaluate(`
+            !!document.querySelector('input[type="password"]') ||
+            !!document.querySelector('input[name="Passwd"]') ||
+            !!document.querySelector('input[name="totpPin"]') ||
+            !!document.querySelector('input[type="tel"]')
+          `);
+        }, { timeout: 8000 });
 
         // Password page
         const hasPasswordField = await page.evaluate(`
@@ -857,7 +1030,17 @@ const scrapeHistory = async () => {
               }
             })()
           `);
-          await page.sleep(500);
+          await waitForCondition(async () => {
+            return !!(await page.evaluate(`
+              (() => {
+                const nextButton =
+                  document.querySelector('#passwordNext button') ||
+                  document.querySelector('button[type="submit"]') ||
+                  document.querySelector('#passwordNext');
+                return nextButton && !nextButton.disabled;
+              })()
+            `));
+          }, { timeout: 2000 });
           await page.evaluate(`
             (() => {
               const btn = document.querySelector('#passwordNext button') ||
@@ -866,7 +1049,17 @@ const scrapeHistory = async () => {
               if (btn) btn.click();
             })()
           `);
-          await page.sleep(5000);
+          await waitForCondition(async () => {
+            const currentUrl = await page.url();
+            if (currentUrl.includes('challenge') || currentUrl.includes('youtube.com')) {
+              return true;
+            }
+
+            return await page.evaluate(`
+              !!document.querySelector('input[name="totpPin"]') ||
+              !!document.querySelector('input[type="tel"]')
+            `);
+          }, { timeout: 10000 });
         }
 
         // Handle 2FA if present
@@ -896,7 +1089,16 @@ const scrapeHistory = async () => {
               }
             })()
           `);
-          await page.sleep(500);
+          await waitForCondition(async () => {
+            return !!(await page.evaluate(`
+              (() => {
+                const nextButton =
+                  document.querySelector('#totpNext button') ||
+                  document.querySelector('button[type="submit"]');
+                return nextButton && !nextButton.disabled;
+              })()
+            `));
+          }, { timeout: 2000 });
           await page.evaluate(`
             (() => {
               const btn = document.querySelector('#totpNext button') ||
@@ -904,7 +1106,10 @@ const scrapeHistory = async () => {
               if (btn) btn.click();
             })()
           `);
-          await page.sleep(5000);
+          await waitForCondition(async () => {
+            const currentUrl = await page.url();
+            return currentUrl.includes('youtube.com') || currentUrl.includes('challenge');
+          }, { timeout: 10000 });
         }
 
         // Dismiss Google interstitials that appear after login
@@ -947,14 +1152,14 @@ const scrapeHistory = async () => {
             })()
           `);
           if (!dismissed) break;
-          await page.sleep(2000);
+          await waitForYoutubeLoginSurface(3000);
         }
 
         // Wait for redirect to YouTube
         for (let i = 0; i < 10; i++) {
-          state.isLoggedIn = await checkLoginStatus();
+          state.isLoggedIn = await settleLoggedInSession();
           if (state.isLoggedIn) break;
-          await page.sleep(2000);
+          await waitForYoutubeLoginSurface(2000);
         }
       }
 
@@ -968,9 +1173,9 @@ const scrapeHistory = async () => {
             async () => checkLoginStatus(),
             2000
           );
-          await page.goHeadless();
+          await page.goHeadless({ resumeUrl: 'https://www.youtube.com/' });
         }
-        state.isLoggedIn = await checkLoginStatus();
+        state.isLoggedIn = await settleLoggedInSession();
       }
 
       await page.setData('status', 'Login completed');

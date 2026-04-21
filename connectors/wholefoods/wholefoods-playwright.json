@@ -36,5 +36,12 @@
   "exportFrequency": "weekly",
   "vectorize_config": {
     "documents": "name"
+  },
+  "consumer_metadata": {
+    "display_name": "Whole Foods Market",
+    "brand_domain": "wholefoodsmarket.com",
+    "aliases": ["whole foods"],
+    "icon_key": "wholefoods",
+    "default_scope": "wholefoods.orders"
   }
 }

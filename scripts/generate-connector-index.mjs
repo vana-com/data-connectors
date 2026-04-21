@@ -14,7 +14,7 @@ import {
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -22,7 +22,8 @@ const repoRoot = join(__dirname, "..");
 const registryPath = join(repoRoot, "registry.json");
 const indexPath = join(repoRoot, "connector-index.json");
 const artifactsDir = join(repoRoot, "artifacts");
-const shouldEmitSignatureMetadata = process.env.CONNECTOR_ENABLE_SIGSTORE_METADATA === "1";
+const shouldEmitSignatureMetadata =
+  process.env.CONNECTOR_ENABLE_SIGSTORE_METADATA === "1";
 
 function resolveSourceCommit() {
   const explicitCommit = process.env.CONNECTOR_SOURCE_COMMIT?.trim();
@@ -55,9 +56,9 @@ function resolveReleaseMetadata(sourceCommit) {
   const releaseTag =
     process.env.CONNECTOR_RELEASE_TAG?.trim() ||
     `connectors-${sourceCommit.slice(0, 12)}`;
-  const releaseId =
-    process.env.CONNECTOR_RELEASE_ID?.trim() || releaseTag;
-  const repo = process.env.GITHUB_REPOSITORY?.trim() || "vana-com/data-connectors";
+  const releaseId = process.env.CONNECTOR_RELEASE_ID?.trim() || releaseTag;
+  const repo =
+    process.env.GITHUB_REPOSITORY?.trim() || "vana-com/data-connectors";
 
   return {
     releaseTag,
@@ -73,7 +74,10 @@ function buildArtifactUrl({
   sourceCommit,
 }) {
   if (process.env.CONNECTOR_RELEASE_ASSET_BASE_URL?.trim()) {
-    const baseUrl = process.env.CONNECTOR_RELEASE_ASSET_BASE_URL.trim().replace(/\/$/, "");
+    const baseUrl = process.env.CONNECTOR_RELEASE_ASSET_BASE_URL.trim().replace(
+      /\/$/,
+      "",
+    );
     return `${baseUrl}/${artifactRelativePath.split("/").at(-1)}`;
   }
 
@@ -82,6 +86,16 @@ function buildArtifactUrl({
   }
 
   return `https://raw.githubusercontent.com/${repo}/${sourceCommit}/${artifactRelativePath}`;
+}
+
+async function fetchBuffer(url) {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch ${url}: ${response.status} ${response.statusText}`,
+    );
+  }
+  return Buffer.from(await response.arrayBuffer());
 }
 
 function readJson(path) {
@@ -148,6 +162,49 @@ function resolveCommittedArtifactTag(existingIndex) {
   return null;
 }
 
+function resolveRetainedArtifactSourceUrl(entry, repo) {
+  if (
+    typeof entry.artifactUrl === "string" &&
+    entry.artifactUrl.trim() !== ""
+  ) {
+    return entry.artifactUrl;
+  }
+
+  if (!entry.artifactPath) {
+    throw new Error(
+      `Retained connector ${entry.connectorId}@${entry.version} is missing artifactPath`,
+    );
+  }
+
+  const sourceCommit = entry.sourceCommit ?? entry.gitRef ?? null;
+  if (!sourceCommit) {
+    throw new Error(
+      `Retained connector ${entry.connectorId}@${entry.version} is missing sourceCommit`,
+    );
+  }
+
+  return `https://raw.githubusercontent.com/${repo}/${sourceCommit}/${entry.artifactPath}`;
+}
+
+function shouldRepackageRetainedEntry(entry) {
+  if (process.env.CONNECTOR_USE_RELEASE_ASSETS !== "1") {
+    return false;
+  }
+
+  const artifactUrl =
+    typeof entry.artifactUrl === "string" ? entry.artifactUrl : "";
+  const hasReleaseAssetUrl = artifactUrl.includes("/releases/download/");
+  const signature = entry.artifactSignature;
+  const hasSignatureMetadata =
+    signature &&
+    typeof signature === "object" &&
+    (signature.type === "sigstoreBundle" ||
+      signature.bundlePath ||
+      signature.bundleUrl);
+
+  return !hasReleaseAssetUrl || !hasSignatureMetadata;
+}
+
 function sha256Buffer(buffer) {
   return `sha256:${createHash("sha256").update(buffer).digest("hex")}`;
 }
@@ -187,10 +244,14 @@ function normalizeManifestAssetPaths(manifest) {
 }
 
 function resolveConnectorSchemaPath(metadataSource, scope) {
-  const schemaSource = join(dirname(metadataSource), "schemas", `${scope}.json`);
+  const schemaSource = join(
+    dirname(metadataSource),
+    "schemas",
+    `${scope}.json`,
+  );
   if (!existsSync(schemaSource)) {
     throw new Error(
-      `Schema not found for ${metadataSource.slice(repoRoot.length + 1)}: schemas/${scope}.json`
+      `Schema not found for ${metadataSource.slice(repoRoot.length + 1)}: schemas/${scope}.json`,
     );
   }
   return schemaSource;
@@ -208,7 +269,8 @@ function createArtifactBundle(entry, metadata) {
     copyIntoBundle(scriptSource, join(bundleDir, "script.js"));
 
     for (const scopeEntry of metadata.scopes ?? []) {
-      const scope = typeof scopeEntry === "string" ? scopeEntry : scopeEntry?.scope;
+      const scope =
+        typeof scopeEntry === "string" ? scopeEntry : scopeEntry?.scope;
       if (!scope) continue;
       const schemaSource = resolveConnectorSchemaPath(metadataSource, scope);
       copyIntoBundle(schemaSource, join(bundleDir, "schemas", `${scope}.json`));
@@ -216,13 +278,15 @@ function createArtifactBundle(entry, metadata) {
 
     copyIntoBundle(
       join(repoRoot, "schemas", "manifest.schema.json"),
-      join(bundleDir, "schemas", "manifest.schema.json")
+      join(bundleDir, "schemas", "manifest.schema.json"),
     );
 
     for (const relativeAssetPath of normalizeManifestAssetPaths(metadata)) {
       const assetSource = join(dirname(metadataSource), relativeAssetPath);
       if (!existsSync(assetSource)) {
-        throw new Error(`Asset not found for ${entry.id}: ${relativeAssetPath}`);
+        throw new Error(
+          `Asset not found for ${entry.id}: ${relativeAssetPath}`,
+        );
       }
       copyIntoBundle(assetSource, join(bundleDir, relativeAssetPath));
     }
@@ -257,7 +321,7 @@ function sortIndex(indexDoc) {
             partsA[2] - partsB[2]
           );
         }),
-      ])
+      ]),
   );
   return {
     ...indexDoc,
@@ -265,7 +329,84 @@ function sortIndex(indexDoc) {
   };
 }
 
-function main() {
+async function materializeRetainedArtifact({
+  entry,
+  releaseMetadata,
+  expectedArtifactPaths,
+  checkMode,
+}) {
+  if (!entry.artifactPath) {
+    throw new Error(
+      `Retained connector ${entry.connectorId}@${entry.version} is missing artifactPath`,
+    );
+  }
+
+  const artifactRelativePath = entry.artifactPath;
+  const artifactPath = join(repoRoot, artifactRelativePath);
+  const sourceCommit =
+    entry.sourceCommit ?? entry.gitRef ?? resolveSourceCommit();
+
+  if (shouldRepackageRetainedEntry(entry)) {
+    if (checkMode && !existsSync(artifactPath)) {
+      throw new Error(`Missing artifact: ${artifactRelativePath}`);
+    }
+
+    if (!checkMode) {
+      const artifactBuffer = await fetchBuffer(
+        resolveRetainedArtifactSourceUrl(entry, releaseMetadata.repo),
+      );
+      mkdirSync(dirname(artifactPath), { recursive: true });
+      writeFileSync(artifactPath, artifactBuffer);
+    }
+
+    const retainedArtifactBuffer = readFileSync(artifactPath);
+    if (
+      entry.artifactSha256 &&
+      entry.artifactSha256 !== sha256Buffer(retainedArtifactBuffer)
+    ) {
+      throw new Error(
+        `Retained connector ${entry.connectorId}@${entry.version} artifact checksum drifted`,
+      );
+    }
+
+    expectedArtifactPaths.add(artifactRelativePath);
+    return {
+      ...entry,
+      artifactUrl: buildArtifactUrl({
+        artifactRelativePath,
+        releaseTag: releaseMetadata.releaseTag,
+        repo: releaseMetadata.repo,
+        sourceCommit,
+      }),
+      ...(buildSigstoreBundleMetadata(
+        `${basename(artifactRelativePath)}.sigstore.json`,
+        buildArtifactUrl({
+          artifactRelativePath: `${artifactRelativePath}.sigstore.json`,
+          releaseTag: releaseMetadata.releaseTag,
+          repo: releaseMetadata.repo,
+          sourceCommit,
+        }),
+      )
+        ? {
+            artifactSignature: buildSigstoreBundleMetadata(
+              `${basename(artifactRelativePath)}.sigstore.json`,
+              buildArtifactUrl({
+                artifactRelativePath: `${artifactRelativePath}.sigstore.json`,
+                releaseTag: releaseMetadata.releaseTag,
+                repo: releaseMetadata.repo,
+                sourceCommit,
+              }),
+            ),
+          }
+        : {}),
+      releaseId: releaseMetadata.releaseId,
+    };
+  }
+
+  return entry;
+}
+
+async function main() {
   const checkMode = process.argv.includes("--check");
   const registry = readJson(registryPath);
   const existingIndex = existsSync(indexPath) ? readJson(indexPath) : null;
@@ -283,7 +424,7 @@ function main() {
     sourceRepo: "https://github.com/vana-com/data-connectors",
     generatedAt: registry.lastUpdated ?? new Date().toISOString(),
     signature: buildSigstoreBundleMetadata(
-      "connector-index.json.sigstore.json"
+      "connector-index.json.sigstore.json",
     ),
     connectors: {},
   };
@@ -295,7 +436,9 @@ function main() {
   const expectedArtifactPaths = new Set();
 
   for (const entry of registry.connectors) {
-    const metadata = readJson(join(repoRoot, "connectors", entry.files.metadata));
+    const metadata = readJson(
+      join(repoRoot, "connectors", entry.files.metadata),
+    );
     const bundle = createArtifactBundle(entry, metadata);
     const artifactDir = join(artifactsDir, entry.id);
     mkdirSync(artifactDir, { recursive: true });
@@ -310,7 +453,9 @@ function main() {
       "--group=0",
       "--numeric-owner",
       "--pax-option=delete=atime,delete=ctime",
-      "-czf",
+      "-I",
+      "gzip -n",
+      "-cf",
       tempArtifactPath,
       "-C",
       bundle.bundleDir,
@@ -329,7 +474,8 @@ function main() {
       status: entry.status,
       description: entry.description,
       sourceFiles: entry.files,
-      publishedAt: entry.publishedAt ?? entry.lastUpdated ?? registry.lastUpdated,
+      publishedAt:
+        entry.publishedAt ?? entry.lastUpdated ?? registry.lastUpdated,
       sourceTag: entry.sourceTag ?? entry.gitRef ?? sourceTag,
       sourceCommit: entry.sourceCommit ?? entry.gitRef ?? sourceCommit,
       releaseId: entry.releaseId ?? releaseMetadata.releaseId,
@@ -342,7 +488,7 @@ function main() {
       // causes spurious drift detection in CI.
       artifactSha256: checkMode
         ? (existingIndex?.connectors?.[entry.id]?.find(
-            (v) => v.version === entry.version
+            (v) => v.version === entry.version,
           )?.artifactSha256 ?? sha256Buffer(artifactBuffer))
         : sha256Buffer(artifactBuffer),
       artifactPath: artifactPath.slice(repoRoot.length + 1),
@@ -359,7 +505,7 @@ function main() {
           releaseTag: releaseMetadata.releaseTag,
           repo: releaseMetadata.repo,
           sourceCommit,
-        })
+        }),
       )
         ? {
             artifactSignature: buildSigstoreBundleMetadata(
@@ -369,12 +515,12 @@ function main() {
                 releaseTag: releaseMetadata.releaseTag,
                 repo: releaseMetadata.repo,
                 sourceCommit,
-              })
+              }),
             ),
           }
         : {}),
       scopes: (metadata.scopes ?? []).map((scopeEntry) =>
-        typeof scopeEntry === "string" ? scopeEntry : scopeEntry.scope
+        typeof scopeEntry === "string" ? scopeEntry : scopeEntry.scope,
       ),
       consumerMetadata: entry.consumerMetadata ?? null,
     };
@@ -387,18 +533,33 @@ function main() {
     rmSync(dirname(bundle.bundleDir), { recursive: true, force: true });
 
     const previousVersions = existingIndex?.connectors?.[entry.id] ?? [];
-    const retained = previousVersions.filter((version) => version.version !== entry.version);
+    const retained = [];
+    for (const version of previousVersions) {
+      if (version.version === entry.version) {
+        continue;
+      }
+      retained.push(
+        await materializeRetainedArtifact({
+          entry: version,
+          releaseMetadata,
+          expectedArtifactPaths,
+          checkMode,
+        }),
+      );
+    }
     nextIndex.connectors[entry.id] = [...retained, packaged];
   }
 
   const normalizedIndex = sortIndex(nextIndex);
   const nextText = `${JSON.stringify(normalizedIndex, null, 2)}\n`;
-  const beforeText = existsSync(indexPath) ? readFileSync(indexPath, "utf8") : null;
+  const beforeText = existsSync(indexPath)
+    ? readFileSync(indexPath, "utf8")
+    : null;
 
   if (checkMode) {
     if (beforeText !== nextText) {
       throw new Error(
-        "connector-index.json drift detected. Run `node scripts/generate-connector-index.mjs`."
+        "connector-index.json drift detected. Run `node scripts/generate-connector-index.mjs`.",
       );
     }
 
@@ -421,13 +582,11 @@ function main() {
 
   writeFileSync(indexPath, nextText);
   console.log(
-    `Generated connector-index.json with ${Object.keys(normalizedIndex.connectors).length} connector entries.`
+    `Generated connector-index.json with ${Object.keys(normalizedIndex.connectors).length} connector entries.`,
   );
 }
 
-try {
-  main();
-} catch (error) {
+main().catch((error) => {
   console.error(error.message);
   process.exit(1);
-}
+});
