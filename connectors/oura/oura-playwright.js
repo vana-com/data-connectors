@@ -20,7 +20,7 @@
  */
 
 const PLATFORM = "oura";
-const VERSION = "2.0.0";
+const VERSION = "2.1.0";
 const CANONICAL_SCOPES = [
   "oura.readiness",
   "oura.sleep",
@@ -264,13 +264,13 @@ const doLogin = async () => {
       "auth",
     );
   }
-  await page.sleep(3000);
 
-  let isLoggedIn = await checkLoginStatus();
-
-  if (!isLoggedIn) {
-    await page.sleep(2000);
-    isLoggedIn = await checkLoginStatus();
+  // Authoritative session check via API — faster and more reliable than DOM probing.
+  // If the cached session is still valid we skip the entire email/OTP flow.
+  let isLoggedIn = false;
+  const existingSession = await fetchCloudApi('/api/me');
+  if (existingSession?.success) {
+    isLoggedIn = true;
   }
 
   if (!isLoggedIn) {
@@ -283,7 +283,6 @@ const doLogin = async () => {
           "auth",
         );
       }
-      await page.sleep(3000);
 
       // Step 1: Ask for email
       const emailInput = await page.requestInput({
@@ -301,9 +300,8 @@ const doLogin = async () => {
 
       try {
         const emailSelector = 'input#username, input[type="email"]';
-        await page.waitForSelector(emailSelector, { timeout: 10000 });
+        await page.waitForSelector(emailSelector, { timeout: 15000 });
         await page.fill(emailSelector, emailInput.email);
-        await page.sleep(500);
         await page.click('button#submit-button, button[type="submit"]', { timeout: 5000 });
       } catch (e) {
         throw makeFatalRunError(
@@ -313,21 +311,58 @@ const doLogin = async () => {
         );
       }
 
-      await page.sleep(3000);
+      // Race: wait for either the next-step button, the "email not found" error,
+      // or a timeout. Replaces a blind 3s sleep + separate error probe.
+      const postEmail = await page.evaluate(`
+        new Promise((resolve) => {
+          const deadline = Date.now() + 10000;
+          const tick = () => {
+            const text = (document.body.textContent || '').toLowerCase();
+            if (text.includes('your email not found') ||
+                text.includes('email you entered is not associated with your oura account')) {
+              resolve('email_not_found');
+              return;
+            }
+            if (document.querySelector('button[name="selectedId"], button#submit-button')) {
+              resolve('send_code_ready');
+              return;
+            }
+            if (Date.now() > deadline) {
+              resolve('timeout');
+              return;
+            }
+            setTimeout(tick, 150);
+          };
+          tick();
+        })
+      `);
+
+      if (postEmail === 'email_not_found') {
+        await page.setData('status', 'Email not recognized by Oura.');
+        throw makeFatalRunError(
+          'auth_failed',
+          'The email you entered is not associated with an Oura account. Double-check the address you use to sign in at cloud.ouraring.com, or create an Oura account first.',
+          'auth',
+        );
+      }
 
       // Step 2: Click "Send code" button
       await page.setData('status', 'Requesting verification code...');
       try {
-        await page.waitForSelector('button[name="selectedId"], button#submit-button', { timeout: 10000 });
         await page.click('button[name="selectedId"], button#submit-button', { timeout: 5000 });
       } catch (e) {
         // May have skipped the send-code screen
       }
 
-      await page.sleep(3000);
-      await page.setData('status', 'Verification code sent! Check your email.');
+      // Step 3: Wait for the OTP input to appear, then ask user for the code.
+      const otpSelector = 'input#otp-code, input[name="otp"]';
+      try {
+        await page.waitForSelector(otpSelector, { timeout: 15000 });
+      } catch {
+        // Proceed anyway — the fill below will surface a clearer error if the input really is missing.
+      }
 
-      // Step 3: Ask user for the 6-digit OTP code
+      await page.setData('status', 'Verification code sent! Check your email.');
       const codeInput = await page.requestInput({
         message: 'Check your email for a 6-digit code from Oura and enter it below.',
         schema: {
@@ -347,10 +382,7 @@ const doLogin = async () => {
       // Step 4: Submit the OTP code
       await page.setData('status', 'Submitting verification code...');
       try {
-        const otpSelector = 'input#otp-code, input[name="otp"]';
-        await page.waitForSelector(otpSelector, { timeout: 10000 });
         await page.fill(otpSelector, codeInput.code);
-        await page.sleep(500);
         await page.click('button#submit-button, button[type="submit"]', { timeout: 5000 });
       } catch (e) {
         throw makeFatalRunError(
@@ -360,21 +392,20 @@ const doLogin = async () => {
         );
       }
 
-      await page.sleep(5000);
-
-      isLoggedIn = await checkLoginStatus();
-
-      if (!isLoggedIn) {
-        await safeGoto('https://cloud.ouraring.com/');
-        await page.sleep(3000);
-        isLoggedIn = await checkLoginStatus();
+      // Wait for a dashboard-shaped element, then verify via the API.
+      // Replaces a blind 5s sleep + two DOM-based retries.
+      try {
+        await page.waitForSelector(
+          'a[href*="readiness"], a[href*="sleep"], [class*="Dashboard"], [class*="dashboard"]',
+          { timeout: 15000 }
+        );
+      } catch {
+        // Selector timeout is not fatal — the API probe below is authoritative.
       }
 
-      if (!isLoggedIn) {
-        const meCheck = await fetchCloudApi('/api/me');
-        if (meCheck?.success) {
-          isLoggedIn = true;
-        }
+      const meAfterLogin = await fetchCloudApi('/api/me');
+      if (meAfterLogin?.success) {
+        isLoggedIn = true;
       }
     }
 
