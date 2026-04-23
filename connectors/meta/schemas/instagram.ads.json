@@ -1,47 +1,72 @@
 {
   "name": "Instagram Ad Interests",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "scope": "instagram.ads",
   "dialect": "json",
-  "description": "Advertisers the user has seen ads from, ad topic interests, and targeting categories based on their Instagram activity",
+  "description": "Advertisers the user has interacted with, ad topic interests, and targeting categories sourced from Meta Accounts Center.",
   "schema": {
     "type": "object",
     "properties": {
       "advertisers": {
         "type": "array",
+        "description": "Advertisers shown in the user's Accounts Center, deduplicated across the recently-interacted, saved, recommended, and all-advertisers collections",
         "items": {
           "type": "object",
           "properties": {
-            "name": { "type": "string" }
+            "name": { "type": "string", "description": "Advertiser display name" },
+            "sources": {
+              "type": "array",
+              "description": "Which Accounts Center collections this advertiser appeared in",
+              "items": {
+                "type": "string",
+                "description": "Collection identifier (recently_interacted, saved, recommended, all_advertisers)"
+              }
+            },
+            "id": { "type": ["string", "null"], "description": "Advertiser id from the all-advertisers collection" },
+            "page_id": { "type": ["string", "null"], "description": "Linked Facebook page id, when available" },
+            "identity_id": { "type": ["string", "null"], "description": "Meta identity id" },
+            "pic": { "type": ["string", "null"], "description": "Advertiser profile picture URL" },
+            "image_url": { "type": ["string", "null"], "description": "Alternate advertiser image URL from advertisers_data_v2" },
+            "ad_image_url": { "type": ["string", "null"], "description": "URL of a recent ad creative from this advertiser" },
+            "display_title": { "type": ["string", "null"], "description": "Headline shown on the recent ad" },
+            "token": { "type": ["string", "null"], "description": "Opaque tracking token attached to the collection node" },
+            "fb_follows_count": { "type": ["number", "null"], "description": "Number of Facebook followers, when available" },
+            "is_hidden": { "type": ["boolean", "null"], "description": "True if the advertiser has been hidden by the user" }
           },
           "required": ["name"],
-          "additionalProperties": false
+          "additionalProperties": true
         }
       },
       "ad_topics": {
         "type": "array",
+        "description": "Activity-derived ad topic interests shown in Accounts Center",
         "items": {
           "type": "object",
           "properties": {
-            "name": { "type": "string" }
+            "id": { "type": ["string", "null"], "description": "Topic id from the preloader payload, when present" },
+            "name": { "type": ["string", "null"], "description": "Topic display name" },
+            "raw": { "description": "Raw topic object from the SSR preloader, preserved for forward compatibility" }
           },
-          "required": ["name"],
-          "additionalProperties": false
+          "additionalProperties": true
         }
       },
       "categories": {
         "type": "array",
+        "description": "Targeting categories advertisers use to reach the user",
         "items": {
           "type": "object",
           "properties": {
-            "name": { "type": "string" },
-            "description": { "type": ["string", "null"] }
+            "id": { "type": ["string", "null"], "description": "Internal category id" },
+            "name": { "type": ["string", "null"], "description": "Category display name" },
+            "description": { "type": ["string", "null"], "description": "Long-form category description shown in Accounts Center" },
+            "cluster_id": { "type": ["string", "null"], "description": "Cluster identifier this category belongs to" },
+            "is_enabled": { "type": ["boolean", "null"], "description": "True if the category is currently enabled for ad targeting" }
           },
-          "required": ["name"]
+          "additionalProperties": true
         }
       }
     },
     "required": ["advertisers", "ad_topics"],
-    "additionalProperties": false
+    "additionalProperties": true
   }
 }

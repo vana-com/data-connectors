@@ -1,0 +1,33 @@
+{
+  "name": "Instagram Followers",
+  "version": "1.0.0",
+  "scope": "instagram.followers",
+  "dialect": "json",
+  "description": "Users who follow this Instagram account, paginated through the friendships REST endpoint.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "followers": {
+        "type": "array",
+        "description": "Full list of followers, ordered as returned by Instagram's friendships endpoint",
+        "items": {
+          "type": "object",
+          "properties": {
+            "pk": { "type": "string", "description": "Follower's Instagram primary key (numeric user id, as string)" },
+            "username": { "type": "string", "description": "Follower's Instagram handle without the leading @" },
+            "full_name": { "type": "string", "description": "Follower's display name (may be empty string)" },
+            "is_private": { "type": "boolean", "description": "True if the follower's account is private" },
+            "is_verified": { "type": "boolean", "description": "True if the follower has the verified badge" },
+            "profile_pic_url": { "type": "string", "description": "URL of the follower's profile picture" },
+            "is_possible_scammer": { "type": ["boolean", "null"], "description": "True if Instagram has flagged the account as a possible scammer" },
+            "has_anonymous_profile_picture": { "type": ["boolean", "null"], "description": "True if the follower has not set a custom profile picture" }
+          },
+          "required": ["pk", "username"],
+          "additionalProperties": true
+        }
+      }
+    },
+    "required": ["followers"],
+    "additionalProperties": true
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "name": "Google My Activity",
+  "version": "1.0.0",
+  "scope": "google.myactivity",
+  "dialect": "json",
+  "description": "Full activity feed across Google products (Search, Maps, YouTube, Play, Assistant, apps) with timestamps, titles, URLs, and device info.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "entries": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id":              { "type": "string", "description": "Google's internal entry id from the batchexecute response" },
+            "productIds":      { "type": "array", "items": { "type": "integer" }, "description": "Google product ids attached to this activity (e.g. 19=Search, 15=Play)" },
+            "productName":     { "type": ["string", "null"] },
+            "productIcon":     { "type": ["string", "null"] },
+            "timestampMicros": { "type": "integer", "description": "Event timestamp in microseconds since the Unix epoch" },
+            "timestampIso":    { "type": "string", "description": "ISO-8601 timestamp derived from timestampMicros" },
+            "title":           { "type": ["string", "null"] },
+            "subtitle":        { "type": ["string", "null"] },
+            "action":          { "type": ["string", "null"], "description": "Verb describing the activity, e.g. 'Visited', 'Searched for', 'Used'" },
+            "url":             { "type": ["string", "null"] },
+            "appName":         { "type": ["string", "null"] },
+            "appUrl":          { "type": ["string", "null"] },
+            "device":          { "type": ["string", "null"] }
+          },
+          "required": ["id", "timestampMicros", "timestampIso"],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": ["entries"],
+    "additionalProperties": false
+  }
+}

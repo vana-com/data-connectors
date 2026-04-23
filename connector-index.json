@@ -196,6 +196,38 @@
         }
       }
     ],
+    "google-api-playwright": [
+      {
+        "connectorId": "google-api-playwright",
+        "company": "google",
+        "version": "1.0.0",
+        "name": "Google My Activity (API)",
+        "status": "experimental",
+        "description": "Exports your Google My Activity feed across all Google products (Search, Maps, YouTube, Play, Assistant, apps) using API-first batchexecute replay. No DOM scraping for data.",
+        "sourceFiles": {
+          "script": "google/google-api-playwright.js",
+          "metadata": "google/google-api-playwright.json"
+        },
+        "publishedAt": "2026-04-15T00:00:00Z",
+        "gitRef": "feat/instagram-api-playwright-connector",
+        "pageApiVersion": 1,
+        "manifestSha256": "sha256:737c94f03092aa07ba8648be3347850b48ff6be55bf2dba7e2a384fabc39f0ff",
+        "scriptSha256": "sha256:e8475045475ba3e1a9b2df680e6dc57e719c33478c818e0881f5f50bc091fc6b",
+        "artifactSha256": "sha256:09d69fad8e10d761fa9d4a6a94788f2c7d9bcc83487b93ada3e996a05daadbea",
+        "artifactPath": "artifacts/google-api-playwright/google-api-playwright-1.0.0.tgz",
+        "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/feat/instagram-api-playwright-connector/artifacts/google-api-playwright/google-api-playwright-1.0.0.tgz",
+        "scopes": [
+          "google.myactivity"
+        ],
+        "consumerMetadata": {
+          "sourceId": "google",
+          "displayName": "Google My Activity",
+          "brandDomain": "google.com",
+          "iconKey": "google",
+          "defaultScope": "google.myactivity"
+        }
+      }
+    ],
     "heb-playwright": [
       {
         "connectorId": "heb-playwright",
@@ -329,6 +361,45 @@
           "brandDomain": "instagram.com",
           "iconKey": "instagram",
           "defaultScope": "instagram.ads"
+        }
+      }
+    ],
+    "instagram-api-playwright": [
+      {
+        "connectorId": "instagram-api-playwright",
+        "company": "meta",
+        "version": "1.0.0",
+        "name": "Instagram (API)",
+        "status": "experimental",
+        "description": "Exports your Instagram profile, posts, followers, following, and ad interests using API-first network replay (no DOM scraping for data).",
+        "sourceFiles": {
+          "script": "meta/instagram-api-playwright.js",
+          "metadata": "meta/instagram-api-playwright.json"
+        },
+        "publishedAt": "2026-04-13T00:00:00Z",
+        "gitRef": "feat/connector-contract-unification",
+        "pageApiVersion": 1,
+        "manifestSha256": "sha256:9d75393ec68bc8e5b5603f7d4e850770628580b0768a9ca0a8594a2939eaa986",
+        "scriptSha256": "sha256:f4a8a606b9e5d9b545d1a97733426d096229c00f541656571d8e5b4369406da2",
+        "artifactSha256": "sha256:3acf81c34d108a426dc19dab3a53baaa5f8c478bb5b52cd0b8399fb5bfb20ac7",
+        "artifactPath": "artifacts/instagram-api-playwright/instagram-api-playwright-1.0.0.tgz",
+        "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/feat/connector-contract-unification/artifacts/instagram-api-playwright/instagram-api-playwright-1.0.0.tgz",
+        "scopes": [
+          "instagram.profile",
+          "instagram.posts",
+          "instagram.followers",
+          "instagram.following",
+          "instagram.ads"
+        ],
+        "consumerMetadata": {
+          "sourceId": "instagram",
+          "displayName": "Instagram (API)",
+          "brandDomain": "instagram.com",
+          "aliases": [
+            "meta"
+          ],
+          "iconKey": "instagram",
+          "defaultScope": "instagram.profile"
         }
       }
     ],

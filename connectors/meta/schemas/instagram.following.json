@@ -3,29 +3,48 @@
   "version": "1.0.0",
   "scope": "instagram.following",
   "dialect": "json",
-  "description": "The list of Instagram accounts the user follows, as returned by the Instagram friendships/following endpoint.",
+  "description": "Users this Instagram account follows, paginated through the friendships REST endpoint.",
   "schema": {
     "type": "object",
     "properties": {
       "accounts": {
         "type": "array",
+        "description": "Legacy alias for the list of accounts the user follows; present for backward compatibility with the pre-API connector",
         "items": {
           "type": "object",
           "properties": {
-            "username": { "type": "string" },
-            "full_name": { "type": "string" },
-            "pk": { "type": "string" },
-            "is_private": { "type": "boolean" },
-            "is_verified": { "type": "boolean" },
-            "profile_pic_url": { "type": ["string", "null"] }
+            "username": { "type": "string", "description": "Followed account's Instagram handle" },
+            "full_name": { "type": "string", "description": "Followed account's display name" },
+            "pk": { "type": "string", "description": "Followed account's Instagram primary key" },
+            "is_private": { "type": "boolean", "description": "True if the followed account is private" },
+            "is_verified": { "type": "boolean", "description": "True if the followed account has the verified badge" },
+            "profile_pic_url": { "type": ["string", "null"], "description": "URL of the followed account's profile picture" }
           },
           "required": ["username"],
-          "additionalProperties": false
+          "additionalProperties": true
         }
       },
-      "total": { "type": "number" }
+      "total": { "type": "number", "description": "Legacy total count of followed accounts" },
+      "following": {
+        "type": "array",
+        "description": "Full list of accounts this user follows, ordered as returned by Instagram's friendships endpoint",
+        "items": {
+          "type": "object",
+          "properties": {
+            "pk": { "type": "string", "description": "Followed account's Instagram primary key (numeric user id, as string)" },
+            "username": { "type": "string", "description": "Followed account's Instagram handle without the leading @" },
+            "full_name": { "type": "string", "description": "Followed account's display name (may be empty string)" },
+            "is_private": { "type": "boolean", "description": "True if the followed account is private" },
+            "is_verified": { "type": "boolean", "description": "True if the followed account has the verified badge" },
+            "profile_pic_url": { "type": "string", "description": "URL of the followed account's profile picture" },
+            "is_possible_scammer": { "type": ["boolean", "null"], "description": "True if Instagram has flagged the account as a possible scammer" },
+            "has_anonymous_profile_picture": { "type": ["boolean", "null"], "description": "True if the followed account has not set a custom profile picture" }
+          },
+          "required": ["pk", "username"],
+          "additionalProperties": true
+        }
+      }
     },
-    "required": ["accounts"],
-    "additionalProperties": false
+    "additionalProperties": true
   }
 }

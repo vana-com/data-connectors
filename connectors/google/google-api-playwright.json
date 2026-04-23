@@ -1,0 +1,35 @@
+{
+  "manifest_version": "1.0",
+  "connector_id": "google-api-playwright",
+  "source_id": "google",
+  "version": "1.0.0",
+  "name": "Google My Activity (API)",
+  "company": "Google",
+  "description": "Exports your Google My Activity feed across all Google products (Search, Maps, YouTube, Play, Assistant, apps) using API-first batchexecute replay. No DOM scraping for data.",
+  "runtime": "playwright",
+  "page_api_version": 1,
+  "connect_url": "https://myactivity.google.com/myactivity",
+  "connect_selector": "a[aria-label*='Google Account']",
+  "icon": "icons/google.svg",
+  "scopes": [
+    {
+      "scope": "google.myactivity",
+      "label": "Your Google activity history",
+      "description": "Cross-product activity feed with timestamps, titles, URLs, and device info from Search, Maps, YouTube, Play, Assistant, and Google apps."
+    }
+  ],
+  "id": "google-api-playwright",
+  "connectURL": "https://myactivity.google.com/myactivity",
+  "connectSelector": "a[aria-label*='Google Account']",
+  "iconURL": "icons/google.svg",
+  "exportFrequency": "weekly",
+  "vectorize_config": {
+    "documents": "myactivity"
+  },
+  "consumer_metadata": {
+    "display_name": "Google My Activity",
+    "brand_domain": "google.com",
+    "icon_key": "google",
+    "default_scope": "google.myactivity"
+  }
+}

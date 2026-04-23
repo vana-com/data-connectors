@@ -1,6 +1,6 @@
 {
   "version": "2.0.0",
-  "lastUpdated": "2026-04-13T00:00:00Z",
+  "lastUpdated": "2026-04-15T00:00:00Z",
   "baseUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main/connectors",
   "connectors": [
     {
@@ -76,6 +76,28 @@
       "checksums": {
         "script": "sha256:09c2f905cb73500750b63c82cd9b96f8d5e6429254b9f0a68e8c3b14df300d4c",
         "metadata": "sha256:d837e66b63c1a188bf0a60e92b5fd9dcd9cd4672133d93dd02c06c16bc2bfb95"
+      }
+    },
+    {
+      "id": "instagram-api-playwright",
+      "company": "meta",
+      "version": "1.0.0",
+      "name": "Instagram (API)",
+      "status": "experimental",
+      "description": "Exports your Instagram profile, posts, followers, following, and ad interests using API-first network replay (no DOM scraping for data).",
+      "consumerMetadata": {
+        "sourceId": "instagram",
+        "displayName": "Instagram (API)",
+        "brandDomain": "instagram.com",
+        "aliases": [
+          "meta"
+        ],
+        "iconKey": "instagram",
+        "defaultScope": "instagram.profile"
+      },
+      "files": {
+        "script": "meta/instagram-api-playwright.js",
+        "metadata": "meta/instagram-api-playwright.json"
       }
     },
     {
@@ -168,6 +190,29 @@
       "checksums": {
         "script": "sha256:41edd09ec113ad7f9d09c9c0de76e40577087ab4600d2c8ccba4ca95c3f919c6",
         "metadata": "sha256:8af6a9623851d2f0db9f86cdce50a3e60f2fee5387c5922f11c064043298ec6f"
+      }
+    },
+    {
+      "id": "google-api-playwright",
+      "company": "google",
+      "version": "1.0.0",
+      "name": "Google My Activity (API)",
+      "status": "experimental",
+      "description": "Exports your Google My Activity feed across all Google products (Search, Maps, YouTube, Play, Assistant, apps) using API-first batchexecute replay. No DOM scraping for data.",
+      "consumerMetadata": {
+        "sourceId": "google",
+        "displayName": "Google My Activity",
+        "brandDomain": "google.com",
+        "iconKey": "google",
+        "defaultScope": "google.myactivity"
+      },
+      "files": {
+        "script": "google/google-api-playwright.js",
+        "metadata": "google/google-api-playwright.json"
+      },
+      "checksums": {
+        "script": "sha256:e8475045475ba3e1a9b2df680e6dc57e719c33478c818e0881f5f50bc091fc6b",
+        "metadata": "sha256:737c94f03092aa07ba8648be3347850b48ff6be55bf2dba7e2a384fabc39f0ff"
       }
     },
     {

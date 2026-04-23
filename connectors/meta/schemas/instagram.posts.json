@@ -1,40 +1,62 @@
 {
   "name": "Instagram Posts",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "scope": "instagram.posts",
   "dialect": "json",
-  "description": "User's Instagram posts including images, captions, and like engagement data",
+  "description": "User's Instagram posts including images, captions, engagement counts, media type, location, and top likers when available.",
   "schema": {
     "type": "object",
     "properties": {
       "posts": {
         "type": "array",
+        "description": "Array of posts in reverse chronological order",
         "items": {
           "type": "object",
           "properties": {
-            "img_url": { "type": "string" },
-            "caption": { "type": "string" },
-            "num_of_likes": { "type": "number" },
+            "pk": { "type": ["string", "null"], "description": "Instagram primary key for the post" },
+            "id": { "type": ["string", "null"], "description": "Internal post id (often pk_userid)" },
+            "code": { "type": ["string", "null"], "description": "Short code used in the post permalink (instagram.com/p/<code>)" },
+            "media_type": { "type": ["number", "null"], "description": "Media type enum: 1=photo, 2=video, 8=carousel album" },
+            "taken_at": { "type": ["number", "null"], "description": "Unix timestamp (seconds) of when the post was published" },
+            "img_url": { "type": "string", "description": "Best-effort primary image URL for the post (or first carousel image, or video thumbnail)" },
+            "caption": { "type": "string", "description": "Post caption text (empty string if no caption)" },
+            "num_of_likes": { "type": "number", "description": "Total number of likes on the post" },
+            "comment_count": { "type": ["number", "null"], "description": "Total number of comments on the post" },
+            "is_video": { "type": ["boolean", "null"], "description": "True if the post contains video media" },
+            "video_url": { "type": ["string", "null"], "description": "URL of the highest-quality video version, when this is a video post" },
+            "carousel_count": { "type": ["number", "null"], "description": "Number of media items in the carousel, when this is a carousel post" },
+            "location": {
+              "type": ["object", "null"],
+              "description": "Tagged location metadata, when present",
+              "properties": {
+                "pk": { "type": ["string", "null"], "description": "Instagram location primary key" },
+                "name": { "type": ["string", "null"], "description": "Location display name" },
+                "city": { "type": ["string", "null"], "description": "City the location belongs to" },
+                "lat": { "type": ["number", "null"], "description": "Latitude coordinate" },
+                "lng": { "type": ["number", "null"], "description": "Longitude coordinate" }
+              }
+            },
             "who_liked": {
               "type": "array",
+              "description": "Top likers shown in the facepile (only populated for the viewer's own recent posts)",
               "items": {
                 "type": "object",
                 "properties": {
-                  "profile_pic_url": { "type": "string" },
-                  "pk": { "type": "string" },
-                  "username": { "type": "string" },
-                  "id": { "type": "string" }
+                  "profile_pic_url": { "type": "string", "description": "Liker's profile picture URL" },
+                  "pk": { "type": "string", "description": "Liker's Instagram primary key" },
+                  "username": { "type": "string", "description": "Liker's Instagram handle" },
+                  "id": { "type": "string", "description": "Liker's Instagram id (alias of pk)" }
                 },
-                "additionalProperties": false
+                "additionalProperties": true
               }
             }
           },
           "required": ["img_url", "caption", "num_of_likes"],
-          "additionalProperties": false
+          "additionalProperties": true
         }
       }
     },
     "required": ["posts"],
-    "additionalProperties": false
+    "additionalProperties": true
   }
 }
