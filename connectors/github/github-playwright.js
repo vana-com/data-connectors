@@ -12,15 +12,19 @@ const state = {
   profile: null,
   repositories: [],
   starred: [],
+  events: [],
+  contributions: null,
   isComplete: false,
 };
 
 const PLATFORM = "github";
-const VERSION = "1.2.0";
+const VERSION = "1.3.0";
 const CANONICAL_SCOPES = [
   "github.profile",
   "github.repositories",
   "github.starred",
+  "github.events",
+  "github.contributions",
 ];
 
 const makeConnectorError = (
@@ -61,9 +65,16 @@ const inferErrorClass = (message, fallback = "runtime_error") => {
   return fallback;
 };
 
-const formatExportSummaryDetails = (repositories, starred) => ({
+const formatExportSummaryDetails = (
   repositories,
   starred,
+  events = 0,
+  contributions = 0,
+) => ({
+  repositories,
+  starred,
+  events,
+  contributions,
 });
 
 const buildResult = ({ requestedScopes, scopes, errors, exportSummary }) => ({
@@ -84,7 +95,7 @@ const buildEmptyResult = (requestedScopes, errors) =>
     exportSummary: {
       count: 0,
       label: "items",
-      details: formatExportSummaryDetails(0, 0),
+      details: formatExportSummaryDetails(0, 0, 0, 0),
     },
   });
 
@@ -264,6 +275,47 @@ const extractProfile = async (username) => {
         const reposNode = document.querySelector('[data-tab-item="repositories"] .Counter, a[href*="tab=repositories"] .Counter') || document.querySelector('[data-tab-item="repositories"], a[href*="tab=repositories"]');
         const reposRaw = (reposNode?.textContent || '').trim();
 
+        // Pinned repositories — what the user curates on their profile
+        const pinnedItems = Array.from(document.querySelectorAll('.js-pinned-items-reorder-container li, ol.pinned-items-reorder-list li')).map((li) => {
+          const link = li.querySelector('a[href*="/"]');
+          const href = link?.getAttribute('href') || '';
+          const full = href.startsWith('/') ? href.slice(1) : href;
+          const description = (li.querySelector('p.pinned-item-desc')?.textContent || '').trim();
+          const language = (li.querySelector('[itemprop="programmingLanguage"]')?.textContent || '').trim();
+          const stars = (li.querySelector('a[href$="/stargazers"]')?.textContent || '').trim();
+          return {
+            fullName: full,
+            url: full ? \`https://github.com/\${full}\` : null,
+            description,
+            language: language || null,
+            stars: toInt(stars),
+          };
+        }).filter((p) => p.fullName);
+
+        // Organization memberships — visible avatars under "Organizations"
+        const organizations = Array.from(document.querySelectorAll('a.avatar-group-item[href^="/"]')).map((a) => {
+          const href = a.getAttribute('href') || '';
+          const name = href.replace(/^\\//, '').split('/')[0];
+          const label = a.getAttribute('aria-label') || a.querySelector('img')?.getAttribute('alt') || name;
+          const avatar = a.querySelector('img')?.getAttribute('src') || null;
+          return name ? { login: name, label, url: \`https://github.com\${href}\`, avatarUrl: avatar } : null;
+        }).filter(Boolean);
+
+        // Achievement badges — title attributes on the achievement images
+        const achievements = Array.from(document.querySelectorAll('.js-achievement-card img, a[href*="/achievements/"] img')).map((img) => {
+          const alt = img.getAttribute('alt') || '';
+          // alt is typically "Achievement: <Name>"
+          const name = alt.replace(/^Achievement:\\s*/i, '').trim();
+          const src = img.getAttribute('src') || null;
+          return name ? { name, iconUrl: src } : null;
+        }).filter(Boolean);
+
+        // "N contributions in the last year" counter on profile
+        const contribCounter = document.querySelector('h2.f4.text-normal.mb-2');
+        const contribText = (contribCounter?.textContent || '').trim();
+        const contribMatch = contribText.match(/([\\d,]+)\\s+contribution/i);
+        const contributionsLastYear = contribMatch ? toInt(contribMatch[1]) : null;
+
         return {
           username,
           fullName,
@@ -275,7 +327,11 @@ const extractProfile = async (username) => {
           followers: toInt(followersRaw),
           following: toInt(followingRaw),
           repositoryCount: toInt(reposRaw),
-          profileUrl: window.location.href
+          profileUrl: window.location.href,
+          pinnedRepositories: pinnedItems,
+          organizations,
+          achievements,
+          contributionsLastYear,
         };
       })()
     `);
@@ -576,6 +632,351 @@ const extractStarred = async (username) => {
   };
 };
 
+const EVENT_TYPE_FORMATTERS = {
+  PushEvent: (payload) => {
+    const commits = Array.isArray(payload?.commits) ? payload.commits : [];
+    const first = commits[0];
+    const ref = typeof payload?.ref === "string" ? payload.ref : "";
+    const branch = ref.replace(/^refs\/heads\//, "") || null;
+    return {
+      action: "pushed",
+      title:
+        first && typeof first.message === "string"
+          ? first.message.split("\n")[0]
+          : null,
+      branch,
+      commits: commits.length || (typeof payload?.size === "number" ? payload.size : null),
+    };
+  },
+  PullRequestEvent: (payload) => {
+    const pr = payload?.pull_request || {};
+    const num = typeof pr.number === "number" ? pr.number : null;
+    const branch = pr.head && typeof pr.head.ref === "string" ? pr.head.ref : null;
+    const titleFallback = num != null ? `PR #${num}${branch ? ` (${branch})` : ""}` : null;
+    return {
+      action: typeof payload?.action === "string" ? payload.action : null,
+      title: typeof pr.title === "string" && pr.title ? pr.title : titleFallback,
+      body: typeof pr.body === "string" ? pr.body.slice(0, 280) : null,
+      url:
+        typeof pr.html_url === "string"
+          ? pr.html_url
+          : typeof pr.url === "string"
+            ? pr.url.replace("api.github.com/repos", "github.com")
+            : null,
+      branch,
+    };
+  },
+  PullRequestReviewEvent: (payload) => {
+    const pr = payload?.pull_request || {};
+    const review = payload?.review || {};
+    return {
+      action: typeof review.state === "string" ? review.state.toLowerCase() : null,
+      title: typeof pr.title === "string" ? pr.title : null,
+      body: typeof review.body === "string" ? review.body.slice(0, 280) : null,
+      url: typeof review.html_url === "string" ? review.html_url : null,
+    };
+  },
+  PullRequestReviewCommentEvent: (payload) => {
+    const c = payload?.comment || {};
+    return {
+      action: "review_comment",
+      body: typeof c.body === "string" ? c.body.slice(0, 280) : null,
+      url: typeof c.html_url === "string" ? c.html_url : null,
+    };
+  },
+  IssuesEvent: (payload) => {
+    const issue = payload?.issue || {};
+    const num = typeof issue.number === "number" ? issue.number : null;
+    return {
+      action: typeof payload?.action === "string" ? payload.action : null,
+      title:
+        typeof issue.title === "string" && issue.title
+          ? issue.title
+          : num != null
+            ? `Issue #${num}`
+            : null,
+      body: typeof issue.body === "string" ? issue.body.slice(0, 280) : null,
+      url: typeof issue.html_url === "string" ? issue.html_url : null,
+    };
+  },
+  IssueCommentEvent: (payload) => {
+    const c = payload?.comment || {};
+    const issue = payload?.issue || {};
+    return {
+      action: "commented",
+      title: typeof issue.title === "string" ? issue.title : null,
+      body: typeof c.body === "string" ? c.body.slice(0, 280) : null,
+      url: typeof c.html_url === "string" ? c.html_url : null,
+    };
+  },
+  CreateEvent: (payload) => ({
+    action: typeof payload?.ref_type === "string" ? `created_${payload.ref_type}` : "created",
+    title: typeof payload?.ref === "string" ? payload.ref : null,
+    body: typeof payload?.description === "string" ? payload.description : null,
+    branch: payload?.ref_type === "branch" && typeof payload?.ref === "string" ? payload.ref : null,
+  }),
+  DeleteEvent: (payload) => ({
+    action: typeof payload?.ref_type === "string" ? `deleted_${payload.ref_type}` : "deleted",
+    title: typeof payload?.ref === "string" ? payload.ref : null,
+    branch: payload?.ref_type === "branch" && typeof payload?.ref === "string" ? payload.ref : null,
+  }),
+  ForkEvent: (payload) => {
+    const forkee = payload?.forkee || {};
+    return {
+      action: "forked",
+      title: typeof forkee.full_name === "string" ? forkee.full_name : null,
+      url: typeof forkee.html_url === "string" ? forkee.html_url : null,
+    };
+  },
+  WatchEvent: (payload) => ({
+    action: typeof payload?.action === "string" ? payload.action : "starred",
+  }),
+  ReleaseEvent: (payload) => {
+    const r = payload?.release || {};
+    return {
+      action: typeof payload?.action === "string" ? payload.action : null,
+      title: typeof r.name === "string" ? r.name : typeof r.tag_name === "string" ? r.tag_name : null,
+      body: typeof r.body === "string" ? r.body.slice(0, 280) : null,
+      url: typeof r.html_url === "string" ? r.html_url : null,
+    };
+  },
+  GollumEvent: (payload) => {
+    const pages = Array.isArray(payload?.pages) ? payload.pages : [];
+    return {
+      action: "wiki_edit",
+      title: pages[0] && typeof pages[0].title === "string" ? pages[0].title : null,
+      body: pages.length > 1 ? `${pages.length} pages edited` : null,
+      url: pages[0] && typeof pages[0].html_url === "string" ? pages[0].html_url : null,
+    };
+  },
+  CommitCommentEvent: (payload) => {
+    const c = payload?.comment || {};
+    return {
+      action: "commit_comment",
+      body: typeof c.body === "string" ? c.body.slice(0, 280) : null,
+      url: typeof c.html_url === "string" ? c.html_url : null,
+    };
+  },
+};
+
+const normalizeEvent = (raw) => {
+  if (!raw || typeof raw !== "object") return null;
+  const type = typeof raw.type === "string" ? raw.type : null;
+  const id = typeof raw.id === "string" ? raw.id : null;
+  const createdAt = typeof raw.created_at === "string" ? raw.created_at : null;
+  const repoName = raw.repo && typeof raw.repo.name === "string" ? raw.repo.name : null;
+  if (!type || !id || !createdAt || !repoName) return null;
+
+  const formatter = EVENT_TYPE_FORMATTERS[type];
+  const extras = formatter ? formatter(raw.payload || {}) : {};
+
+  return {
+    id,
+    type,
+    createdAt,
+    repo: repoName,
+    repoUrl: `https://github.com/${repoName}`,
+    action: extras.action ?? null,
+    title: extras.title ?? null,
+    body: extras.body ?? null,
+    url: extras.url ?? null,
+    branch: extras.branch ?? null,
+    commits: typeof extras.commits === "number" ? extras.commits : null,
+    isPublic: raw.public !== false,
+  };
+};
+
+const extractEvents = async (username) => {
+  if (!isValidGitHubUsername(username)) {
+    return {
+      ok: false,
+      data: [],
+      error: makeConnectorError(
+        "runtime_error",
+        "Could not resolve a valid GitHub username for events collection.",
+        "omitted",
+        { scope: "github.events", phase: "collect" },
+      ),
+    };
+  }
+
+  // GitHub's events API: up to 300 events from the past 90 days, anonymous
+  // access permitted (60 req/hr). Three pages × 100 events = full window.
+  const all = [];
+  let unresolvedError = null;
+  for (let pageIndex = 1; pageIndex <= 3; pageIndex++) {
+    try {
+      const pageResult = await page.evaluate(`
+        (async () => {
+          try {
+            const res = await fetch('https://api.github.com/users/${username}/events/public?per_page=100&page=${pageIndex}', {
+              headers: { 'accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
+            });
+            if (!res.ok) return { ok: false, status: res.status, body: await res.text() };
+            const data = await res.json();
+            return { ok: true, items: Array.isArray(data) ? data : [] };
+          } catch (err) {
+            return { ok: false, status: 0, body: String(err && err.message || err) };
+          }
+        })()
+      `);
+
+      if (!pageResult || !pageResult.ok) {
+        unresolvedError = makeConnectorError(
+          pageResult?.status === 0 ? "network_error" : "runtime_error",
+          `GitHub events API page ${pageIndex} returned status ${pageResult?.status ?? "unknown"}.`,
+          all.length > 0 ? "degraded" : "omitted",
+          { scope: "github.events", phase: "collect" },
+        );
+        break;
+      }
+
+      const items = pageResult.items;
+      for (const raw of items) {
+        const normalized = normalizeEvent(raw);
+        if (normalized) all.push(normalized);
+      }
+
+      await page.setData(
+        "status",
+        `Fetching activity... (${all.length} events${items.length === 100 ? ", loading more" : ""})`,
+      );
+
+      if (items.length < 100) break;
+    } catch {
+      unresolvedError = makeConnectorError(
+        "runtime_error",
+        `Could not read events page ${pageIndex} for @${username}.`,
+        all.length > 0 ? "degraded" : "omitted",
+        { scope: "github.events", phase: "collect" },
+      );
+      break;
+    }
+  }
+
+  return {
+    ok: unresolvedError === null || all.length > 0,
+    data: all,
+    error: unresolvedError,
+  };
+};
+
+const extractContributions = async (username) => {
+  if (!isValidGitHubUsername(username)) {
+    return {
+      ok: false,
+      data: null,
+      error: makeConnectorError(
+        "runtime_error",
+        "Could not resolve a valid GitHub username for contributions collection.",
+        "omitted",
+        { scope: "github.contributions", phase: "collect" },
+      ),
+    };
+  }
+
+  // The contribution graph on the profile page is rendered as SVG, with one
+  // <td> or <rect> per day carrying data-date and data-level attributes.
+  // We scrape rather than hit the (auth-required) GraphQL contributions API.
+  if (!(await safeGoto(`https://github.com/${username}`))) {
+    return {
+      ok: false,
+      data: null,
+      error: makeConnectorError(
+        "navigation_error",
+        `Could not reach the profile page for @${username} (contributions).`,
+        "omitted",
+        { scope: "github.contributions", phase: "collect" },
+      ),
+    };
+  }
+  await page.sleep(1500);
+
+  try {
+    const graph = await page.evaluate(`
+      (() => {
+        ${TO_INT_HELPER}
+
+        // Newer GitHub layout: <td class="ContributionCalendar-day" data-date data-level>
+        // Older layout: <rect class="day" data-date data-level data-count>
+        const cells = Array.from(document.querySelectorAll('td.ContributionCalendar-day[data-date], rect.day[data-date]'));
+
+        const days = cells.map((cell) => {
+          const date = cell.getAttribute('data-date');
+          const level = cell.getAttribute('data-level');
+          const dataCount = cell.getAttribute('data-count');
+          // Some layouts inline the count in a <tool-tip>; the live aria-label looks like "N contributions on Month D" or "No contributions"
+          let count = 0;
+          if (dataCount != null) {
+            count = toInt(dataCount);
+          } else {
+            const id = cell.getAttribute('id');
+            const tip = id ? document.querySelector(\`tool-tip[for="\${id}"]\`) : null;
+            const text = tip?.textContent || cell.getAttribute('aria-label') || '';
+            const m = text.match(/(\\d+|No)\\s+contribution/i);
+            if (m) count = /no/i.test(m[1]) ? 0 : toInt(m[1]);
+          }
+          return { date, count, level: level != null ? Number(level) : null };
+        }).filter((d) => d.date);
+
+        // Total from the page heading "N contributions in the last year"
+        const heading = document.querySelector('h2.f4.text-normal.mb-2');
+        const headingText = (heading?.textContent || '').trim();
+        const totalMatch = headingText.match(/([\\d,]+)\\s+contribution/i);
+        const totalContributionsLastYear = totalMatch ? toInt(totalMatch[1]) : days.reduce((a, d) => a + d.count, 0);
+
+        // Roll up monthly totals
+        const monthly = {};
+        for (const d of days) {
+          const m = d.date.slice(0, 7);
+          monthly[m] = (monthly[m] || 0) + d.count;
+        }
+        const monthlyTotals = Object.entries(monthly)
+          .sort(([a], [b]) => (a < b ? -1 : 1))
+          .map(([month, count]) => ({ month, count }));
+
+        const topDay = days.reduce((best, d) => (best == null || d.count > best.count ? d : best), null);
+
+        return {
+          totalContributionsLastYear,
+          days,
+          monthlyTotals,
+          topDay: topDay && topDay.count > 0 ? { date: topDay.date, count: topDay.count } : null,
+        };
+      })()
+    `);
+
+    if (!graph || !Array.isArray(graph.days) || graph.days.length === 0) {
+      return {
+        ok: false,
+        data: null,
+        error: makeConnectorError(
+          "selector_error",
+          `Could not read contribution graph for @${username}.`,
+          "omitted",
+          { scope: "github.contributions", phase: "collect" },
+        ),
+      };
+    }
+
+    return {
+      ok: true,
+      data: { ...graph, fetchedAt: new Date().toISOString() },
+    };
+  } catch {
+    return {
+      ok: false,
+      data: null,
+      error: makeConnectorError(
+        "selector_error",
+        `Could not parse contribution graph DOM for @${username}.`,
+        "omitted",
+        { scope: "github.contributions", phase: "collect" },
+      ),
+    };
+  }
+};
+
 // ── Main Flow ────────────────────────────────────────────────────────
 (async () => {
   let requestedScopes = [...CANONICAL_SCOPES];
@@ -865,7 +1266,37 @@ const extractStarred = async (username) => {
       }
     }
 
-    const totalItems = state.repositories.length + state.starred.length;
+    if (wantsScope("github.events")) {
+      await page.setData("status", "Fetching activity...");
+      const eventsResult = await extractEvents(username);
+      state.events = eventsResult.data;
+      if (eventsResult.ok) {
+        scopes["github.events"] = {
+          events: state.events,
+          fetchedAt: new Date().toISOString(),
+          windowDescription:
+            "Up to 300 most recent public events across all repositories (≈90 days, GitHub API limit)",
+        };
+      }
+      if (eventsResult.error) {
+        errors.push(eventsResult.error);
+      }
+    }
+
+    if (wantsScope("github.contributions")) {
+      await page.setData("status", "Fetching contribution graph...");
+      const contribResult = await extractContributions(username);
+      state.contributions = contribResult.data;
+      if (contribResult.ok && state.contributions) {
+        scopes["github.contributions"] = state.contributions;
+      }
+      if (contribResult.error) {
+        errors.push(contribResult.error);
+      }
+    }
+
+    const totalItems =
+      state.repositories.length + state.starred.length + state.events.length;
     const result = buildResult({
       requestedScopes,
       scopes,
@@ -876,6 +1307,8 @@ const extractStarred = async (username) => {
         details: formatExportSummaryDetails(
           state.repositories.length,
           state.starred.length,
+          state.events.length,
+          state.contributions?.totalContributionsLastYear ?? 0,
         ),
       },
     });
@@ -884,7 +1317,7 @@ const extractStarred = async (username) => {
     await page.setData("result", result);
     await page.setData(
       "status",
-      `Complete! ${state.repositories.length} repositories and ${state.starred.length} starred repos collected.`,
+      `Complete! ${state.repositories.length} repos, ${state.starred.length} starred, ${state.events.length} events collected.`,
     );
 
     return result;
