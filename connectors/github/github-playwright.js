@@ -19,7 +19,7 @@ const state = {
 };
 
 const PLATFORM = "github";
-const VERSION = "1.3.0";
+const VERSION = "1.4.0";
 const CANONICAL_SCOPES = [
   "github.profile",
   "github.repositories",

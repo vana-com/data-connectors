@@ -32,10 +32,10 @@
     {
       "id": "github-playwright",
       "company": "github",
-      "version": "1.2.0",
+      "version": "1.4.0",
       "name": "GitHub",
       "status": "stable",
-      "description": "Exports your GitHub profile, repositories, and starred repositories.",
+      "description": "Exports your GitHub profile, repositories, starred repositories, public activity events, and contribution graph.",
       "consumerMetadata": {
         "sourceId": "github",
         "displayName": "GitHub",
@@ -48,8 +48,8 @@
         "metadata": "github/github-playwright.json"
       },
       "checksums": {
-        "script": "sha256:486d4d0642132105877ab42a3807b59601619c2bb8aa9a60afdfd9cf6da58448",
-        "metadata": "sha256:bac5c9a4d617c12e56d0056f6d55db2c652a263690008785ceda31f28e1cfd48"
+        "script": "sha256:61eb4be00e1d267075cd78d7e14648615c62aa7cebffeae73ab4135acfe58b2f",
+        "metadata": "sha256:f571faa1a75b6d7fec6ae2bcc5789febd24745b4354e6e7a45198a86a21cd18f"
       }
     },
     {
@@ -84,7 +84,7 @@
       "version": "1.0.0",
       "name": "Instagram Ads",
       "status": "beta",
-      "description": "Exports your Instagram ad interests — advertisers and ad topics.",
+      "description": "Exports your Instagram ad interests \u2014 advertisers and ad topics.",
       "consumerMetadata": {
         "sourceId": "instagram",
         "displayName": "Instagram Ads",
