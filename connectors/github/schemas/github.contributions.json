@@ -8,6 +8,18 @@
     "type": "object",
     "properties": {
       "totalContributionsLastYear": { "type": ["number", "null"] },
+      "yearTotals": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "year": { "type": "number" },
+            "total": { "type": "number" }
+          },
+          "required": ["year", "total"],
+          "additionalProperties": false
+        }
+      },
       "days": {
         "type": "array",
         "items": {

@@ -14,6 +14,7 @@ const state = {
   starred: [],
   events: [],
   contributions: null,
+  history: null,
   isComplete: false,
 };
 
@@ -25,6 +26,7 @@ const CANONICAL_SCOPES = [
   "github.starred",
   "github.events",
   "github.contributions",
+  "github.history",
 ];
 
 const makeConnectorError = (
@@ -861,6 +863,181 @@ const extractEvents = async (username) => {
   };
 };
 
+// Full-lifetime authored PRs + Issues via Search API (anonymous, 1000-result
+// cap per type — far more than the 90-day Events window and covers any repo
+// the user has authored in, including org-owned and forks).
+const normalizeSearchItem = (raw, type) => {
+  if (!raw || typeof raw !== "object") return null;
+  const repoUrl = typeof raw.repository_url === "string" ? raw.repository_url : "";
+  const repo = repoUrl.replace("https://api.github.com/repos/", "");
+  const pr = raw.pull_request || null;
+  return {
+    id: typeof raw.id === "number" ? `gh-${type}-${raw.id}` : `gh-${type}-${raw.number}`,
+    type,
+    number: typeof raw.number === "number" ? raw.number : null,
+    title: typeof raw.title === "string" ? raw.title : null,
+    body: typeof raw.body === "string" ? raw.body.slice(0, 500) : null,
+    state: typeof raw.state === "string" ? raw.state : null,
+    createdAt: typeof raw.created_at === "string" ? raw.created_at : null,
+    updatedAt: typeof raw.updated_at === "string" ? raw.updated_at : null,
+    closedAt: typeof raw.closed_at === "string" ? raw.closed_at : null,
+    mergedAt: pr && typeof pr.merged_at === "string" ? pr.merged_at : null,
+    url: typeof raw.html_url === "string" ? raw.html_url : null,
+    repo,
+    repoUrl: repo ? `https://github.com/${repo}` : null,
+    labels: Array.isArray(raw.labels)
+      ? raw.labels.map((l) => (l && typeof l.name === "string" ? l.name : null)).filter(Boolean)
+      : [],
+    comments: typeof raw.comments === "number" ? raw.comments : 0,
+    reactionsTotal:
+      raw.reactions && typeof raw.reactions.total_count === "number" ? raw.reactions.total_count : 0,
+    isDraft: pr && pr.merged_at == null && raw.state === "open" && raw.draft === true ? true : false,
+  };
+};
+
+const fetchSearchPaged = async (username, type) => {
+  // GitHub caps Search API at 1000 results per query — 10 pages × 100.
+  const items = [];
+  const MAX_PAGES = 10;
+  for (let pageNum = 1; pageNum <= MAX_PAGES; pageNum++) {
+    const q = `author:${username}+type:${type}`;
+    const url = `https://api.github.com/search/issues?q=${q}&sort=created&order=desc&per_page=100&page=${pageNum}`;
+    const result = await page.evaluate(`
+      (async () => {
+        try {
+          const res = await fetch('${url}', {
+            headers: { 'accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
+          });
+          if (!res.ok) return { ok: false, status: res.status, body: (await res.text()).slice(0, 200) };
+          const j = await res.json();
+          return { ok: true, items: Array.isArray(j.items) ? j.items : [], total: j.total_count || 0 };
+        } catch (err) {
+          return { ok: false, status: 0, body: String(err && err.message || err) };
+        }
+      })()
+    `);
+
+    if (!result || !result.ok) {
+      return {
+        items,
+        error: makeConnectorError(
+          result?.status === 0 ? "network_error" : "runtime_error",
+          `GitHub Search API (${type}) page ${pageNum} returned ${result?.status ?? "unknown"}: ${result?.body ?? ""}`,
+          items.length > 0 ? "degraded" : "omitted",
+          { scope: "github.history", phase: "collect" },
+        ),
+      };
+    }
+
+    for (const raw of result.items) {
+      const n = normalizeSearchItem(raw, type);
+      if (n) items.push(n);
+    }
+
+    await page.setData(
+      "status",
+      `Fetching ${type} history... (${items.length} found${result.items.length === 100 ? ", loading more" : ""})`,
+    );
+
+    // Search API anonymous rate limit: 10 req/min. Pause between pages to stay under.
+    if (result.items.length < 100) break;
+    if (pageNum < MAX_PAGES) await page.sleep(6500);
+  }
+
+  return { items, error: null };
+};
+
+const extractHistory = async (username) => {
+  if (!isValidGitHubUsername(username)) {
+    return {
+      ok: false,
+      data: null,
+      error: makeConnectorError(
+        "runtime_error",
+        "Could not resolve a valid GitHub username for history collection.",
+        "omitted",
+        { scope: "github.history", phase: "collect" },
+      ),
+    };
+  }
+
+  const errors = [];
+
+  const prResult = await fetchSearchPaged(username, "pr");
+  if (prResult.error) errors.push(prResult.error);
+
+  const issuesResult = await fetchSearchPaged(username, "issue");
+  if (issuesResult.error) errors.push(issuesResult.error);
+
+  return {
+    ok: prResult.items.length > 0 || issuesResult.items.length > 0 || errors.length === 0,
+    data: {
+      pullRequests: prResult.items,
+      issues: issuesResult.items,
+      fetchedAt: new Date().toISOString(),
+      windowDescription: "Full lifetime authored PRs and Issues from /search/issues, up to 1000 per type.",
+    },
+    error: errors.length > 0 ? errors[0] : null,
+    extraErrors: errors.slice(1),
+  };
+};
+
+const CONTRIB_YEARS_BACK = 4; // current year + 3 prior
+
+const scrapeContributionGraphForYear = async (username, year) => {
+  // Profile-page contribution graph filtered to a specific calendar year.
+  // The ?from/to query params drive the heatmap; current year defaults to
+  // the rolling 12-month window so we only pass them when going back.
+  const isCurrentYear = year === new Date().getFullYear();
+  const url = isCurrentYear
+    ? `https://github.com/${username}`
+    : `https://github.com/${username}?from=${year}-01-01&to=${year}-12-31`;
+
+  if (!(await safeGoto(url))) {
+    return { ok: false, error: `navigation failed for ${year}` };
+  }
+  await page.sleep(1500);
+
+  try {
+    const graph = await page.evaluate(`
+      (() => {
+        ${TO_INT_HELPER}
+        const cells = Array.from(document.querySelectorAll('td.ContributionCalendar-day[data-date], rect.day[data-date]'));
+        const days = cells.map((cell) => {
+          const date = cell.getAttribute('data-date');
+          const level = cell.getAttribute('data-level');
+          const dataCount = cell.getAttribute('data-count');
+          let count = 0;
+          if (dataCount != null) {
+            count = toInt(dataCount);
+          } else {
+            const id = cell.getAttribute('id');
+            const tip = id ? document.querySelector(\`tool-tip[for="\${id}"]\`) : null;
+            const text = tip?.textContent || cell.getAttribute('aria-label') || '';
+            const m = text.match(/(\\d+|No)\\s+contribution/i);
+            if (m) count = /no/i.test(m[1]) ? 0 : toInt(m[1]);
+          }
+          return { date, count, level: level != null ? Number(level) : null };
+        }).filter((d) => d.date);
+
+        // Year header: "N contributions in YYYY" (or "in the last year" for current view)
+        const heading = document.querySelector('h2.f4.text-normal.mb-2');
+        const headingText = (heading?.textContent || '').trim();
+        const totalMatch = headingText.match(/([\\d,]+)\\s+contribution/i);
+        const total = totalMatch ? toInt(totalMatch[1]) : days.reduce((a, d) => a + d.count, 0);
+
+        return { days, total, headingText };
+      })()
+    `);
+    if (!graph || !Array.isArray(graph.days) || graph.days.length === 0) {
+      return { ok: false, error: `selector miss for ${year}` };
+    }
+    return { ok: true, ...graph };
+  } catch (err) {
+    return { ok: false, error: `evaluate failed for ${year}: ${String(err)}` };
+  }
+};
+
 const extractContributions = async (username) => {
   if (!isValidGitHubUsername(username)) {
     return {
@@ -875,93 +1052,72 @@ const extractContributions = async (username) => {
     };
   }
 
-  // The contribution graph on the profile page is rendered as SVG, with one
-  // <td> or <rect> per day carrying data-date and data-level attributes.
-  // We scrape rather than hit the (auth-required) GraphQL contributions API.
-  if (!(await safeGoto(`https://github.com/${username}`))) {
-    return {
-      ok: false,
-      data: null,
-      error: makeConnectorError(
-        "navigation_error",
-        `Could not reach the profile page for @${username} (contributions).`,
-        "omitted",
-        { scope: "github.contributions", phase: "collect" },
-      ),
-    };
+  // Loop years backward — the default profile view is a 12-month rolling window,
+  // so to get N full calendar years we navigate ?from=YYYY-01-01&to=YYYY-12-31 per year.
+  const currentYear = new Date().getFullYear();
+  const yearTotals = []; // [{ year, total }]
+  const allDays = new Map(); // date string -> { count, level }
+  let lastErr = null;
+
+  for (let offset = 0; offset < CONTRIB_YEARS_BACK; offset++) {
+    const year = currentYear - offset;
+    await page.setData("status", `Fetching contribution graph for ${year}...`);
+    const r = await scrapeContributionGraphForYear(username, year);
+    if (!r.ok) {
+      lastErr = r.error;
+      // First-year miss is fatal; later-year misses are tolerable
+      if (offset === 0) {
+        return {
+          ok: false,
+          data: null,
+          error: makeConnectorError(
+            "selector_error",
+            `Could not read contribution graph for @${username}: ${r.error}`,
+            "omitted",
+            { scope: "github.contributions", phase: "collect" },
+          ),
+        };
+      }
+      continue;
+    }
+    yearTotals.push({ year, total: r.total });
+    for (const d of r.days) {
+      // De-dupe across overlapping windows (the current-year rolling view may
+      // include a few days of last year; keep the earliest scrape's value).
+      if (!allDays.has(d.date)) allDays.set(d.date, { count: d.count, level: d.level });
+    }
   }
-  await page.sleep(1500);
+
+  const days = [...allDays.entries()]
+    .map(([date, { count, level }]) => ({ date, count, level }))
+    .sort((a, b) => (a.date < b.date ? -1 : 1));
+
+  // Roll up monthly totals across the full multi-year span
+  const monthly = {};
+  for (const d of days) {
+    const m = d.date.slice(0, 7);
+    monthly[m] = (monthly[m] || 0) + d.count;
+  }
+  const monthlyTotals = Object.entries(monthly)
+    .sort(([a], [b]) => (a < b ? -1 : 1))
+    .map(([month, count]) => ({ month, count }));
+
+  const topDay = days.reduce((best, d) => (best == null || d.count > best.count ? d : best), null);
+  const totalContributionsLastYear =
+    yearTotals.find((y) => y.year === currentYear)?.total ?? days.reduce((a, d) => a + d.count, 0);
 
   try {
-    const graph = await page.evaluate(`
-      (() => {
-        ${TO_INT_HELPER}
-
-        // Newer GitHub layout: <td class="ContributionCalendar-day" data-date data-level>
-        // Older layout: <rect class="day" data-date data-level data-count>
-        const cells = Array.from(document.querySelectorAll('td.ContributionCalendar-day[data-date], rect.day[data-date]'));
-
-        const days = cells.map((cell) => {
-          const date = cell.getAttribute('data-date');
-          const level = cell.getAttribute('data-level');
-          const dataCount = cell.getAttribute('data-count');
-          // Some layouts inline the count in a <tool-tip>; the live aria-label looks like "N contributions on Month D" or "No contributions"
-          let count = 0;
-          if (dataCount != null) {
-            count = toInt(dataCount);
-          } else {
-            const id = cell.getAttribute('id');
-            const tip = id ? document.querySelector(\`tool-tip[for="\${id}"]\`) : null;
-            const text = tip?.textContent || cell.getAttribute('aria-label') || '';
-            const m = text.match(/(\\d+|No)\\s+contribution/i);
-            if (m) count = /no/i.test(m[1]) ? 0 : toInt(m[1]);
-          }
-          return { date, count, level: level != null ? Number(level) : null };
-        }).filter((d) => d.date);
-
-        // Total from the page heading "N contributions in the last year"
-        const heading = document.querySelector('h2.f4.text-normal.mb-2');
-        const headingText = (heading?.textContent || '').trim();
-        const totalMatch = headingText.match(/([\\d,]+)\\s+contribution/i);
-        const totalContributionsLastYear = totalMatch ? toInt(totalMatch[1]) : days.reduce((a, d) => a + d.count, 0);
-
-        // Roll up monthly totals
-        const monthly = {};
-        for (const d of days) {
-          const m = d.date.slice(0, 7);
-          monthly[m] = (monthly[m] || 0) + d.count;
-        }
-        const monthlyTotals = Object.entries(monthly)
-          .sort(([a], [b]) => (a < b ? -1 : 1))
-          .map(([month, count]) => ({ month, count }));
-
-        const topDay = days.reduce((best, d) => (best == null || d.count > best.count ? d : best), null);
-
-        return {
-          totalContributionsLastYear,
-          days,
-          monthlyTotals,
-          topDay: topDay && topDay.count > 0 ? { date: topDay.date, count: topDay.count } : null,
-        };
-      })()
-    `);
-
-    if (!graph || !Array.isArray(graph.days) || graph.days.length === 0) {
-      return {
-        ok: false,
-        data: null,
-        error: makeConnectorError(
-          "selector_error",
-          `Could not read contribution graph for @${username}.`,
-          "omitted",
-          { scope: "github.contributions", phase: "collect" },
-        ),
-      };
-    }
-
     return {
       ok: true,
-      data: { ...graph, fetchedAt: new Date().toISOString() },
+      data: {
+        totalContributionsLastYear,
+        yearTotals,
+        days,
+        monthlyTotals,
+        topDay: topDay && topDay.count > 0 ? { date: topDay.date, count: topDay.count } : null,
+        fetchedAt: new Date().toISOString(),
+      },
+      error: lastErr ? makeConnectorError("partial", `Some year scrapes failed: ${lastErr}`, "degraded", { scope: "github.contributions" }) : null,
     };
   } catch {
     return {
@@ -1292,6 +1448,21 @@ const extractContributions = async (username) => {
       }
       if (contribResult.error) {
         errors.push(contribResult.error);
+      }
+    }
+
+    if (wantsScope("github.history")) {
+      await page.setData("status", "Fetching authored PR + issue history...");
+      const historyResult = await extractHistory(username);
+      state.history = historyResult.data;
+      if (historyResult.ok && state.history) {
+        scopes["github.history"] = state.history;
+      }
+      if (historyResult.error) {
+        errors.push(historyResult.error);
+      }
+      if (Array.isArray(historyResult.extraErrors)) {
+        errors.push(...historyResult.extraErrors);
       }
     }
 

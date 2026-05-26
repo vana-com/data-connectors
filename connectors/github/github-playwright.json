@@ -2,7 +2,7 @@
   "manifest_version": "1.0",
   "connector_id": "github-playwright",
   "source_id": "github",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "name": "GitHub",
   "company": "GitHub",
   "description": "Exports your GitHub profile, repositories, starred repositories, public activity events, and contribution graph.",
@@ -35,7 +35,12 @@
     {
       "scope": "github.contributions",
       "label": "Your contribution graph",
-      "description": "Daily contribution counts for the last year, monthly totals, and your top day"
+      "description": "Daily contribution counts for the last 4 years (per-year scrape, not just rolling 12 months), monthly totals, per-year totals, and your top day"
+    },
+    {
+      "scope": "github.history",
+      "label": "Your authored PRs and issues",
+      "description": "Full lifetime of pull requests and issues you have authored across every public repository (via the GitHub Search API). Includes title, body, dates, repository, labels, and state."
     }
   ],
   "id": "github-playwright",
