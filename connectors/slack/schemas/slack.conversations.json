@@ -1,0 +1,102 @@
+{
+  "name": "Slack Conversations",
+  "version": "0.1.0",
+  "scope": "slack.conversations",
+  "dialect": "json",
+  "description": "Slack conversation index for the active workspace: channels, DMs, and group DMs the user can see. No message bodies — see slack.messages for those.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "conversations": {
+        "type": "array",
+        "description": "Summary entries for every Slack conversation visible in this workspace.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "Slack channel id (C/G/D-prefixed)."
+            },
+            "name": {
+              "type": ["string", "null"],
+              "description": "Channel name for channels/group DMs, or peer display name for 1:1 DMs."
+            },
+            "type": {
+              "type": "string",
+              "enum": ["public", "private", "dm", "group_dm"],
+              "description": "Conversation kind. 'dm' is a 1:1 direct message, 'group_dm' is a multi-party DM."
+            },
+            "isPrivate": {
+              "type": "boolean",
+              "description": "True for private channels and DMs."
+            },
+            "isArchived": {
+              "type": "boolean",
+              "description": "True if the channel has been archived in Slack."
+            },
+            "isMember": {
+              "type": "boolean",
+              "description": "True if the exporting user is a member of the conversation."
+            },
+            "purpose": {
+              "type": "string",
+              "description": "Channel purpose text. Empty string when unset."
+            },
+            "topic": {
+              "type": "string",
+              "description": "Channel topic text. Empty string when unset."
+            },
+            "numMembers": {
+              "type": ["integer", "null"],
+              "description": "Number of members in the conversation, when reported by Slack."
+            },
+            "created": {
+              "type": ["integer", "null"],
+              "description": "Unix epoch seconds when the conversation was created."
+            },
+            "user": {
+              "type": ["string", "null"],
+              "description": "For 1:1 DMs, the Slack user id of the other party."
+            },
+            "contextTeamId": {
+              "type": ["string", "null"],
+              "description": "Slack team id the conversation belongs to in Enterprise Grid orgs."
+            },
+            "skipReason": {
+              "type": ["string", "null"],
+              "enum": ["archived", "muted", "not_member", null],
+              "description": "If set, this conversation was excluded from message export. Reasons: archived (Slack-side archived), muted (user has muted the channel), not_member (public channel the user has not joined)."
+            }
+          },
+          "required": ["id", "type", "isPrivate", "isArchived", "isMember", "purpose", "topic"],
+          "additionalProperties": true
+        }
+      },
+      "total": {
+        "type": "integer",
+        "description": "Total number of conversation entries returned by Slack."
+      },
+      "exported": {
+        "type": "integer",
+        "description": "Number of conversations whose message bodies were collected into slack.messages."
+      },
+      "filterCounts": {
+        "type": "object",
+        "description": "Tally of conversations skipped for message export, broken down by skip reason.",
+        "properties": {
+          "archived": { "type": "integer" },
+          "muted": { "type": "integer" },
+          "not_member": { "type": "integer" },
+          "kept": { "type": "integer" }
+        },
+        "additionalProperties": true
+      },
+      "teamId": {
+        "type": ["string", "null"],
+        "description": "Slack team id this conversation index belongs to."
+      }
+    },
+    "required": ["conversations", "total", "exported"],
+    "additionalProperties": true
+  }
+}

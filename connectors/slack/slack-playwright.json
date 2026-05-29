@@ -1,0 +1,42 @@
+{
+  "manifest_version": "1.0",
+  "connector_id": "slack-playwright",
+  "source_id": "slack",
+  "version": "0.1.0",
+  "name": "Slack",
+  "company": "Slack",
+  "description": "Exports your Slack profile, conversations (channels + DMs), and messages from your currently-active Slack workspace.",
+  "runtime": "playwright",
+  "page_api_version": 1,
+  "connect_url": "https://slack.com/signin",
+  "connect_selector": "div.p-client_container, div[data-qa=\"client_app\"], div[data-qa=\"channel_sidebar\"]",
+  "icon": "icons/slack.svg",
+  "scopes": [
+    {
+      "scope": "slack.profile",
+      "label": "Your Slack profile",
+      "description": "Your Slack user identity and the active workspace metadata (team id, name, domain, display name, plan)."
+    },
+    {
+      "scope": "slack.conversations",
+      "label": "Your Slack conversations",
+      "description": "Index of channels, DMs, and group DMs in the active workspace (id, name, type, topic, purpose, members). No message bodies."
+    },
+    {
+      "scope": "slack.messages",
+      "label": "Your Slack messages",
+      "description": "Message bodies for each conversation in the active workspace, including thread replies. Limited by an optional history window."
+    }
+  ],
+  "consumer_metadata": {
+    "display_name": "Slack",
+    "brand_domain": "slack.com",
+    "icon_key": "slack",
+    "default_scope": "slack.messages"
+  },
+  "id": "slack-playwright",
+  "connectURL": "https://slack.com/signin",
+  "connectSelector": "div.p-client_container, div[data-qa=\"client_app\"], div[data-qa=\"channel_sidebar\"]",
+  "iconURL": "icons/slack.svg",
+  "exportFrequency": "weekly"
+}

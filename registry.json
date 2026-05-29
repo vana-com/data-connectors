@@ -373,6 +373,29 @@
         "script": "sha256:ab465031ce09187c70890f4498fb0d650d0ea0dd7a11d558496d834a00076188",
         "metadata": "sha256:1b43c2ab74a7dc8bb2271b5be9d6f1d1e64d3f636604332f67439663bfd62bce"
       }
+    },
+    {
+      "id": "slack-playwright",
+      "company": "Slack",
+      "version": "0.1.0",
+      "name": "Slack",
+      "status": "experimental",
+      "description": "Exports your Slack profile, conversations (channels + DMs), and messages from your currently-active Slack workspace.",
+      "consumerMetadata": {
+        "sourceId": "slack",
+        "displayName": "Slack",
+        "brandDomain": "slack.com",
+        "iconKey": "slack",
+        "defaultScope": "slack.messages"
+      },
+      "files": {
+        "script": "slack/slack-playwright.js",
+        "metadata": "slack/slack-playwright.json"
+      },
+      "checksums": {
+        "script": "sha256:e925a65b4dce31f4d50878f1ed526311c538ae765c981e58ce54439089633b3d",
+        "metadata": "sha256:2403f868888ca505aff59838f4cf339259d762672c800a0e61104d0649921703"
+      }
     }
   ]
 }
