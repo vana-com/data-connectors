@@ -15,6 +15,7 @@
             "img_url": { "type": "string" },
             "caption": { "type": "string" },
             "num_of_likes": { "type": "number" },
+            "taken_at": { "type": "string" },
             "who_liked": {
               "type": "array",
               "items": {

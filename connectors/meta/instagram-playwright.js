@@ -1039,12 +1039,23 @@ const fetchWebInfo = async () => {
         id: liker.id || liker.pk || "",
       }));
 
-      return {
+      const post = {
         img_url: imgUrl,
         caption,
         num_of_likes: numOfLikes,
         who_liked: whoLiked,
       };
+
+      // Instagram v1 feed media nodes carry the capture time as `taken_at`
+      // (unix seconds). Only emit when present; never fabricate.
+      const takenAtRaw = node.taken_at ?? node.taken_at_timestamp;
+      if (typeof takenAtRaw === "number" && Number.isFinite(takenAtRaw)) {
+        // Values are in seconds; ms-scale values (>1e12) are passed through as-is.
+        const takenAtMs = takenAtRaw > 1e12 ? takenAtRaw : takenAtRaw * 1000;
+        post.taken_at = new Date(takenAtMs).toISOString();
+      }
+
+      return post;
     });
 
     if (wantsProfile) {
