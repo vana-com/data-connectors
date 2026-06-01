@@ -145,6 +145,12 @@ const checkLoginStatus = async () => {
 
 const settleLoggedInSession = async () => {
   try {
+    // Wait for the topbar to render a decisive element (avatar OR sign-in link)
+    // before judging. Otherwise a freshly-loaded YouTube page reports
+    // "not logged in" simply because the avatar button hasn't mounted yet —
+    // which is exactly how a successful manual login gets misread as a failure
+    // right after the headed→headless switch.
+    await waitForYoutubeLoginSurface(8000);
     let state = await getYoutubeSessionState();
 
     if (state.hasAccountMenu && !state.hasSignInLink) {
@@ -1175,7 +1181,14 @@ const scrapeHistory = async () => {
           );
           await page.goHeadless({ resumeUrl: 'https://www.youtube.com/' });
         }
-        state.isLoggedIn = await settleLoggedInSession();
+        // Retry instead of judging on the first frame — mirrors the programmatic
+        // path above. The headed→headless switch + resume needs a beat for the
+        // signed-in topbar to re-render.
+        for (let i = 0; i < 10; i++) {
+          state.isLoggedIn = await settleLoggedInSession();
+          if (state.isLoggedIn) break;
+          await waitForYoutubeLoginSurface(2000);
+        }
       }
 
       await page.setData('status', 'Login completed');
@@ -1185,7 +1198,13 @@ const scrapeHistory = async () => {
 
     if (!state.isLoggedIn) {
       await page.setData('error', 'Login failed or timed out');
-      return { error: 'Login failed or timed out' };
+      // Include the required `timestamp` so this surfaces as a clean login
+      // failure, not a "Protocol violation: timestamp is required".
+      return {
+        success: false,
+        error: 'Login failed or timed out',
+        timestamp: new Date().toISOString(),
+      };
     }
 
     // ═══ Phase 1: Extract Email ═══
@@ -1424,7 +1443,7 @@ const scrapeHistory = async () => {
           };
         })(),
         timestamp: new Date().toISOString(),
-        version: '1.0.0-playwright',
+        version: '1.0.1-playwright',
         platform: 'youtube'
       };
     };
@@ -1446,6 +1465,10 @@ const scrapeHistory = async () => {
 
   } catch (error) {
     await page.setData('error', error.message);
-    return { success: false, error: error.message };
+    return {
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString(),
+    };
   }
 })();
