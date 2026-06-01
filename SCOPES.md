@@ -47,7 +47,7 @@ directly. (Background: [BUI-395](https://linear.app/vana-team/issue/BUI-395/inst
 | icloud_notes | `icloud_notes.notes` | — | ✅ | icloud-notes-playwright (experimental) |
 | instagram | `instagram.ads` | — | ✅ | instagram-ads-playwright (beta); instagram-playwright (stable) |
 | instagram | `instagram.following` | — | ✅ | instagram-playwright (stable) |
-| instagram | `instagram.posts` | — | ✅ | instagram-playwright (stable) |
+| instagram | `instagram.posts` | ✅ ¹ | ✅ | instagram-playwright (stable) |
 | instagram | `instagram.profile` | ✅ | ✅ | instagram-playwright (stable) |
 | linkedin | `linkedin.connections` | — | ✅ | linkedin-playwright (stable) |
 | linkedin | `linkedin.education` | — | ✅ | linkedin-playwright (stable) |
@@ -77,6 +77,10 @@ directly. (Background: [BUI-395](https://linear.app/vana-team/issue/BUI-395/inst
 | youtube | `youtube.profile` | ✅ | ✅ | youtube-playwright (beta) |
 | youtube | `youtube.subscriptions` | — | ✅ | youtube-playwright (beta) |
 | youtube | `youtube.watchLater` | — | ✅ | youtube-playwright (beta) |
+
+¹ **`instagram.posts` on Web is capped at the 150 most recent posts.** The Data
+Pipe API web flow returns at most 150 posts; for a complete post history use the
+Desktop connector (`instagram-playwright`), which has no such limit.
 
 ## Maintaining this file
 
