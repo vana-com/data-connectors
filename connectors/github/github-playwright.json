@@ -2,10 +2,10 @@
   "manifest_version": "1.0",
   "connector_id": "github-playwright",
   "source_id": "github",
-  "version": "1.2.0",
+  "version": "1.4.0",
   "name": "GitHub",
   "company": "GitHub",
-  "description": "Exports your GitHub profile, repositories, and starred repositories.",
+  "description": "Exports your GitHub profile, repositories, starred repositories, public activity events, and contribution graph.",
   "runtime": "playwright",
   "page_api_version": 1,
   "connect_url": "https://github.com/login",
@@ -15,7 +15,7 @@
     {
       "scope": "github.profile",
       "label": "Your GitHub profile",
-      "description": "Account profile information such as name, bio, location, and follower counts"
+      "description": "Account profile information such as name, bio, follower counts, pinned repositories, organization memberships, and achievement badges"
     },
     {
       "scope": "github.repositories",
@@ -26,6 +26,21 @@
       "scope": "github.starred",
       "label": "Your starred repositories",
       "description": "Repositories you have starred on GitHub"
+    },
+    {
+      "scope": "github.events",
+      "label": "Your recent activity",
+      "description": "Recent public activity (pushes, pull requests, issues, comments, branches, releases) across every repository you have touched, including organization-owned repos"
+    },
+    {
+      "scope": "github.contributions",
+      "label": "Your contribution graph",
+      "description": "Daily contribution counts for the last 4 years (per-year scrape, not just rolling 12 months), monthly totals, per-year totals, and your top day"
+    },
+    {
+      "scope": "github.history",
+      "label": "Your authored PRs and issues",
+      "description": "Full lifetime of pull requests and issues you have authored across every public repository (via the GitHub Search API). Includes title, body, dates, repository, labels, and state."
     }
   ],
   "id": "github-playwright",
