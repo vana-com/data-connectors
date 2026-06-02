@@ -386,8 +386,8 @@
         "releaseId": "connectors-9a83f771fc2a",
         "pageApiVersion": 1,
         "manifestSha256": "sha256:d837e66b63c1a188bf0a60e92b5fd9dcd9cd4672133d93dd02c06c16bc2bfb95",
-        "scriptSha256": "sha256:09c2f905cb73500750b63c82cd9b96f8d5e6429254b9f0a68e8c3b14df300d4c",
-        "artifactSha256": "sha256:e9e2f222a3607cedf0eb689d5a737fa6800bcc87b3cda10f9f8f9546937cfe35",
+        "scriptSha256": "sha256:909618f8c07b38608e3de152724c81853c21540f797f0afcb84810513a342224",
+        "artifactSha256": "sha256:f22fa71280a7db4c30fe236c5146e6441363b4814c728f2092abbd3a462fd2bf",
         "artifactPath": "artifacts/instagram-playwright/instagram-playwright-2.1.0.tgz",
         "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/9a83f771fc2a212f1ce2e7933c301fef9ab082b2/artifacts/instagram-playwright/instagram-playwright-2.1.0.tgz",
         "scopes": [
