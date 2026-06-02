@@ -1,0 +1,125 @@
+{
+  "name": "Slack Messages",
+  "version": "0.1.0",
+  "scope": "slack.messages",
+  "dialect": "json",
+  "description": "Slack message bodies for each conversation included in slack.conversations, with thread replies attached inline. Optionally limited by a history-depth window.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "teamId": {
+        "type": ["string", "null"],
+        "description": "Slack team id this message export belongs to."
+      },
+      "oldestTs": {
+        "type": ["string", "null"],
+        "description": "Slack-format unix timestamp (seconds, as string) cutoff used for this run. Messages older than this were not fetched. Null means all-time."
+      },
+      "oldestDays": {
+        "type": ["integer", "null"],
+        "description": "History-depth window in days that produced oldestTs. Null means all-time."
+      },
+      "fetchThreads": {
+        "type": "boolean",
+        "description": "Whether thread replies were collected via conversations.replies for messages with reply_count > 0."
+      },
+      "conversations": {
+        "type": "array",
+        "description": "Per-conversation message buckets. Each entry corresponds to a slack.conversations entry whose skipReason is null.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "Slack conversation id (C/G/D-prefixed)."
+            },
+            "name": {
+              "type": ["string", "null"],
+              "description": "Human-readable conversation name (channel name or peer display name for DMs)."
+            },
+            "type": {
+              "type": "string",
+              "enum": ["public", "private", "dm", "group_dm"],
+              "description": "Conversation kind."
+            },
+            "messageCount": {
+              "type": "integer",
+              "description": "Number of parent messages collected for this conversation."
+            },
+            "messages": {
+              "type": "array",
+              "description": "Slack message objects as returned by conversations.history, with optional 'thread_replies' attached for thread parents.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "ts": {
+                    "type": "string",
+                    "description": "Slack message timestamp; unique per conversation."
+                  },
+                  "user": {
+                    "type": ["string", "null"],
+                    "description": "Slack user id of the message author. May be null for system messages."
+                  },
+                  "text": {
+                    "type": ["string", "null"],
+                    "description": "Message text with Slack markup (user mentions, channel refs, links)."
+                  },
+                  "thread_ts": {
+                    "type": ["string", "null"],
+                    "description": "Slack ts of the parent message when this message is inside a thread. Equal to ts on parents that have replies."
+                  },
+                  "subtype": {
+                    "type": ["string", "null"],
+                    "description": "Slack subtype (e.g. 'channel_join', 'bot_message'). Absent on plain user messages."
+                  },
+                  "reply_count": {
+                    "type": ["integer", "null"],
+                    "description": "Slack-reported reply count for thread parents."
+                  },
+                  "reactions": {
+                    "type": ["array", "null"],
+                    "description": "Slack reactions array, when present."
+                  },
+                  "files": {
+                    "type": ["array", "null"],
+                    "description": "File attachments metadata when present."
+                  },
+                  "blocks": {
+                    "type": ["array", "null"],
+                    "description": "Slack rich-text 'blocks' representation of the message body, when present."
+                  },
+                  "thread_replies": {
+                    "type": ["array", "null"],
+                    "description": "Thread replies collected via conversations.replies, excluding the parent message. Present only when the parent had reply_count > 0 and the fetch succeeded."
+                  },
+                  "thread_error": {
+                    "type": ["string", "null"],
+                    "description": "Slack error returned when conversations.replies failed for this thread parent."
+                  }
+                },
+                "required": ["ts"],
+                "additionalProperties": true
+              }
+            },
+            "fetchError": {
+              "type": ["string", "null"],
+              "description": "Error returned by conversations.history when the conversation could not be fetched (e.g. not_in_channel, missing_scope)."
+            }
+          },
+          "required": ["id", "type", "messageCount", "messages"],
+          "additionalProperties": true
+        }
+      },
+      "totalMessages": {
+        "type": "integer",
+        "description": "Total parent messages collected across all conversations."
+      },
+      "totalThreads": {
+        "type": "integer",
+        "description": "Number of thread parents for which replies were fetched."
+      }
+    },
+    "required": ["conversations", "totalMessages"],
+    "additionalProperties": true
+  }
+}

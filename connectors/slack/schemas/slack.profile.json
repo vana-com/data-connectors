@@ -1,0 +1,101 @@
+{
+  "name": "Slack Profile",
+  "version": "0.1.0",
+  "scope": "slack.profile",
+  "dialect": "json",
+  "description": "Slack user identity and active workspace metadata. Captures who is exporting and which workspace the export came from.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "user": {
+        "type": "object",
+        "description": "Slack user record for the person running the export.",
+        "properties": {
+          "id": {
+            "type": ["string", "null"],
+            "description": "Slack user id (U-prefixed)."
+          },
+          "name": {
+            "type": ["string", "null"],
+            "description": "Slack handle / login name."
+          },
+          "realName": {
+            "type": ["string", "null"],
+            "description": "Full real name from the user's Slack profile."
+          },
+          "displayName": {
+            "type": ["string", "null"],
+            "description": "Display name shown in the workspace."
+          },
+          "email": {
+            "type": ["string", "null"],
+            "format": "email",
+            "description": "Profile email address, when visible to the user."
+          },
+          "tz": {
+            "type": ["string", "null"],
+            "description": "User's IANA timezone identifier, e.g. America/Los_Angeles."
+          },
+          "tzLabel": {
+            "type": ["string", "null"],
+            "description": "Friendly timezone label, e.g. Pacific Daylight Time."
+          },
+          "isAdmin": {
+            "type": "boolean",
+            "description": "Whether the user is a workspace admin."
+          },
+          "isOwner": {
+            "type": "boolean",
+            "description": "Whether the user is a workspace owner."
+          },
+          "isBot": {
+            "type": "boolean",
+            "description": "Whether the Slack record is a bot account (typically false for human exporters)."
+          }
+        },
+        "additionalProperties": true
+      },
+      "workspace": {
+        "type": "object",
+        "description": "Identity of the Slack workspace this export came from.",
+        "properties": {
+          "teamId": {
+            "type": ["string", "null"],
+            "description": "Slack team id (T-prefixed)."
+          },
+          "teamName": {
+            "type": ["string", "null"],
+            "description": "Display name of the workspace."
+          },
+          "teamDomain": {
+            "type": ["string", "null"],
+            "description": "Workspace subdomain (e.g. 'opendatalabs' for opendatalabs.slack.com)."
+          },
+          "teamUrl": {
+            "type": ["string", "null"],
+            "format": "uri",
+            "description": "Canonical workspace URL."
+          },
+          "enterpriseId": {
+            "type": ["string", "null"],
+            "description": "Enterprise Grid id, if this workspace is part of an Enterprise Grid org."
+          },
+          "icon": {
+            "description": "Slack-provided team icon object with image URLs at multiple sizes.",
+            "type": ["object", "null"]
+          }
+        },
+        "additionalProperties": true
+      },
+      "bootSource": {
+        "type": ["string", "null"],
+        "description": "Where the API token was sourced from at runtime (e.g. TS.boot_data, inline-script)."
+      },
+      "historyWindowDays": {
+        "type": ["integer", "null"],
+        "description": "Optional message history depth used for this run, in days. Null means all-time."
+      }
+    },
+    "additionalProperties": true
+  }
+}
