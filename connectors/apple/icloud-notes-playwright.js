@@ -188,9 +188,17 @@
       }
     })();
 
-    writer.write(bytes);
-    writer.close();
-    await readAll;
+    // Await the write/close so a bad-format error (e.g. Z_DATA_ERROR on input
+    // that is not actually in `format`) rejects this promise and the caller can
+    // fall through to the next format. Leaving write/close unawaited let that
+    // error surface as an unhandled stream error and crash the runner process.
+    const writeAll = (async () => {
+      await writer.write(bytes);
+      await writer.close();
+    })();
+    writeAll.catch(() => {});
+
+    await Promise.all([readAll, writeAll]);
 
     const decompressed = new Uint8Array(
       chunks.reduce((acc, chunk) => acc + chunk.length, 0),
