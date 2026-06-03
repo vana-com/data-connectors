@@ -281,8 +281,8 @@
         "releaseId": "connectors-9a83f771fc2a",
         "pageApiVersion": 1,
         "manifestSha256": "sha256:550ba20690d3d16d809686df73f9f23f18005dd5763ce6b631a17d4d7da370c4",
-        "scriptSha256": "sha256:ab465031ce09187c70890f4498fb0d650d0ea0dd7a11d558496d834a00076188",
-        "artifactSha256": "sha256:f85c266080b6b691d5890de1156202b8829591b0ecebf47b623cbc61e388f407",
+        "scriptSha256": "sha256:b341c912bc6c583728e49916ac80190836c7aa34316f304f4fa7a72b17f6cf0b",
+        "artifactSha256": "sha256:a2fedbd40cd4a0968c6d913233463984007f2512ff8430cbb7efe952f445d022",
         "artifactPath": "artifacts/icloud-notes-playwright/icloud-notes-playwright-0.2.0.tgz",
         "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/9a83f771fc2a212f1ce2e7933c301fef9ab082b2/artifacts/icloud-notes-playwright/icloud-notes-playwright-0.2.0.tgz",
         "scopes": [
