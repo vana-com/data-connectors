@@ -206,14 +206,15 @@ function summarize(result) {
   assert.strictEqual(r1['chatgpt.conversations'].total, 4, 'run1 should save exactly the 4 reachable conversations');
   assert.deepStrictEqual(r1['chatgpt.conversations'].conversations.map((c) => c.id).sort(), ['c1', 'c2', 'c3', 'c4']);
   assert.strictEqual(r1.exportSummary.details.pending, 8, 'run1 should report 8 pending');
-  assert.strictEqual(r1.exportSummary.details.stoppedReason, 'rate_limited_circuit_breaker', 'run1 should trip the breaker, not hammer');
+  assert(['rate_limited_no_recovery', 'run_time_budget'].includes(r1.exportSummary.details.stoppedReason),
+    `run1 should defer after patient waiting (got ${r1.exportSummary.details.stoppedReason})`);
   assert(r1.errors.some((e) => e.errorClass === 'rate_limited' && e.disposition === 'degraded' && e.scope === 'chatgpt.conversations'),
     'run1 must report the shortfall via errors[] (degraded), not silently');
   // No empty-success pollution: checkpoint holds only the 4 real ones.
   assert.deepStrictEqual(run1.ckpt.ids, ['c1', 'c2', 'c3', 'c4'], 'only fetched convs are checkpointed (no empty c5–c12)');
-  // The breaker must have stopped us well before hammering every conv MAX_ATTEMPTS times.
+  // Patient mode must converge/defer, not hammer every conv unboundedly.
   const totalDetailHits1 = Object.values(plan1.hits).reduce((a, b) => a + b, 0);
-  assert(totalDetailHits1 < N * 5, `breaker should cap request volume (got ${totalDetailHits1} detail hits)`);
+  assert(totalDetailHits1 < N * 5, `should cap request volume when throttled (got ${totalDetailHits1} detail hits)`);
   console.log(`  ✓ run1 partial-saved 4/12, ${totalDetailHits1} detail requests (no storm), reported degraded`);
 
   if (classifier) {

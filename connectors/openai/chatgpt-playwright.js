@@ -44,16 +44,27 @@ const CKPT_FORMAT = 1;
 const START_CONCURRENCY = 2;       // conservative cold start
 const MAX_CONCURRENCY = 4;         // ceiling even when healthy
 const MIN_CONCURRENCY = 1;
-const BASE_BATCH_DELAY_MS = 700;   // polite pacing between batches
+const BASE_BATCH_DELAY_MS = 700;   // polite pacing between healthy batches
 const MAX_BATCH_DELAY_MS = 8000;
-const BACKOFF_BASE_MS = 2000;      // 429 backoff floor
-const BACKOFF_MAX_MS = 60000;
-const MAX_ATTEMPTS = 5;            // per-conversation retry budget within a run
-const BREAKER_RL_BATCHES = 4;      // consecutive all-429 batches → stop & resume later
+const MAX_ATTEMPTS = 8;            // per-conversation retry budget for non-throttle errors (5xx/network)
+const CONV_FETCH_TIMEOUT_MS = 30000;
 const FLUSH_EVERY_CONVS = 25;      // incremental host flush cadence (by new convs)
 const FLUSH_INTERVAL_MS = 15000;   // …or by time
 const LIST_PAGE_DELAY_MS = 400;
-const CONV_FETCH_TIMEOUT_MS = 30000;
+
+// Patient backoff. ChatGPT returns 429 with NO Retry-After / rate-limit headers,
+// so we self-pace: once the initial burst is throttled, drop to one request at a
+// time and wait progressively longer to let the limit clear, instead of bailing
+// immediately. Keep going until the limit recovers, the run-time budget is hit,
+// or we stall (then defer the remainder to the next run via the checkpoint).
+const PATIENT_BACKOFF_START_MS = 20000;  // first long wait after the burst is throttled
+const PATIENT_BACKOFF_MAX_MS = 120000;   // cap per wait
+const MAX_RUN_MS = 12 * 60 * 1000;       // overall run budget before deferring to resume
+const MAX_STALLED_BATCHES = 6;           // consecutive throttled batches with zero success → defer
+
+// Reuse a recently-cached conversation list on resume so we don't re-walk all
+// pages (and risk throttling the list itself) every run.
+const LIST_CACHE_MS = 6 * 60 * 60 * 1000; // 6h
 
 // State management
 const state = {
@@ -384,7 +395,11 @@ const fetchConversationBatch = async (accessToken, deviceId, convIds) => {
           );
           clearTimeout(timeout);
           if (!response.ok) {
-            return { id: convId, ok: false, status: response.status, retryAfter: parseRetryAfter(response) };
+            const rl = {};
+            for (const [k, v] of response.headers.entries()) {
+              if (/retry-after|rate.?limit|reset|remaining/i.test(k)) rl[k] = v;
+            }
+            return { id: convId, ok: false, status: response.status, retryAfter: parseRetryAfter(response), rl };
           }
           const data = await response.json();
 
@@ -836,7 +851,25 @@ const buildResult = (requestedScopes, convMap, memories, telemetry) => {
   let offset = 0;
   let listOk = true;
   const fullSyncDone = !!(checkpoint.meta && checkpoint.meta.fullSyncDone);
-  while (true) {
+
+  // Resume fast-path: reuse a recently-cached list instead of re-walking every
+  // page (which wastes minutes and can throttle the list itself). Only when we
+  // already have a partial checkpoint to extend.
+  const cachedList = checkpoint.meta && Array.isArray(checkpoint.meta.listSnapshot) ? checkpoint.meta.listSnapshot : null;
+  const cachedFresh = cachedList && checkpoint.meta.listCachedAt &&
+    (Date.now() - Date.parse(checkpoint.meta.listCachedAt) < LIST_CACHE_MS);
+  let usedCachedList = false;
+  if (cachedFresh && convMap.size > 0 && convMap.size < cachedList.length) {
+    for (const item of cachedList) listMap.set(item.id, item);
+    usedCachedList = true;
+    await page.setProgress({
+      phase: { step: 2, total: 3, label: 'Fetching conversation list' },
+      message: `Using cached list — ${listMap.size.toLocaleString()} conversations`,
+      count: listMap.size,
+    });
+  }
+
+  while (!usedCachedList) {
     const pageRes = await fetchConversationsPage(userToken, deviceId, offset, limit);
     if (!pageRes.ok) {
       // Couldn't page the list. If we have checkpointed convs, proceed with those.
@@ -893,18 +926,26 @@ const buildResult = (requestedScopes, convMap, memories, telemetry) => {
     count: convMap.size,
   });
 
-  // Persist memories + list snapshot early so even a list-only run checkpoints.
-  await ckptPutBatch([], memories, { lastListAt: new Date().toISOString() }).catch(() => {});
+  // Persist memories + list snapshot early so even a list-only run checkpoints,
+  // and so the next resume run can skip the full re-list.
+  const listMetaPatch = { lastListAt: new Date().toISOString() };
+  if (!usedCachedList && listMap.size > 0) {
+    listMetaPatch.listSnapshot = Array.from(listMap.values()).map(i => ({ id: i.id, title: i.title, create_time: i.create_time, update_time: i.update_time }));
+    listMetaPatch.listCachedAt = new Date().toISOString();
+  }
+  await ckptPutBatch([], memories, listMetaPatch).catch(() => {});
 
   // Step 3: Adaptive, resumable conversation download.
+  const runStart = Date.now();
   const queue = work.slice();
   let concurrency = START_CONCURRENCY;
   let batchDelay = BASE_BATCH_DELAY_MS;
-  let backoffMs = BACKOFF_BASE_MS;
-  let rlStreak = 0;
+  let patientWaitMs = PATIENT_BACKOFF_START_MS;  // grows while throttled, resets on recovery
+  let consecutiveRL = 0;           // throttled batches since the last success
   let pendingBuffer = [];          // records to flush to the checkpoint
   let convsSinceFlush = 0;
   let lastFlush = Date.now();
+  let rlDiagLogged = false;        // diagnostic: log the first 429's rate headers once
 
   const flush = async (force) => {
     if (pendingBuffer.length > 0) {
@@ -929,6 +970,7 @@ const buildResult = (requestedScopes, convMap, memories, telemetry) => {
     let okInBatch = 0;
     let rlInBatch = 0;
     let maxRetryAfter = 0;
+    let rlDiagHeaders = null;
 
     for (const item of slice) {
       const r = byId.get(item.id) || { ok: false, status: 0 };
@@ -946,8 +988,10 @@ const buildResult = (requestedScopes, convMap, memories, telemetry) => {
       } else if (isRateLimited(r.status)) {
         rlInBatch++;
         if (typeof r.retryAfter === 'number') maxRetryAfter = Math.max(maxRetryAfter, r.retryAfter);
-        item.attempts++;
-        if (item.attempts < MAX_ATTEMPTS) queue.push(item);  // retry later (not an empty success!)
+        if (!rlDiagHeaders && r.rl) rlDiagHeaders = r.rl;
+        // Throttling isn't the item's fault — requeue without spending its retry
+        // budget. The run-time/stall budgets below bound the patient waiting.
+        queue.push(item);
       } else {
         // 5xx / network / timeout — retry with budget.
         item.attempts++;
@@ -962,6 +1006,13 @@ const buildResult = (requestedScopes, convMap, memories, telemetry) => {
       count: convMap.size,
     });
 
+    // One-time diagnostic: only if OpenAI ever starts sending pacing hints
+    // (today it sends none on these 429s, so this stays silent).
+    if (rlInBatch > 0 && !rlDiagLogged && (maxRetryAfter > 0 || (rlDiagHeaders && Object.keys(rlDiagHeaders).length))) {
+      rlDiagLogged = true;
+      await page.setData('status', 'RL-DIAG retryAfter=' + maxRetryAfter + ' headers=' + JSON.stringify(rlDiagHeaders || {}));
+    }
+
     // Stop immediately on auth expiry — token is dead, nothing more to do this run.
     if (telemetry.authFailed) {
       telemetry.stoppedReason = 'auth_expired';
@@ -969,30 +1020,38 @@ const buildResult = (requestedScopes, convMap, memories, telemetry) => {
     }
 
     if (okInBatch > 0) {
-      // Healthy: ease concurrency up, relax pacing, reset backoff.
-      rlStreak = 0;
-      backoffMs = BACKOFF_BASE_MS;
+      // Healthy: ease concurrency up, relax pacing, reset the patient backoff.
+      consecutiveRL = 0;
+      patientWaitMs = PATIENT_BACKOFF_START_MS;
       concurrency = clamp(concurrency + 1, MIN_CONCURRENCY, MAX_CONCURRENCY);
       batchDelay = clamp(Math.floor(batchDelay * 0.8), BASE_BATCH_DELAY_MS, MAX_BATCH_DELAY_MS);
       await flush(false);
       await sleep(batchDelay + jitter(250));
     } else if (rlInBatch > 0) {
-      // Throttled: back off hard, shrink concurrency, respect Retry-After.
-      rlStreak++;
-      concurrency = clamp(concurrency >> 1, MIN_CONCURRENCY, MAX_CONCURRENCY);
-      batchDelay = clamp(Math.floor(batchDelay * 1.5), BASE_BATCH_DELAY_MS, MAX_BATCH_DELAY_MS);
-      const waitMs = Math.max(maxRetryAfter * 1000, backoffMs);
-      backoffMs = Math.min(backoffMs * 2, BACKOFF_MAX_MS);
+      // Throttled. Drop to one-at-a-time and wait progressively longer to let the
+      // limit clear (OpenAI gives no Retry-After). Keep going — don't bail — until
+      // the limit recovers or we hit a budget. A long wait that then succeeds
+      // resets us back to burst mode.
+      consecutiveRL++;
+      concurrency = MIN_CONCURRENCY;
+      const waitMs = Math.max(maxRetryAfter * 1000, patientWaitMs);
+      patientWaitMs = Math.min(Math.floor(patientWaitMs * 1.5), PATIENT_BACKOFF_MAX_MS);
       await flush(false);
 
-      if (rlStreak >= BREAKER_RL_BATCHES) {
-        // Sustained rate limiting — stop and let the next run resume. Hammering
-        // is what produced 2410/2484 × 429 in the wild.
-        telemetry.stoppedReason = 'rate_limited_circuit_breaker';
+      if (Date.now() - runStart >= MAX_RUN_MS) {
+        telemetry.stoppedReason = 'run_time_budget';
         break;
       }
-      await page.setData('status', `Rate limited — pausing ${Math.round(waitMs / 1000)}s before continuing...`);
-      await sleep(waitMs + jitter(500));
+      if (consecutiveRL >= MAX_STALLED_BATCHES) {
+        // The limit isn't clearing right now — defer the rest to the next run
+        // (everything saved so far is checkpointed; nothing is lost or redone).
+        telemetry.stoppedReason = 'rate_limited_no_recovery';
+        break;
+      }
+      await page.setData('status',
+        `Rate limited — waiting ${Math.round(waitMs / 1000)}s for the limit to clear ` +
+        `(${convMap.size} saved, attempt ${consecutiveRL}/${MAX_STALLED_BATCHES})...`);
+      await sleep(waitMs + jitter(1000));
     } else {
       // Transient errors only — modest pause.
       await flush(false);
