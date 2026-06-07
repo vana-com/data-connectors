@@ -87,8 +87,8 @@
         "releaseId": "connectors-9a83f771fc2a",
         "pageApiVersion": 1,
         "manifestSha256": "sha256:b4ced371d0a87c5d3d202ff0835b361caa0124732da179fb913688a6b29fc914",
-        "scriptSha256": "sha256:7d4d174def3c022da97cb34ccc784ee0925ac7c12f8ba03b1ad5936a69e58bfa",
-        "artifactSha256": "sha256:e904e2c94fd3dbda948b2b1fa24892e7f602b324636b80f8e92cf00a16d53c1f",
+        "scriptSha256": "sha256:f0bebc7055a0b49c87cece29bdcd078e447d88a575e643d02f30f5b6daa2e95b",
+        "artifactSha256": "sha256:0b8f5d677c175298831bb1076d1f298f1bd0168185539b0150c8a824fe7465de",
         "artifactPath": "artifacts/chatgpt-playwright/chatgpt-playwright-3.0.0.tgz",
         "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/9a83f771fc2a212f1ce2e7933c301fef9ab082b2/artifacts/chatgpt-playwright/chatgpt-playwright-3.0.0.tgz",
         "scopes": [
