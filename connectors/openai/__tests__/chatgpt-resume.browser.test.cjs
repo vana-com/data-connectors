@@ -4,9 +4,10 @@
  *
  * Runs the ACTUAL connector script (chatgpt-playwright.js) against a real
  * Chromium, with a mock `page` API and Playwright route mocks standing in for
- * chatgpt.com. No OpenAI traffic. This reproduces the production failure
- * (a 429 storm — 2410/2484 conversations rate limited) at small scale and
- * proves:
+ * chatgpt.com. No OpenAI traffic. The connector fetches via the bulk
+ * /conversations/batch endpoint and falls back to the per-id GET for ids the
+ * batch omits; this test models that (batch returns the reachable convs, omits
+ * the rest, and the per-id fallback 429s — the throttle storm) and proves:
  *
  *   1. Rate-limited conversations are NOT emitted as empty successes.
  *   2. Whatever was fetched is checkpointed to IndexedDB and survives a full
@@ -107,6 +108,24 @@ async function installRoutes(context, plan) {
         body: JSON.stringify({ memories: [{ id: 'mem1', content: 'remember the demo', created_at: 't0', type: 'memory' }] }),
       });
     }
+    // Bulk endpoint — the connector's primary fetch path. Returns a JSON ARRAY of
+    // full conversations. Mirrors real behavior: a conversation whose verdict isn't
+    // 200 is simply OMITTED from the array (e.g. oversized/broken), which forces the
+    // connector to fall back to a single-conversation GET for that id. (Checked
+    // before the generic /conversations list route, which it is a substring of.)
+    if (url.includes('/backend-api/conversations/batch')) {
+      let ids = [];
+      try { ids = (JSON.parse(route.request().postData() || '{}').conversation_ids) || []; } catch (_) {}
+      if (plan.batchThrottle && plan.batchThrottle(ids)) {
+        return route.fulfill({ status: 429, contentType: 'application/json', body: JSON.stringify({ detail: 'too many requests' }) });
+      }
+      const arr = [];
+      for (const id of ids) {
+        plan.batchHits[id] = (plan.batchHits[id] || 0) + 1;
+        if (plan.detail(id).status === 200) arr.push({ id, ...convPayload(id) });
+      }
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(arr) });
+    }
     if (url.includes('/backend-api/conversations')) {
       const u = new URL(url);
       const offset = Number(u.searchParams.get('offset')) || 0;
@@ -114,6 +133,7 @@ async function installRoutes(context, plan) {
       const items = plan.list.slice(offset, offset + limit);
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items, total: plan.list.length }) });
     }
+    // Per-conversation GET — now only the FALLBACK path for ids the batch omitted.
     const m = url.match(/\/backend-api\/conversation\/([^/?]+)/);
     if (m) {
       const id = m[1];
@@ -189,10 +209,12 @@ function summarize(result) {
   const N = 12;
   const list = makeList(N);
 
-  // ── RUN 1: rate-limit storm. c1–c4 succeed; c5–c12 always 429. ──
+  // ── RUN 1: c1–c4 come back in the batch; c5–c12 are omitted from the batch
+  //    and then 429 on the per-id fallback (the throttle storm). ──
   const plan1 = {
     list,
-    hits: {},
+    hits: {},       // per-id GET (fallback) hits
+    batchHits: {},  // /conversations/batch hits
     detail: (id) => {
       const n = Number(id.slice(1));
       return n <= 4 ? { status: 200 } : { status: 429, retryAfter: 1 };
@@ -212,10 +234,18 @@ function summarize(result) {
     'run1 must report the shortfall via errors[] (degraded), not silently');
   // No empty-success pollution: checkpoint holds only the 4 real ones.
   assert.deepStrictEqual(run1.ckpt.ids, ['c1', 'c2', 'c3', 'c4'], 'only fetched convs are checkpointed (no empty c5–c12)');
+  // The batch path is actually exercised: c1–c4 came back via /conversations/batch,
+  // NOT via the per-id fallback.
+  for (const id of ['c1', 'c2', 'c3', 'c4']) {
+    assert(plan1.batchHits[id], `${id} should be fetched via /conversations/batch`);
+    assert(!plan1.hits[id], `${id} should NOT need the per-id fallback`);
+  }
+  // The throttled ones fell through to the fallback (omitted from batch → per-id GET → 429).
+  assert(plan1.hits['c5'], 'omitted c5 must hit the per-id fallback');
   // Patient mode must converge/defer, not hammer every conv unboundedly.
   const totalDetailHits1 = Object.values(plan1.hits).reduce((a, b) => a + b, 0);
-  assert(totalDetailHits1 < N * 5, `should cap request volume when throttled (got ${totalDetailHits1} detail hits)`);
-  console.log(`  ✓ run1 partial-saved 4/12, ${totalDetailHits1} detail requests (no storm), reported degraded`);
+  assert(totalDetailHits1 < N * 5, `should cap request volume when throttled (got ${totalDetailHits1} fallback hits)`);
+  console.log(`  ✓ run1 partial-saved 4/12 via batch, ${totalDetailHits1} fallback requests (no storm), reported degraded`);
 
   if (classifier) {
     const c1 = classifier.classify(classifier.normalize(r1, { requestedScopes: r1.requestedScopes }), { expectedRequestedScopes: r1.requestedScopes });
@@ -223,8 +253,8 @@ function summarize(result) {
     console.log('  ✓ run1 classifies as partial → data IS delivered');
   }
 
-  // ── RUN 2: same profile, recovery. Everything returns 200 now. ──
-  const plan2 = { list, hits: {}, detail: () => ({ status: 200 }) };
+  // ── RUN 2: same profile, recovery. Everything returns 200 now (via batch). ──
+  const plan2 = { list, hits: {}, batchHits: {}, detail: () => ({ status: 200 }) };
   const run2 = await runConnectorOnce(userDataDir, plan2);
   const r2 = run2.captured.results[run2.captured.results.length - 1];
   console.log('RUN2', JSON.stringify(summarize(r2)));
@@ -234,9 +264,14 @@ function summarize(result) {
   assert.strictEqual(r2.exportSummary.details.newlyFetched, 8, 'run2 should fetch only the 8 missing');
   assert.strictEqual(r2.exportSummary.details.pending, 0, 'run2 should have nothing pending');
   assert.strictEqual(r2.errors.length, 0, 'run2 should have no errors');
-  // Proof of "no redundant work": the 4 already-saved convs are NOT re-requested.
+  // Proof of "no redundant work": the 4 already-saved convs are NOT re-requested,
+  // via the batch path OR the per-id fallback.
   for (const id of ['c1', 'c2', 'c3', 'c4']) {
-    assert(!plan2.hits[id], `run2 must NOT re-fetch already-saved ${id}`);
+    assert(!plan2.hits[id] && !plan2.batchHits[id], `run2 must NOT re-fetch already-saved ${id}`);
+  }
+  // The 8 missing convs were recovered via the batch endpoint (not the per-id path).
+  for (const id of ['c5', 'c12']) {
+    assert(plan2.batchHits[id], `run2 should refetch ${id} via /conversations/batch`);
   }
   assert.strictEqual(run2.ckpt.ids.length, 12, 'checkpoint should now hold all 12');
   assert.strictEqual(run2.ckpt.meta.fullSyncDone, true, 'run2 should mark the sync complete');
