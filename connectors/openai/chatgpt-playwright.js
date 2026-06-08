@@ -41,8 +41,11 @@
 const CKPT_DB = 'vana_chatgpt_ckpt';
 const CKPT_FORMAT = 1;
 
-const START_CONCURRENCY = 2;       // conservative cold start
-const MAX_CONCURRENCY = 4;         // ceiling even when healthy
+// "Concurrency" now sizes the /conversations/batch request (ids per POST). The
+// server caps conversation_ids at 10, so 10 is the healthy ceiling = one batch
+// call per loop. MIN drops us to 1-per-call only if the batch endpoint ever 429s.
+const START_CONCURRENCY = 10;      // a full batch from the start — batch endpoint isn't throttled
+const MAX_CONCURRENCY = 10;        // server hard cap on conversation_ids per request
 const MIN_CONCURRENCY = 1;
 const BASE_BATCH_DELAY_MS = 700;   // polite pacing between healthy batches
 const MAX_BATCH_DELAY_MS = 8000;
@@ -365,14 +368,21 @@ const fetchConversationsPage = async (accessToken, deviceId, offset, limit) => {
   return result || { ok: false, status: 0 };
 };
 
-// Fetch a batch of conversation details in parallel (inside browser via Promise.all).
-// Each entry: { id, ok, status, retryAfter, title?, create_time?, update_time?, messages? }.
+// Fetch conversation details in bulk via the /conversations/batch endpoint
+// (POST, up to 10 ids per request). Unlike the per-conversation GET
+// (backend-api/conversation/{id}), this endpoint returns full conversation
+// content WITHOUT the brutal per-conversation rate limit — it's the path the
+// iOS/macOS ChatGPT apps use, which is why they never hit the 429 wall the web
+// client does. We chunk the caller's ids into groups of 10 and apply the same
+// message-tree walk to each returned conversation. Same return contract as before:
+// each entry { id, ok, status, retryAfter?, rl?, title?, create_time?, update_time?, messages? }.
 const fetchConversationBatch = async (accessToken, deviceId, convIds) => {
   const result = await page.evaluate(`
     (async () => {
       const token = ${JSON.stringify(accessToken)};
       const device = ${JSON.stringify(deviceId)};
       const ids = ${JSON.stringify(convIds)};
+      const BATCH_MAX = 10;  // server caps conversation_ids at 10 (422 above that)
 
       const parseRetryAfter = (resp) => {
         const h = resp.headers && resp.headers.get ? resp.headers.get('retry-after') : null;
@@ -384,7 +394,59 @@ const fetchConversationBatch = async (accessToken, deviceId, convIds) => {
         return null;
       };
 
-      const fetchOne = async (convId) => {
+      // Walk the message tree along the path to current_node (active branch).
+      const walkMessages = (data) => {
+        const mapping = data.mapping || {};
+        const currentNode = data.current_node;
+
+        let rootId = null;
+        for (const [nodeId, node] of Object.entries(mapping)) {
+          if (!node.parent || !mapping[node.parent]) { rootId = nodeId; break; }
+        }
+
+        const ancestorsOfCurrent = new Set();
+        let walkUp = currentNode;
+        while (walkUp && mapping[walkUp]) {
+          ancestorsOfCurrent.add(walkUp);
+          walkUp = mapping[walkUp].parent;
+        }
+
+        const messages = [];
+        let cursor = rootId;
+        while (cursor && mapping[cursor]) {
+          const node = mapping[cursor];
+          if (node.message) {
+            const msg = node.message;
+            const role = msg.author?.role;
+            const contentType = msg.content?.content_type;
+            if ((role === 'user' || role === 'assistant') &&
+                (contentType === 'text' || contentType === 'multimodal_text')) {
+              const textParts = (msg.content?.parts || []).filter(p => typeof p === 'string').join('\\n');
+              if (textParts.length > 0) {
+                messages.push({
+                  id: msg.id, role, content: textParts, content_type: contentType,
+                  create_time: msg.create_time ? new Date(msg.create_time * 1000).toISOString() : null,
+                  model: msg.metadata?.model_slug || null,
+                });
+              }
+            }
+          }
+          const children = node.children || [];
+          let nextCursor = null;
+          for (const childId of children) {
+            if (ancestorsOfCurrent.has(childId)) { nextCursor = childId; break; }
+          }
+          if (!nextCursor && children.length > 0) nextCursor = children[children.length - 1];
+          cursor = nextCursor;
+        }
+        return messages;
+      };
+
+      // Single-conversation fallback (mirrors the app's "fetch via remote ID batch
+      // fallback"): batch occasionally omits a conversation (e.g. oversized), so we
+      // fetch those individually. This path IS subject to the per-id rate limit, but
+      // it only runs for the rare omitted conversation, and a 429 just requeues it.
+      const fetchOneFallback = async (convId) => {
         try {
           const controller = new AbortController();
           const timeout = setTimeout(() => controller.abort(), ${CONV_FETCH_TIMEOUT_MS});
@@ -402,59 +464,45 @@ const fetchConversationBatch = async (accessToken, deviceId, convIds) => {
             return { id: convId, ok: false, status: response.status, retryAfter: parseRetryAfter(response), rl };
           }
           const data = await response.json();
-
-          // Walk the message tree along the path to current_node.
-          const mapping = data.mapping || {};
-          const currentNode = data.current_node;
-
-          let rootId = null;
-          for (const [nodeId, node] of Object.entries(mapping)) {
-            if (!node.parent || !mapping[node.parent]) { rootId = nodeId; break; }
-          }
-
-          const ancestorsOfCurrent = new Set();
-          let walkUp = currentNode;
-          while (walkUp && mapping[walkUp]) {
-            ancestorsOfCurrent.add(walkUp);
-            walkUp = mapping[walkUp].parent;
-          }
-
-          const messages = [];
-          let cursor = rootId;
-          while (cursor && mapping[cursor]) {
-            const node = mapping[cursor];
-            if (node.message) {
-              const msg = node.message;
-              const role = msg.author?.role;
-              const contentType = msg.content?.content_type;
-              if ((role === 'user' || role === 'assistant') &&
-                  (contentType === 'text' || contentType === 'multimodal_text')) {
-                const textParts = (msg.content?.parts || []).filter(p => typeof p === 'string').join('\\n');
-                if (textParts.length > 0) {
-                  messages.push({
-                    id: msg.id, role, content: textParts, content_type: contentType,
-                    create_time: msg.create_time ? new Date(msg.create_time * 1000).toISOString() : null,
-                    model: msg.metadata?.model_slug || null,
-                  });
-                }
-              }
-            }
-            const children = node.children || [];
-            let nextCursor = null;
-            for (const childId of children) {
-              if (ancestorsOfCurrent.has(childId)) { nextCursor = childId; break; }
-            }
-            if (!nextCursor && children.length > 0) nextCursor = children[children.length - 1];
-            cursor = nextCursor;
-          }
-
-          return { id: convId, ok: true, status: 200, title: data.title, create_time: data.create_time, update_time: data.update_time, messages };
+          return { id: convId, ok: true, status: 200, title: data.title, create_time: data.create_time, update_time: data.update_time, messages: walkMessages(data) };
         } catch (err) {
           return { id: convId, ok: false, status: 0, error: err.message };
         }
       };
 
-      return await Promise.all(ids.map(id => fetchOne(id)));
+      const out = [];
+      for (let i = 0; i < ids.length; i += BATCH_MAX) {
+        const chunk = ids.slice(i, i + BATCH_MAX);
+        try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), ${CONV_FETCH_TIMEOUT_MS});
+          const response = await fetch(
+            "https://chatgpt.com/backend-api/conversations/batch",
+            { headers: { accept: "*/*", authorization: "Bearer " + token, "oai-device-id": device, "oai-language": "en-US", "content-type": "application/json" },
+              method: "POST", credentials: "include", body: JSON.stringify({ conversation_ids: chunk }), signal: controller.signal }
+          );
+          clearTimeout(timeout);
+          if (!response.ok) {
+            const rl = {};
+            for (const [k, v] of response.headers.entries()) {
+              if (/retry-after|rate.?limit|reset|remaining/i.test(k)) rl[k] = v;
+            }
+            const retryAfter = parseRetryAfter(response);
+            for (const id of chunk) out.push({ id, ok: false, status: response.status, retryAfter, rl });
+            continue;
+          }
+          const arr = await response.json();
+          const byId = new Map((Array.isArray(arr) ? arr : []).map(c => [c.id, c]));
+          for (const id of chunk) {
+            const data = byId.get(id);
+            if (!data) { out.push(await fetchOneFallback(id)); continue; }
+            out.push({ id, ok: true, status: 200, title: data.title, create_time: data.create_time, update_time: data.update_time, messages: walkMessages(data) });
+          }
+        } catch (err) {
+          for (const id of chunk) out.push({ id, ok: false, status: 0, error: err.message });
+        }
+      }
+      return out;
     })()
   `);
 
