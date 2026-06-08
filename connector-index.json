@@ -69,6 +69,42 @@
           "iconKey": "chatgpt",
           "defaultScope": "chatgpt.conversations"
         }
+      },
+      {
+        "connectorId": "chatgpt-playwright",
+        "company": "openai",
+        "version": "3.0.0",
+        "name": "ChatGPT",
+        "status": "stable",
+        "description": "Exports your email, memories, and all conversations from ChatGPT.",
+        "sourceFiles": {
+          "script": "openai/chatgpt-playwright.js",
+          "metadata": "openai/chatgpt-playwright.json"
+        },
+        "publishedAt": "2026-04-13T00:00:00Z",
+        "sourceTag": "fix/retained-artifact-signatures-clean",
+        "sourceCommit": "9a83f771fc2a212f1ce2e7933c301fef9ab082b2",
+        "releaseId": "connectors-9a83f771fc2a",
+        "pageApiVersion": 1,
+        "manifestSha256": "sha256:b4ced371d0a87c5d3d202ff0835b361caa0124732da179fb913688a6b29fc914",
+        "scriptSha256": "sha256:861caaf7f339a73dec887de8572bca3467fd9a003d2a1feeb1466dc7fbcbbfff",
+        "artifactSha256": "sha256:0b8f5d677c175298831bb1076d1f298f1bd0168185539b0150c8a824fe7465de",
+        "artifactPath": "artifacts/chatgpt-playwright/chatgpt-playwright-3.0.0.tgz",
+        "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/9a83f771fc2a212f1ce2e7933c301fef9ab082b2/artifacts/chatgpt-playwright/chatgpt-playwright-3.0.0.tgz",
+        "scopes": [
+          "chatgpt.memories",
+          "chatgpt.conversations"
+        ],
+        "consumerMetadata": {
+          "sourceId": "chatgpt",
+          "displayName": "ChatGPT",
+          "brandDomain": "chatgpt.com",
+          "aliases": [
+            "openai"
+          ],
+          "iconKey": "chatgpt",
+          "defaultScope": "chatgpt.conversations"
+        }
       }
     ],
     "claude-playwright": [

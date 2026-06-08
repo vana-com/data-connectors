@@ -6,7 +6,7 @@
     {
       "id": "chatgpt-playwright",
       "company": "openai",
-      "version": "2.0.0",
+      "version": "3.0.0",
       "name": "ChatGPT",
       "status": "stable",
       "description": "Exports your email, memories, and all conversations from ChatGPT.",
@@ -25,8 +25,8 @@
         "metadata": "openai/chatgpt-playwright.json"
       },
       "checksums": {
-        "script": "sha256:72518dd765ff2103a0ad7dd184a9efcfac359764fca1613714400e661b2fe73a",
-        "metadata": "sha256:be7140f442a11a4475f1778e8e32e93d3a633d4ad515ed925bf7ecca461d793d"
+        "script": "sha256:f0bebc7055a0b49c87cece29bdcd078e447d88a575e643d02f30f5b6daa2e95b",
+        "metadata": "sha256:b4ced371d0a87c5d3d202ff0835b361caa0124732da179fb913688a6b29fc914"
       }
     },
     {
