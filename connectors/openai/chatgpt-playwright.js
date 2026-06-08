@@ -50,6 +50,7 @@ const MIN_CONCURRENCY = 1;
 const BASE_BATCH_DELAY_MS = 700;   // polite pacing between healthy batches
 const MAX_BATCH_DELAY_MS = 8000;
 const MAX_ATTEMPTS = 8;            // per-conversation retry budget for non-throttle errors (5xx/network)
+const SERVER_ERROR_MAX_ATTEMPTS = 3; // after this many 5xx on one conversation, skip it (server-side broken)
 const CONV_FETCH_TIMEOUT_MS = 30000;
 const FLUSH_EVERY_CONVS = 25;      // incremental host flush cadence (by new convs)
 const FLUSH_INTERVAL_MS = 15000;   // …or by time
@@ -598,6 +599,7 @@ const buildResult = (requestedScopes, convMap, memories, telemetry) => {
         newlyFetched: telemetry.newlyFetched || 0,
         resumedFromCheckpoint: telemetry.resumed || 0,
         pending,
+        skipped: telemetry.skipped || 0,   // conversations that 5xx server-side (unfetchable); excluded from pending
         totalConversations: telemetry.totalConversations || conversations.length,
         statusCounts: telemetry.statusCounts || {},
         stoppedReason: telemetry.stoppedReason || null,
@@ -869,6 +871,7 @@ const buildResult = (requestedScopes, convMap, memories, telemetry) => {
     memoriesFailed: false,
     authFailed: false,
     stoppedReason: null,
+    skipped: 0,         // conversations dropped after a persistent server error (5xx)
   };
   const bumpStatus = (s) => {
     const key = String(s);
@@ -986,6 +989,7 @@ const buildResult = (requestedScopes, convMap, memories, telemetry) => {
   // Step 3: Adaptive, resumable conversation download.
   const runStart = Date.now();
   const queue = work.slice();
+  const skipped = new Set();        // conv ids dropped after a persistent 5xx (server-side broken)
   let concurrency = START_CONCURRENCY;
   let batchDelay = BASE_BATCH_DELAY_MS;
   let patientWaitMs = PATIENT_BACKOFF_START_MS;  // grows while throttled, resets on recovery
@@ -1002,7 +1006,8 @@ const buildResult = (requestedScopes, convMap, memories, telemetry) => {
       await ckptPutBatch(toWrite, memories, null).catch(() => {});
     }
     if (force || convsSinceFlush >= FLUSH_EVERY_CONVS || Date.now() - lastFlush >= FLUSH_INTERVAL_MS) {
-      telemetry.pending = queue.length + work.filter(w => w.attempts >= MAX_ATTEMPTS && !convMap.has(w.id)).length;
+      telemetry.skipped = skipped.size;
+      telemetry.pending = queue.length + work.filter(w => w.attempts >= MAX_ATTEMPTS && !convMap.has(w.id) && !skipped.has(w.id)).length;
       const partial = buildResult(requestedScopes, convMap, memories, telemetry);
       await page.setData('result', partial);   // host persists + delivers progressively
       convsSinceFlush = 0;
@@ -1043,7 +1048,17 @@ const buildResult = (requestedScopes, convMap, memories, telemetry) => {
       } else {
         // 5xx / network / timeout — retry with budget.
         item.attempts++;
-        if (item.attempts < MAX_ATTEMPTS) queue.push(item);
+        const isServerError = r.status >= 500 && r.status < 600;
+        if (isServerError && item.attempts >= SERVER_ERROR_MAX_ATTEMPTS) {
+          // Persistent server error: this conversation is broken server-side
+          // (it 5xx's on both batch and the per-id fallback — and even on delete).
+          // Skip it terminally so the run can COMPLETE instead of being stuck
+          // "partial" forever. Recorded as skipped (telemetry), not silently lost.
+          skipped.add(item.id);
+        } else if (item.attempts < MAX_ATTEMPTS) {
+          queue.push(item);
+        }
+        // else: exhausted network/timeout (status 0) — left out; a future run retries.
       }
     }
 
@@ -1109,7 +1124,10 @@ const buildResult = (requestedScopes, convMap, memories, telemetry) => {
 
   // Final checkpoint write + classification.
   await flush(true);
-  telemetry.pending = Math.max(0, telemetry.totalConversations - convMap.size);
+  telemetry.skipped = skipped.size;
+  // Skipped (persistently-broken 5xx) conversations are NOT counted as pending —
+  // they're unfetchable by any means, so the run is as complete as it can be.
+  telemetry.pending = Math.max(0, telemetry.totalConversations - convMap.size - skipped.size);
 
   // Mark a full sync complete only when nothing is outstanding.
   if (telemetry.pending === 0 && !telemetry.authFailed) {
@@ -1124,7 +1142,7 @@ const buildResult = (requestedScopes, convMap, memories, telemetry) => {
   const totalMessages = result.exportSummary.details.messages;
   const pendingSuffix = telemetry.pending > 0
     ? ` — ${telemetry.pending} still pending (will resume next run)`
-    : '';
+    : (skipped.size > 0 ? ` — ${skipped.size} skipped (broken server-side)` : '');
   await page.setProgress({
     phase: { step: 3, total: 3, label: 'Downloading conversations' },
     message: `Saved ${convMap.size}/${telemetry.totalConversations} conversations${pendingSuffix}`,

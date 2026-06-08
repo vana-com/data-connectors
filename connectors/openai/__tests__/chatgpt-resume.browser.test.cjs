@@ -283,6 +283,32 @@ function summarize(result) {
     console.log('  ✓ run2 classifies as success');
   }
 
+  // ── RUN 3: one conversation (c7) is broken server-side — 500s on the batch
+  //    (omitted) AND on the per-id fallback. It must be SKIPPED after a bounded
+  //    number of retries so the run still COMPLETES (not stuck partial). ──
+  const dir3 = fs.mkdtempSync(path.join(os.tmpdir(), 'chatgpt-skip-'));
+  const plan3 = { list, hits: {}, batchHits: {}, detail: (id) => (id === 'c7' ? { status: 500 } : { status: 200 }) };
+  const run3 = await runConnectorOnce(dir3, plan3);
+  const r3 = run3.captured.results[run3.captured.results.length - 1];
+  console.log('RUN3', JSON.stringify(summarize(r3)));
+
+  assert.strictEqual(r3['chatgpt.conversations'].total, 11, 'run3 should save the 11 healthy conversations');
+  assert(!run3.ckpt.ids.includes('c7'), 'the broken c7 must NOT be saved');
+  assert.strictEqual(r3.exportSummary.details.skipped, 1, 'run3 should report 1 skipped conversation');
+  assert.strictEqual(r3.exportSummary.details.pending, 0, 'skipped convs must NOT count as pending');
+  assert.strictEqual(r3.errors.length, 0, 'a skipped-but-complete run emits no degraded error');
+  // The broken conv is retried a BOUNDED number of times, then skipped (not hammered).
+  assert((plan3.hits['c7'] || 0) <= 3, `c7 should be skipped after <=3 fallback attempts (got ${plan3.hits['c7']})`);
+  assert.strictEqual(run3.ckpt.meta.fullSyncDone, true, 'run3 should mark the sync complete despite the skip');
+  console.log(`  ✓ run3 skipped broken c7 after ${plan3.hits['c7']} attempts, completed 11/12 (0 pending)`);
+
+  if (classifier) {
+    const c3 = classifier.classify(classifier.normalize(r3, { requestedScopes: r3.requestedScopes }), { expectedRequestedScopes: r3.requestedScopes });
+    assert.strictEqual(c3.outcome, 'success', `run3 must classify success (skip doesn't degrade), got ${c3.outcome} (${c3.debug || ''})`);
+    console.log('  ✓ run3 classifies as success → skip does not mark the run incomplete');
+  }
+  fs.rmSync(dir3, { recursive: true, force: true });
+
   fs.rmSync(userDataDir, { recursive: true, force: true });
   console.log('\nALL BROWSER RESUME TESTS PASSED');
 })().catch((err) => {
