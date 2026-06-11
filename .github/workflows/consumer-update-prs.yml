@@ -16,8 +16,24 @@ permissions:
   contents: read
 
 jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    outputs:
+      has_token: ${{ steps.check.outputs.has_token }}
+    steps:
+      - id: check
+        env:
+          CONSUMER_PR_TOKEN: ${{ secrets.CONSUMER_PR_TOKEN }}
+        run: |
+          if [ -n "$CONSUMER_PR_TOKEN" ]; then
+            echo "has_token=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_token=false" >> "$GITHUB_OUTPUT"
+          fi
+
   update-context-gateway:
-    if: ${{ secrets.CONSUMER_PR_TOKEN != '' }}
+    needs: preflight
+    if: needs.preflight.outputs.has_token == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -67,7 +83,8 @@ jobs:
             - refreshed generated connector catalog
 
   update-data-connect:
-    if: ${{ secrets.CONSUMER_PR_TOKEN != '' }}
+    needs: preflight
+    if: needs.preflight.outputs.has_token == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
