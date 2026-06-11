@@ -82,11 +82,11 @@ test('conversation messages are ordered by created_at', () => {
   assert.strictEqual(c.messages[0].content, 'Where should I go?');
 });
 
-test('empty message text is preserved as empty, with rawContent retained', () => {
+test('empty message text is preserved as empty; rawContent is NOT carried into the PS payload', () => {
   const c = normalizeConversation(exportConversation);
   const empty = c.messages.find((m) => m.id === 'm3');
   assert.strictEqual(empty.content, '');
-  assert.ok(Array.isArray(empty.rawContent), 'rawContent kept for fidelity');
+  assert.ok(!('rawContent' in empty), 'rawContent dropped from the PS payload (raw stays in the local export ZIP)');
 });
 
 test('normalizeExport produces a conformant success with both scopes', () => {

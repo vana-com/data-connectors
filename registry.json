@@ -338,7 +338,7 @@
     {
       "id": "claude-export-playwright",
       "company": "Anthropic",
-      "version": "1.0.0",
+      "version": "2.0.0",
       "name": "Claude",
       "status": "experimental",
       "description": "Exports your Claude conversations and projects via Anthropic's official data export (one complete archive, no per-conversation rate limiting).",
@@ -347,8 +347,8 @@
         "metadata": "anthropic/claude-export-playwright.json"
       },
       "checksums": {
-        "script": "sha256:3f899a5a22c89a8e05a4710fafb95907509fbf222a7208bdf620c96f81ff7a09",
-        "metadata": "sha256:70a2b6f3d248071b5854716707b41bbcc1ab25f08cb9eff7c18c9a3f08f3bdb3"
+        "script": "sha256:1b8b4caf80b5e976822fa201b8232edd0d562858ce71f976dd1ebe449da909c1",
+        "metadata": "sha256:083af470ca0a590fff2b4929716c10332db230ab8ed7d83aa974cf5f183e2f53"
       }
     },
     {

@@ -2,7 +2,7 @@
   "manifest_version": "1.0",
   "connector_id": "claude-export-playwright",
   "source_id": "claude",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "name": "Claude",
   "company": "Anthropic",
   "description": "Exports your Claude conversations and projects via Anthropic's official data export (one complete archive, no per-conversation rate limiting).",

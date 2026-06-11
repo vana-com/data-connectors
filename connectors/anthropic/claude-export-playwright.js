@@ -168,6 +168,10 @@ const normalizeConversation = (conv) => {
   const id = conv?.uuid || conv?.id || null;
   const raw = Array.isArray(conv?.chat_messages) ? conv.chat_messages.slice() : [];
   raw.sort((a, b) => (Date.parse(a?.created_at || '') || 0) - (Date.parse(b?.created_at || '') || 0));
+  // Personal Server payload is the readable conversation only. The raw Claude
+  // content blocks (tool_use / tool_result / thinking + per-block metadata) are
+  // ~79% of the bytes and are NOT carried into the PS — the full-fidelity raw
+  // archive stays local in the downloaded export ZIP (see persistedArchivePath).
   const messages = raw.map(m => ({
     id: m?.uuid || null,
     sender: m?.sender || null,
@@ -175,7 +179,6 @@ const normalizeConversation = (conv) => {
     createdAt: m?.created_at || null,
     updatedAt: m?.updated_at || null,
     content: flattenMessageText(m),
-    rawContent: m?.content ?? null,
     attachments: Array.isArray(m?.attachments) ? m.attachments : [],
   }));
   return {
@@ -225,7 +228,7 @@ const buildResult = (requestedScopes, ctx) => {
   const result = {
     requestedScopes,
     timestamp: new Date().toISOString(),
-    version: '1.0.0-export',
+    version: '2.0.0-export',
     platform: 'claude',
     exportSummary: {
       count: conversations.length + projects.length,
@@ -238,6 +241,10 @@ const buildResult = (requestedScopes, ctx) => {
         pending: Boolean(ctx.pending),
         source: 'official-export',
         organizationId: ctx.organizationId || null,
+        // Markers so a tester can confirm this is the trimmed v2 build:
+        payloadMode: 'text-only',
+        rawContentInPayload: false,
+        rawArchivePath: ctx.rawArchivePath || null,
       },
     },
     errors,
@@ -375,7 +382,11 @@ const buildResult = (requestedScopes, ctx) => {
     ? { name: json['users.json'][0].full_name || profile.name || null, plan: profile.plan || null }
     : profile;
 
-  const ctx = { organizationId, profile: exportProfile, conversations, projects, designChats, pending: false };
+  const ctx = { organizationId, profile: exportProfile, conversations, projects, designChats, pending: false,
+    // The downloaded export ZIP IS the full-fidelity raw archive; it stays on
+    // the user's machine and never enters the Personal Server. captureDownload
+    // returns its persisted path.
+    rawArchivePath: dl.path || null };
   const result = buildResult(requestedScopes, ctx);
   await page.setData('result', result);
 

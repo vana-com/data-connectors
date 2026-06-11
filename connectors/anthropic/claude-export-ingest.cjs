@@ -70,7 +70,6 @@ function normalizeMessage(m) {
     createdAt: m?.created_at || null,
     updatedAt: m?.updated_at || null,
     content: flattenMessageText(m),
-    rawContent: m?.content ?? null,
     attachments: Array.isArray(m?.attachments) ? m.attachments : [],
   };
 }
