@@ -16,6 +16,19 @@ What changed and why:
 - **Message flattening.** Detail messages carry an `index` (linear order) plus structured `content` blocks; an already-flattened `text` field exists but is empty under `rendering_mode=messages` (verified live, 0% populated), so v2 orders by `index` and flattens from `content`, preferring `text` only when present.
 - **Login unchanged.** Manual headed-browser login only — no scripted credential entry. Claude login involves third-party identity and anti-bot checks, so manual hand-off is both more robust and avoids ever handling the password.
 
+## Official export path (`claude-export-ingest.cjs`)
+
+Anthropic ships a first-party export (Settings → Privacy → Export data): `POST /api/organizations/:org/export_data` → `{nonce}`, then an emailed download of a ZIP. It is a strict superset of the live-API connector — `users.json`, `conversations.json` (all threads), `projects/*.json`, `design_chats/*.json` — split into `…-batch-NNNN.zip` files for large accounts. Validated against a real export: **442 conversations, 6,317 messages, 10 projects, 2 design chats** in a 33 MB zip; the per-message schema matches the live API (so the connector's normalization is reused verbatim).
+
+**Why it is a Node tool, not a connector collection mode.** The page-API runtime cannot retrieve the archive — confirmed three ways:
+- In-browser `fetch()` of the download URL returns the Claude SPA shell regardless of `Accept`; the zip is gated on `Sec-Fetch-Dest: document`, which only a top-level navigation sets and `fetch()` cannot spoof.
+- The runner's `page.httpFetch` reads the body via `response.text()` (`data-connect/playwright-runner/index.cjs`), which corrupts binary — and returns no binary field.
+- There is no download-capture method in the page API (15 methods; no `page.on('download')`).
+
+So retrieval belongs in the **desktop runner layer** (which can drive the navigation, capture the download, and handle binary). `claude-export-ingest.cjs` is the runtime-independent core that layer calls: `normalizeExport()` is a pure, unit-tested function (export objects → the same honest-telemetry scoped result the connector emits), and the CLI wraps it with system `unzip` + multi-batch merge/dedup. To make this a true in-connector mode later, the smallest unblock is binary support in `page.httpFetch` (return base64 for non-text bodies) plus a pure-JS inflate in the connector — a `data-connect` change, not a `data-connectors` one.
+
+**Tradeoffs vs the live-API connector:** the export is complete and rate-limit-free but asynchronous (POST → wait for the job/email), a full dump each time (no cheap incremental refresh — the live-API path's `current_leaf_message_uuid` delta wins there), and likely throttled to ~once/day. Best used for the initial bulk backfill, with the live-API connector for incremental updates.
+
 Confirmed endpoints (live, 2026-06-10):
 
 - `GET /api/organizations` → `[{uuid, name, capabilities, …}]`
