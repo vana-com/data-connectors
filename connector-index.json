@@ -111,33 +111,6 @@
       {
         "connectorId": "claude-export-playwright",
         "company": "Anthropic",
-        "version": "1.0.0",
-        "name": "Claude",
-        "status": "experimental",
-        "description": "Exports your Claude conversations and projects via Anthropic's official data export (one complete archive, no per-conversation rate limiting).",
-        "sourceFiles": {
-          "script": "anthropic/claude-export-playwright.js",
-          "metadata": "anthropic/claude-export-playwright.json"
-        },
-        "publishedAt": "2026-04-13T00:00:00Z",
-        "sourceTag": "fix/retained-artifact-signatures-clean",
-        "sourceCommit": "9a83f771fc2a212f1ce2e7933c301fef9ab082b2",
-        "releaseId": "connectors-9a83f771fc2a",
-        "pageApiVersion": 1,
-        "manifestSha256": "sha256:70a2b6f3d248071b5854716707b41bbcc1ab25f08cb9eff7c18c9a3f08f3bdb3",
-        "scriptSha256": "sha256:3f899a5a22c89a8e05a4710fafb95907509fbf222a7208bdf620c96f81ff7a09",
-        "artifactSha256": "sha256:d670aae76ad19a916c1ef07224cbcabc8b511e86ed5ff4e890053cb4ef59feb0",
-        "artifactPath": "artifacts/claude-export-playwright/claude-export-playwright-1.0.0.tgz",
-        "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/9a83f771fc2a212f1ce2e7933c301fef9ab082b2/artifacts/claude-export-playwright/claude-export-playwright-1.0.0.tgz",
-        "scopes": [
-          "claude.conversations",
-          "claude.projects"
-        ],
-        "consumerMetadata": null
-      },
-      {
-        "connectorId": "claude-export-playwright",
-        "company": "Anthropic",
         "version": "2.0.0",
         "name": "Claude",
         "status": "experimental",
