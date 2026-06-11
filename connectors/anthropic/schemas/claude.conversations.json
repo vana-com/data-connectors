@@ -1,6 +1,6 @@
 {
   "name": "Claude Conversations",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "scope": "claude.conversations",
   "dialect": "json",
   "description": "Claude conversations including chat ids, titles, URLs, and full thread messages when the authenticated conversation API is available.",

@@ -338,7 +338,7 @@
     {
       "id": "claude-playwright",
       "company": "Anthropic",
-      "version": "1.1.0",
+      "version": "2.0.0",
       "name": "Claude",
       "status": "experimental",
       "description": "Exports your Claude conversations and projects from claude.ai.",
@@ -347,8 +347,8 @@
         "metadata": "anthropic/claude-playwright.json"
       },
       "checksums": {
-        "script": "sha256:4e070bc31afd210563db5c0ece547c9535f197b79b5b28951d87993c8538dafe",
-        "metadata": "sha256:f95d69603c9bcd0a41be780721a20a2d6587cb901a8b52d29a0a601c089e2f1e"
+        "script": "sha256:0023c553e2394d3a1a281aa10fab2a0db55e4dba7e59cf15378f0c56f3560ac7",
+        "metadata": "sha256:21e20aec64f5746cac4f0e818c7e8c5541de50fa93a5e67cb1cc6c7afb7254a5"
       }
     },
     {
