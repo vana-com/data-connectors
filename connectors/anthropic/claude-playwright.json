@@ -3,7 +3,7 @@
   "connector_id": "claude-playwright",
   "source_id": "claude",
   "version": "2.0.0",
-  "name": "Claude",
+  "name": "Claude (Live API)",
   "company": "Anthropic",
   "description": "Exports your Claude conversations and projects from claude.ai.",
   "runtime": "playwright",

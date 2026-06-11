@@ -24,7 +24,10 @@
 const CLAUDE_HOME_URL = 'https://claude.ai/new';
 const CLAUDE_LOGIN_URL = 'https://claude.ai/login';
 const CKPT_DB = 'vana_claude_export_ckpt';
-const DOWNLOAD_TIMEOUT_MS = 90000; // wait this long for the export job within one run
+// The export is an async job; poll within the run so it completes in one click.
+const POLL_ATTEMPT_TIMEOUT_MS = 25000;     // per attempt: navigate + wait for the download to fire
+const POLL_INTERVAL_MS = 8000;             // pause between attempts while the job is still preparing
+const MAX_WAIT_MS = 15 * 60 * 1000;        // overall cap before falling back to a resumable partial
 const ALL_SCOPES = ['claude.conversations', 'claude.projects'];
 
 // ─── Scope resolution ────────────────────────────────────────────────
@@ -317,16 +320,35 @@ const buildResult = (requestedScopes, ctx) => {
     await ckptSet({ organizationId, nonce, requestedAt: new Date().toISOString() });
   }
 
-  // Phase 3: try to capture the archive (the job may still be preparing).
-  await page.setProgress({ phase: { step: 2, total: 3, label: 'Downloading export' }, message: 'Waiting for the export to be ready and downloading...' });
+  // Phase 3: wait for the async export to finish, then capture it — all in one
+  // run. Each attempt navigates to the download URL; when the job is ready the
+  // page triggers the download and captureDownload returns it, otherwise it
+  // times out and we poll again until the overall cap.
   const downloadUrl = `https://claude.ai/export/${organizationId}/download/${nonce}`;
-  const dl = await page.captureDownload(downloadUrl, { timeout: DOWNLOAD_TIMEOUT_MS });
+  const waitStart = Date.now();
+  let dl = null;
+  while (true) {
+    const elapsed = Math.round((Date.now() - waitStart) / 1000);
+    await page.setProgress({
+      phase: { step: 2, total: 3, label: 'Preparing export' },
+      message: elapsed === 0
+        ? 'Waiting for Claude to prepare your export...'
+        : `Still preparing your export (${elapsed}s elapsed)...`,
+    });
+    dl = await page.captureDownload(downloadUrl, { timeout: POLL_ATTEMPT_TIMEOUT_MS });
+    if (dl && dl.ok && dl.ready) break;
+    if (Date.now() - waitStart > MAX_WAIT_MS) break;
+    await page.sleep(POLL_INTERVAL_MS);
+  }
 
   if (!dl || !dl.ok || !dl.ready) {
-    // Not ready yet — keep the nonce checkpointed and report a resumable partial.
-    const ctx = { organizationId, profile, conversations: [], projects: [], pending: true };
+    // Exceeded the wait budget — keep the nonce checkpointed so a re-run resumes
+    // (the job will be ready by then) rather than discarding progress.
+    const waited = Math.round((Date.now() - waitStart) / 60000);
+    const ctx = { organizationId, profile, conversations: [], projects: [], pending: true,
+      pendingReason: `Claude's export was still not ready after ${waited} min. The request is checkpointed — re-run to finish.` };
     await page.setData('result', buildResult(requestedScopes, ctx));
-    await page.setData('status', 'Export is still being prepared by Claude. Re-run in a few minutes to finish.');
+    await page.setData('status', 'Export is taking longer than usual to prepare. Re-run shortly to finish.');
     return;
   }
 
