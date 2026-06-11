@@ -84,7 +84,7 @@
       "version": "1.0.0",
       "name": "Instagram Ads",
       "status": "beta",
-      "description": "Exports your Instagram ad interests — advertisers and ad topics.",
+      "description": "Exports your Instagram ad interests \u2014 advertisers and ad topics.",
       "consumerMetadata": {
         "sourceId": "instagram",
         "displayName": "Instagram Ads",
@@ -364,7 +364,7 @@
       },
       "checksums": {
         "script": "sha256:3f899a5a22c89a8e05a4710fafb95907509fbf222a7208bdf620c96f81ff7a09",
-        "metadata": "sha256:da7dc6163f344530d8a056ad1bec98c26f942321dec3ef884dc0e05a592848ee"
+        "metadata": "sha256:70a2b6f3d248071b5854716707b41bbcc1ab25f08cb9eff7c18c9a3f08f3bdb3"
       }
     },
     {

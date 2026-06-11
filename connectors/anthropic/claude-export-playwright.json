@@ -30,5 +30,14 @@
   "exportFrequency": "monthly",
   "vectorize_config": {
     "documents": "title"
+  },
+  "consumer_metadata": {
+    "display_name": "Claude",
+    "brand_domain": "claude.ai",
+    "aliases": [
+      "anthropic"
+    ],
+    "icon_key": "claude",
+    "default_scope": "claude.conversations"
   }
 }
