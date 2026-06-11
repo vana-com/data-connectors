@@ -352,6 +352,22 @@
       }
     },
     {
+      "id": "claude-export-playwright",
+      "company": "Anthropic",
+      "version": "1.0.0",
+      "name": "Claude (Export)",
+      "status": "experimental",
+      "description": "Exports your Claude conversations and projects via Anthropic's official data export (one complete archive, no per-conversation rate limiting).",
+      "files": {
+        "script": "anthropic/claude-export-playwright.js",
+        "metadata": "anthropic/claude-export-playwright.json"
+      },
+      "checksums": {
+        "script": "sha256:69507ec9d7fffc854649a86cc87aaef7b159de70ea9feeeef0b5900e5a2486cc",
+        "metadata": "sha256:2a307a3e4ac0d19ef236df6c2eb534b58a300039754892b0d06c31241536c212"
+      }
+    },
+    {
       "id": "icloud-notes-playwright",
       "company": "Apple",
       "version": "0.2.0",
