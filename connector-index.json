@@ -23,7 +23,7 @@
         "pageApiVersion": 1,
         "manifestSha256": "sha256:5d6a4ef2e0b81084a956dc7e2520567f420c18ee3890cb17725d026d245513f4",
         "scriptSha256": "sha256:4a318b3c3884661929d8625ec04fac57b9fcd0d7508b699a8a3c9eba758c8f0a",
-        "artifactSha256": "sha256:9c1d14495a12abf6953d564f4b90ba029f3317a7329833dc7c772f44bcceb705",
+        "artifactSha256": "sha256:36795f716f28314a8be693b633f3e59d5f7c5d33e55005ab9336c42407ea2322",
         "artifactPath": "artifacts/amazon-playwright/amazon-playwright-1.0.0.tgz",
         "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/9a83f771fc2a212f1ce2e7933c301fef9ab082b2/artifacts/amazon-playwright/amazon-playwright-1.0.0.tgz",
         "scopes": [
@@ -88,7 +88,7 @@
         "pageApiVersion": 1,
         "manifestSha256": "sha256:b4ced371d0a87c5d3d202ff0835b361caa0124732da179fb913688a6b29fc914",
         "scriptSha256": "sha256:861caaf7f339a73dec887de8572bca3467fd9a003d2a1feeb1466dc7fbcbbfff",
-        "artifactSha256": "sha256:0b8f5d677c175298831bb1076d1f298f1bd0168185539b0150c8a824fe7465de",
+        "artifactSha256": "sha256:a48f7610ede25be2b257e6aad84ed832d3a9a29db20bcb5e45d8d15ea7473f06",
         "artifactPath": "artifacts/chatgpt-playwright/chatgpt-playwright-3.0.0.tgz",
         "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/9a83f771fc2a212f1ce2e7933c301fef9ab082b2/artifacts/chatgpt-playwright/chatgpt-playwright-3.0.0.tgz",
         "scopes": [
@@ -107,28 +107,28 @@
         }
       }
     ],
-    "claude-playwright": [
+    "claude-export-playwright": [
       {
-        "connectorId": "claude-playwright",
+        "connectorId": "claude-export-playwright",
         "company": "Anthropic",
-        "version": "1.1.0",
-        "name": "Claude",
+        "version": "1.0.0",
+        "name": "Claude (Export)",
         "status": "experimental",
-        "description": "Exports your Claude conversations and projects from claude.ai.",
+        "description": "Exports your Claude conversations and projects via Anthropic's official data export (one complete archive, no per-conversation rate limiting).",
         "sourceFiles": {
-          "script": "anthropic/claude-playwright.js",
-          "metadata": "anthropic/claude-playwright.json"
+          "script": "anthropic/claude-export-playwright.js",
+          "metadata": "anthropic/claude-export-playwright.json"
         },
         "publishedAt": "2026-04-13T00:00:00Z",
         "sourceTag": "fix/retained-artifact-signatures-clean",
         "sourceCommit": "9a83f771fc2a212f1ce2e7933c301fef9ab082b2",
         "releaseId": "connectors-9a83f771fc2a",
         "pageApiVersion": 1,
-        "manifestSha256": "sha256:f95d69603c9bcd0a41be780721a20a2d6587cb901a8b52d29a0a601c089e2f1e",
-        "scriptSha256": "sha256:4e070bc31afd210563db5c0ece547c9535f197b79b5b28951d87993c8538dafe",
-        "artifactSha256": "sha256:06d26d5be355799cf1ed9d5921211839044d4a19eba15e03acc17d4f6b316047",
-        "artifactPath": "artifacts/claude-playwright/claude-playwright-1.1.0.tgz",
-        "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/9a83f771fc2a212f1ce2e7933c301fef9ab082b2/artifacts/claude-playwright/claude-playwright-1.1.0.tgz",
+        "manifestSha256": "sha256:70a2b6f3d248071b5854716707b41bbcc1ab25f08cb9eff7c18c9a3f08f3bdb3",
+        "scriptSha256": "sha256:3f899a5a22c89a8e05a4710fafb95907509fbf222a7208bdf620c96f81ff7a09",
+        "artifactSha256": "sha256:d670aae76ad19a916c1ef07224cbcabc8b511e86ed5ff4e890053cb4ef59feb0",
+        "artifactPath": "artifacts/claude-export-playwright/claude-export-playwright-1.0.0.tgz",
+        "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/9a83f771fc2a212f1ce2e7933c301fef9ab082b2/artifacts/claude-export-playwright/claude-export-playwright-1.0.0.tgz",
         "scopes": [
           "claude.conversations",
           "claude.projects"
@@ -155,7 +155,7 @@
         "pageApiVersion": 1,
         "manifestSha256": "sha256:eb57a0b0855acf40ba246d778fbb28a15442690957bdef0df23b332db640c413",
         "scriptSha256": "sha256:a880b496f9d68076879fdbcbe874a627b55ea0e4433b7db8332aa72f51d0c889",
-        "artifactSha256": "sha256:74815a6d63aec2ed4cd43b905244ee6ecef078c18d5b2f8c690441a78e1613f7",
+        "artifactSha256": "sha256:8ebf6b293954d3b56b665653fd30236de5055398b04d40ee6df23ebab20e677a",
         "artifactPath": "artifacts/doordash-playwright/doordash-playwright-1.0.0.tgz",
         "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/9a83f771fc2a212f1ce2e7933c301fef9ab082b2/artifacts/doordash-playwright/doordash-playwright-1.0.0.tgz",
         "scopes": [
@@ -215,7 +215,7 @@
         "pageApiVersion": 1,
         "manifestSha256": "sha256:bac5c9a4d617c12e56d0056f6d55db2c652a263690008785ceda31f28e1cfd48",
         "scriptSha256": "sha256:486d4d0642132105877ab42a3807b59601619c2bb8aa9a60afdfd9cf6da58448",
-        "artifactSha256": "sha256:3ad6d2181dbc1f8fff94eefa7e3893db67e11daf05086cb75d5ce3dc2a9b3aa3",
+        "artifactSha256": "sha256:98f1592f09bb18ac2cac7f5bcbcdd5d9b193e985f669df96d6d95d751bca0dea",
         "artifactPath": "artifacts/github-playwright/github-playwright-1.2.0.tgz",
         "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/9a83f771fc2a212f1ce2e7933c301fef9ab082b2/artifacts/github-playwright/github-playwright-1.2.0.tgz",
         "scopes": [
@@ -251,7 +251,7 @@
         "pageApiVersion": 1,
         "manifestSha256": "sha256:74e49dd5cd606d584f59c1c35efe8772c1e859d4aa22ec8e03ddc1cd15858f51",
         "scriptSha256": "sha256:83919643aaebe8e59386acc2868fd89e1ac94dc3464e26f5afedb570e96a7b9f",
-        "artifactSha256": "sha256:125ffe87e4a2ae21672c1553c42969b0deb42637270278d01f29e94e9debd384",
+        "artifactSha256": "sha256:7ca896ad6e9ffdb7f54b1ba9f4dd4cf05aa4498f12527fa66970db699525bc71",
         "artifactPath": "artifacts/heb-playwright/heb-playwright-1.1.0.tgz",
         "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/9a83f771fc2a212f1ce2e7933c301fef9ab082b2/artifacts/heb-playwright/heb-playwright-1.1.0.tgz",
         "scopes": [
@@ -318,7 +318,7 @@
         "pageApiVersion": 1,
         "manifestSha256": "sha256:550ba20690d3d16d809686df73f9f23f18005dd5763ce6b631a17d4d7da370c4",
         "scriptSha256": "sha256:b341c912bc6c583728e49916ac80190836c7aa34316f304f4fa7a72b17f6cf0b",
-        "artifactSha256": "sha256:a2fedbd40cd4a0968c6d913233463984007f2512ff8430cbb7efe952f445d022",
+        "artifactSha256": "sha256:caafdab267a7a089d7dee25ced9bea2e62ff4e993af733e7cef2f08953d16921",
         "artifactPath": "artifacts/icloud-notes-playwright/icloud-notes-playwright-0.2.0.tgz",
         "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/9a83f771fc2a212f1ce2e7933c301fef9ab082b2/artifacts/icloud-notes-playwright/icloud-notes-playwright-0.2.0.tgz",
         "scopes": [
@@ -353,7 +353,7 @@
         "pageApiVersion": 1,
         "manifestSha256": "sha256:7403ddd375b61c5b0f5d078bdc90207e85fcf476542bba85b39c49fe3e9c51b2",
         "scriptSha256": "sha256:ef759279f73e52a05b063cf8e6a6bceb63409039f35f529b342bc1af004c972d",
-        "artifactSha256": "sha256:e0f46f9791bcc336f5f0b9125da671bf0a0f5512d58a562175bf91e4584ba3dc",
+        "artifactSha256": "sha256:11a4ea74d5c4bceb56df872f6cf64691973992ad569108ff5b2462c46aefb9b3",
         "artifactPath": "artifacts/instagram-ads-playwright/instagram-ads-playwright-1.0.0.tgz",
         "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/9a83f771fc2a212f1ce2e7933c301fef9ab082b2/artifacts/instagram-ads-playwright/instagram-ads-playwright-1.0.0.tgz",
         "scopes": [
@@ -423,7 +423,7 @@
         "pageApiVersion": 1,
         "manifestSha256": "sha256:d837e66b63c1a188bf0a60e92b5fd9dcd9cd4672133d93dd02c06c16bc2bfb95",
         "scriptSha256": "sha256:909618f8c07b38608e3de152724c81853c21540f797f0afcb84810513a342224",
-        "artifactSha256": "sha256:f22fa71280a7db4c30fe236c5146e6441363b4814c728f2092abbd3a462fd2bf",
+        "artifactSha256": "sha256:f6e61df2d1cd29d8e929584133f57eaff4e54df18db53717bd32f0894092a58c",
         "artifactPath": "artifacts/instagram-playwright/instagram-playwright-2.1.0.tgz",
         "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/9a83f771fc2a212f1ce2e7933c301fef9ab082b2/artifacts/instagram-playwright/instagram-playwright-2.1.0.tgz",
         "scopes": [
@@ -463,7 +463,7 @@
         "pageApiVersion": 1,
         "manifestSha256": "sha256:7e0a1f8ff7d4572a7e09f507011025bbe8c84c59f550628879aacf8900a4624e",
         "scriptSha256": "sha256:351a1a6706903bfbd7055c332f8baa118faa1ccb556cf019005f77cde422480b",
-        "artifactSha256": "sha256:c1b059959f3d924d763abac20430328c5b5165ed37b9f8fbe538dab125e8173d",
+        "artifactSha256": "sha256:744b69e19045209c763e71a99fad9b3ee081604c6b99b69f3387e0880d813ed6",
         "artifactPath": "artifacts/linkedin-playwright/linkedin-playwright-5.0.0.tgz",
         "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/9a83f771fc2a212f1ce2e7933c301fef9ab082b2/artifacts/linkedin-playwright/linkedin-playwright-5.0.0.tgz",
         "scopes": [
@@ -537,7 +537,7 @@
         "pageApiVersion": 1,
         "manifestSha256": "sha256:628564732b13157fe9ad9be09495d3fc6d2b9f32ca9ba30bee20f5e165814d49",
         "scriptSha256": "sha256:2aa33b0e5dab3838faff8fac1d2b219378b3ac5540572911143479299442c4db",
-        "artifactSha256": "sha256:ed6c18f93f3a27d3ab7e3c72c1885b6aadbfbba28f91cf320e3b742843c8766b",
+        "artifactSha256": "sha256:ef730b7b441dc5ae3ba4b788a4cb96ed18e10104b7d42ad9b60f6fa2b7b27026",
         "artifactPath": "artifacts/oura-playwright/oura-playwright-2.0.0.tgz",
         "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/9a83f771fc2a212f1ce2e7933c301fef9ab082b2/artifacts/oura-playwright/oura-playwright-2.0.0.tgz",
         "scopes": [
@@ -576,7 +576,7 @@
         "pageApiVersion": 1,
         "manifestSha256": "sha256:5eded7e19e3381743d2935a4f6ee41b3ef77524357bcade27bad754791b5cf4c",
         "scriptSha256": "sha256:d9364d7cbaf95fbf0e3130b9221195099b33afe3bb700f411d336e40a705d37f",
-        "artifactSha256": "sha256:6e046ba9ba0f10e7d37b885f1e053b87db467d737f9355d58aadf98a9ecd8c51",
+        "artifactSha256": "sha256:5b3cd873b15a68ef13dd1ef2b6057a0aea2dc6fbcffdd2e85bd55a7bd8a77608",
         "artifactPath": "artifacts/shop-playwright/shop-playwright-1.0.0.tgz",
         "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/9a83f771fc2a212f1ce2e7933c301fef9ab082b2/artifacts/shop-playwright/shop-playwright-1.0.0.tgz",
         "scopes": [
@@ -613,7 +613,7 @@
         "pageApiVersion": 1,
         "manifestSha256": "sha256:1803a12843e4b5bb022d1dfea580c830db9b1267e0d8b75855a5499d6760515b",
         "scriptSha256": "sha256:35d879b28c1e3b2bb7c84e97985b8edb4e80dbd61d2dae17c969ad02ff5e3e37",
-        "artifactSha256": "sha256:625d1c697e49370715ef2e54358eb0832875f8314bb676ac32f34964f854a78a",
+        "artifactSha256": "sha256:61b4e428826f22575062a4118310478ee93620b369e95307798933d83d34f169",
         "artifactPath": "artifacts/spotify-playwright/spotify-playwright-1.0.0.tgz",
         "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/9a83f771fc2a212f1ce2e7933c301fef9ab082b2/artifacts/spotify-playwright/spotify-playwright-1.0.0.tgz",
         "scopes": [
@@ -649,7 +649,7 @@
         "pageApiVersion": 1,
         "manifestSha256": "sha256:e323a76acb3b0687562e9d58adedbfa76406f52e6a4fe381a519306ca5ab70fd",
         "scriptSha256": "sha256:6d81afd55a3769de991d7a096dcf4f16008f41cf60a42e141b1d4311e36e85af",
-        "artifactSha256": "sha256:0570808855237ec2453dc789fc844d2a38842420ad69a05c1b133a20d3c27187",
+        "artifactSha256": "sha256:54bdccf0ce46c3f47828e627510ddd12c40325bc44ad6a8b45946fcf41308eb9",
         "artifactPath": "artifacts/steam-playwright/steam-playwright-1.0.0.tgz",
         "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/9a83f771fc2a212f1ce2e7933c301fef9ab082b2/artifacts/steam-playwright/steam-playwright-1.0.0.tgz",
         "scopes": [
@@ -679,7 +679,7 @@
         "pageApiVersion": 1,
         "manifestSha256": "sha256:7b4549741d5184641d9d1a3ef26fc5e20a14954f200f0150b692b3d8b2e98c33",
         "scriptSha256": "sha256:5b10877fbcd4d3cba5393820dabcf90812bc901532789c4221025e8035bb224e",
-        "artifactSha256": "sha256:01d9167480903b0d46d359bfa9d44017bac9bc85008112fd5d2bbdd329a0b176",
+        "artifactSha256": "sha256:8df669cd8d811f1e89ddc04b26f91cc53f8441557f300556e47eb56db70e028a",
         "artifactPath": "artifacts/uber-playwright/uber-playwright-1.0.0.tgz",
         "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/9a83f771fc2a212f1ce2e7933c301fef9ab082b2/artifacts/uber-playwright/uber-playwright-1.0.0.tgz",
         "scopes": [
@@ -708,7 +708,7 @@
         "pageApiVersion": 1,
         "manifestSha256": "sha256:dbb149de15f1757bc4353d2ee423b5188b0545d35c1674dd0471660027fffcb0",
         "scriptSha256": "sha256:2ebb4426258b87a8e3699b9609c36ff69b03f050e747ed530c54ee1e7f84c59b",
-        "artifactSha256": "sha256:3b041e3a48cf6772120e4ce479c43360333cf33e52b1ed1138efd9891acb4727",
+        "artifactSha256": "sha256:3becba5a27ab369e2ca50a7eba5ac47189c72dde91028a10a263664a4befeb04",
         "artifactPath": "artifacts/wholefoods-playwright/wholefoods-playwright-1.0.0.tgz",
         "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/9a83f771fc2a212f1ce2e7933c301fef9ab082b2/artifacts/wholefoods-playwright/wholefoods-playwright-1.0.0.tgz",
         "scopes": [
@@ -747,7 +747,7 @@
         "pageApiVersion": 1,
         "manifestSha256": "sha256:8af6a9623851d2f0db9f86cdce50a3e60f2fee5387c5922f11c064043298ec6f",
         "scriptSha256": "sha256:a0c43d4c931a5893e3b2e29f708350a2d7e4d22898ad820ac410c8ddf7558b9a",
-        "artifactSha256": "sha256:e84fa3aeedf8b42f244ca55a255cabbaed3007c9a83aa7d0669e0cb0ac7b70da",
+        "artifactSha256": "sha256:d58c92c540d2748c287bd82dac3a0caa8af66e22ab2e3e80bf7fbdf2908d6edc",
         "artifactPath": "artifacts/youtube-playwright/youtube-playwright-1.0.0.tgz",
         "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/9a83f771fc2a212f1ce2e7933c301fef9ab082b2/artifacts/youtube-playwright/youtube-playwright-1.0.0.tgz",
         "scopes": [
