@@ -1,0 +1,70 @@
+{
+  "name": "GitHub Authored History",
+  "version": "1.0.0",
+  "scope": "github.history",
+  "dialect": "json",
+  "description": "Full lifetime of pull requests and issues authored by the user, fetched via the GitHub Search API. Covers any repository the user has authored in (including organizations and forks) — far broader than the 90-day Events window. Up to 1000 items per type per query.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "pullRequests": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "type": { "type": "string" },
+            "number": { "type": ["number", "null"] },
+            "title": { "type": ["string", "null"] },
+            "body": { "type": ["string", "null"] },
+            "state": { "type": ["string", "null"] },
+            "createdAt": { "type": ["string", "null"] },
+            "updatedAt": { "type": ["string", "null"] },
+            "closedAt": { "type": ["string", "null"] },
+            "mergedAt": { "type": ["string", "null"] },
+            "url": { "type": ["string", "null"] },
+            "repo": { "type": "string" },
+            "repoUrl": { "type": ["string", "null"] },
+            "labels": { "type": "array", "items": { "type": "string" } },
+            "comments": { "type": "number" },
+            "reactionsTotal": { "type": "number" },
+            "isDraft": { "type": "boolean" }
+          },
+          "required": ["id", "type", "repo"],
+          "additionalProperties": false
+        }
+      },
+      "issues": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "type": { "type": "string" },
+            "number": { "type": ["number", "null"] },
+            "title": { "type": ["string", "null"] },
+            "body": { "type": ["string", "null"] },
+            "state": { "type": ["string", "null"] },
+            "createdAt": { "type": ["string", "null"] },
+            "updatedAt": { "type": ["string", "null"] },
+            "closedAt": { "type": ["string", "null"] },
+            "mergedAt": { "type": ["string", "null"] },
+            "url": { "type": ["string", "null"] },
+            "repo": { "type": "string" },
+            "repoUrl": { "type": ["string", "null"] },
+            "labels": { "type": "array", "items": { "type": "string" } },
+            "comments": { "type": "number" },
+            "reactionsTotal": { "type": "number" },
+            "isDraft": { "type": "boolean" }
+          },
+          "required": ["id", "type", "repo"],
+          "additionalProperties": false
+        }
+      },
+      "fetchedAt": { "type": "string" },
+      "windowDescription": { "type": "string" }
+    },
+    "required": ["pullRequests", "issues", "fetchedAt"],
+    "additionalProperties": false
+  }
+}

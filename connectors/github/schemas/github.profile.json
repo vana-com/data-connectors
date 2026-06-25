@@ -1,9 +1,9 @@
 {
   "name": "GitHub Profile",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "scope": "github.profile",
   "dialect": "json",
-  "description": "GitHub user profile information",
+  "description": "GitHub user profile information, including pinned repositories, organization memberships, and achievement badges",
   "schema": {
     "type": "object",
     "properties": {
@@ -17,7 +17,49 @@
       "followers": { "type": "number" },
       "following": { "type": "number" },
       "repositoryCount": { "type": "number" },
-      "profileUrl": { "type": "string" }
+      "profileUrl": { "type": "string" },
+      "pinnedRepositories": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "fullName": { "type": "string" },
+            "url": { "type": ["string", "null"] },
+            "description": { "type": "string" },
+            "language": { "type": ["string", "null"] },
+            "stars": { "type": "number" }
+          },
+          "required": ["fullName"],
+          "additionalProperties": false
+        }
+      },
+      "organizations": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "login": { "type": "string" },
+            "label": { "type": "string" },
+            "url": { "type": "string" },
+            "avatarUrl": { "type": ["string", "null"] }
+          },
+          "required": ["login"],
+          "additionalProperties": false
+        }
+      },
+      "achievements": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "iconUrl": { "type": ["string", "null"] }
+          },
+          "required": ["name"],
+          "additionalProperties": false
+        }
+      },
+      "contributionsLastYear": { "type": ["number", "null"] }
     },
     "required": ["username", "profileUrl"],
     "additionalProperties": false
