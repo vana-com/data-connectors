@@ -1,6 +1,6 @@
 {
   "name": "Claude Conversations",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "scope": "claude.conversations",
   "dialect": "json",
   "description": "Claude conversations including chat ids, titles, URLs, and full thread messages when the authenticated conversation API is available.",
@@ -11,19 +11,31 @@
         "type": "object",
         "properties": {
           "name": {
-            "type": ["string", "null"],
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Display name shown in the Claude user menu."
           },
           "plan": {
-            "type": ["string", "null"],
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Current Claude plan label shown in the user menu."
           }
         },
-        "required": ["name", "plan"],
+        "required": [
+          "name",
+          "plan"
+        ],
         "additionalProperties": false
       },
       "organizationId": {
-        "type": ["string", "null"],
+        "type": [
+          "string",
+          "null"
+        ],
         "description": "Active Claude organization id used for authenticated API requests."
       },
       "conversations": {
@@ -33,7 +45,10 @@
           "type": "object",
           "properties": {
             "id": {
-              "type": ["string", "null"],
+              "type": [
+                "string",
+                "null"
+              ],
               "description": "Chat identifier parsed from the sidebar route when available."
             },
             "title": {
@@ -45,23 +60,38 @@
               "description": "Relative Claude route for the conversation."
             },
             "createdAt": {
-              "type": ["string", "null"],
+              "type": [
+                "string",
+                "null"
+              ],
               "description": "Conversation creation timestamp if Claude returned one."
             },
             "updatedAt": {
-              "type": ["string", "null"],
+              "type": [
+                "string",
+                "null"
+              ],
               "description": "Conversation update timestamp if Claude returned one."
             },
             "starred": {
-              "type": ["boolean", "null"],
+              "type": [
+                "boolean",
+                "null"
+              ],
               "description": "Whether Claude marked the conversation as starred, when available."
             },
             "projectId": {
-              "type": ["string", "null"],
+              "type": [
+                "string",
+                "null"
+              ],
               "description": "Associated Claude project id, when present."
             },
             "messageCount": {
-              "type": ["number", "null"],
+              "type": [
+                "number",
+                "null"
+              ],
               "description": "Number of messages collected for the conversation."
             },
             "messages": {
@@ -71,23 +101,38 @@
                 "type": "object",
                 "properties": {
                   "id": {
-                    "type": ["string", "null"],
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "description": "Claude message id."
                   },
                   "sender": {
-                    "type": ["string", "null"],
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "description": "Message sender role, such as human or assistant."
                   },
                   "parentId": {
-                    "type": ["string", "null"],
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "description": "Parent message id in the conversation tree."
                   },
                   "createdAt": {
-                    "type": ["string", "null"],
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "description": "Message creation timestamp if available."
                   },
                   "updatedAt": {
-                    "type": ["string", "null"],
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "description": "Message update timestamp if available."
                   },
                   "content": {
@@ -96,26 +141,54 @@
                   },
                   "rawContent": {
                     "description": "Original Claude message content payload.",
-                    "type": ["array", "object", "string", "null"]
+                    "type": [
+                      "array",
+                      "object",
+                      "string",
+                      "null"
+                    ]
                   },
                   "attachments": {
                     "type": "array",
                     "description": "Message attachments returned by Claude, if any.",
                     "items": {
-                      "type": ["object", "string"]
+                      "type": [
+                        "object",
+                        "string"
+                      ]
                     }
                   }
                 },
-                "required": ["id", "sender", "parentId", "createdAt", "updatedAt", "content", "rawContent", "attachments"],
+                "required": [
+                  "id",
+                  "sender",
+                  "parentId",
+                  "createdAt",
+                  "updatedAt",
+                  "content",
+                  "attachments"
+                ],
                 "additionalProperties": false
               }
             },
             "fetchError": {
-              "type": ["string", "null"],
+              "type": [
+                "string",
+                "null"
+              ],
               "description": "Error captured when Claude conversation detail could not be fetched."
             }
           },
-          "required": ["id", "title", "href", "createdAt", "updatedAt", "starred", "messageCount", "messages"],
+          "required": [
+            "id",
+            "title",
+            "href",
+            "createdAt",
+            "updatedAt",
+            "starred",
+            "messageCount",
+            "messages"
+          ],
           "additionalProperties": false
         }
       },
@@ -132,11 +205,21 @@
         "description": "How the data was collected for this export."
       },
       "apiError": {
-        "type": ["string", "null"],
+        "type": [
+          "string",
+          "null"
+        ],
         "description": "Top-level API error message when Claude conversation APIs were unavailable."
       }
     },
-    "required": ["profile", "organizationId", "conversations", "total", "messageTotal", "source"],
+    "required": [
+      "profile",
+      "organizationId",
+      "conversations",
+      "total",
+      "messageTotal",
+      "source"
+    ],
     "additionalProperties": false
   }
 }

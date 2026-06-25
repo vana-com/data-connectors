@@ -2,6 +2,42 @@
 
 This is a temporary working note for building a new `claude.ai` connector in this repo. It is meant to keep implementation aligned as we go, not to be a polished long-term doc.
 
+## v2.0.0 — production hardening (current)
+
+v1.1.0 worked (379 conversations exported) but had the failure modes we fixed elsewhere (ChatGPT v3): no resume, no rate-limit handling, and "honest reporting" gaps. v2.0.0 rewrites the collection path to the protocol's honest-telemetry contract.
+
+What changed and why:
+
+- **Deterministic org selection.** Conversations live in a `chat`-capable organization. An account can have several orgs (e.g. an API-only "Individual Org"), and the `lastActiveOrg` cookie v1.1.0 relied on can point at the wrong one. v2 calls `GET /api/organizations` and selects by capability (`chat`), falling back to the cookie only if that endpoint fails. Verified live: the test account has a `chat`+`claude_max` org and a separate `api`-only org.
+- **Delta resume.** Each conversation is checkpointed to IndexedDB on the claude.ai origin (kept by the persistent profile). The index returns `current_leaf_message_uuid` per conversation; on resume we skip any conversation whose leaf is unchanged and only re-fetch new/changed threads. Verified live: 414/435 conversations carry the leaf key (~95%); the rest fall back to refresh-on-run.
+- **Rate-limit politeness.** Modest concurrency (4) that halves on HTTP 429 and eases back up on clean batches; honors `Retry-After`, else exponential backoff with jitter. After several zero-progress throttled batches (or a 20-min wall-clock cap) the run stops, checkpoints, and returns a partial result instead of hammering the API. Claude exposes no batch/bulk conversation endpoint (unlike ChatGPT's `/conversations/batch`), so resumability + politeness — not a faster endpoint — is the throttle strategy.
+- **Honest reporting.** Unfetched conversations are NOT emitted as empty successes. The shortfall is reported through `errors[]` (`degraded`, `rate_limited`/`auth_failed`), which classifies the run as `partial` so collected data is still delivered. Persistent non-throttle failures (5xx) are counted as `skipped` (unfetchable), not `pending`. Telemetry lives under `exportSummary.details`, never as a top-level key. Covered by `__tests__/claude-classifier.test.cjs`.
+- **Trust boundary.** The IndexedDB checkpoint holds plaintext conversation text in the local profile (the same data the logged-in session already exposes). It is cleared after a fully-complete run and kept only while a run is genuinely incomplete.
+- **Message flattening.** Detail messages carry an `index` (linear order) plus structured `content` blocks; an already-flattened `text` field exists but is empty under `rendering_mode=messages` (verified live, 0% populated), so v2 orders by `index` and flattens from `content`, preferring `text` only when present.
+- **Login unchanged.** Manual headed-browser login only — no scripted credential entry. Claude login involves third-party identity and anti-bot checks, so manual hand-off is both more robust and avoids ever handling the password.
+
+## Official export path (`claude-export-ingest.cjs`)
+
+Anthropic ships a first-party export (Settings → Privacy → Export data): `POST /api/organizations/:org/export_data` → `{nonce}`, then an emailed download of a ZIP. It is a strict superset of the live-API connector — `users.json`, `conversations.json` (all threads), `projects/*.json`, `design_chats/*.json` — split into `…-batch-NNNN.zip` files for large accounts. Validated against a real export: **442 conversations, 6,317 messages, 10 projects, 2 design chats** in a 33 MB zip; the per-message schema matches the live API (so the connector's normalization is reused verbatim).
+
+**Why it is a Node tool, not a connector collection mode.** The page-API runtime cannot retrieve the archive — confirmed three ways:
+- In-browser `fetch()` of the download URL returns the Claude SPA shell regardless of `Accept`; the zip is gated on `Sec-Fetch-Dest: document`, which only a top-level navigation sets and `fetch()` cannot spoof.
+- The runner's `page.httpFetch` reads the body via `response.text()` (`data-connect/playwright-runner/index.cjs`), which corrupts binary — and returns no binary field.
+- There is no download-capture method in the page API (15 methods; no `page.on('download')`).
+
+So retrieval belongs in the **desktop runner layer** (which can drive the navigation, capture the download, and handle binary). `claude-export-ingest.cjs` is the runtime-independent core that layer calls: `normalizeExport()` is a pure, unit-tested function (export objects → the same honest-telemetry scoped result the connector emits), and the CLI wraps it with system `unzip` + multi-batch merge/dedup.
+
+**End-to-end desktop implementation (shipped).** The DataConnect runner (`data-connect/playwright-runner/index.cjs`) gained two generic page methods — `page.captureDownload(url)` (navigate → capture the browser download → temp file) and `page.extractZipEntries(path)` (dependency-free zlib ZIP reader, no `unzip` binary) — covered by `zip-reader.test.cjs`. The `claude-export-playwright` connector uses them: login → resolve `chat` org → `POST export_data` (checkpoint the nonce) → `captureDownload` (returns a resumable `partial` while the async job is still preparing) → `extractZipEntries` → inline normalization → honest result, clearing the nonce on success. Validated end-to-end on a real 33 MB export (runner zip reader → normalize → `success`, 442/6317/10). The connector capability-checks the two methods and fails cleanly (`runtime_error`, fatal) on an older runner. To make this a true in-connector mode later, the smallest unblock is binary support in `page.httpFetch` (return base64 for non-text bodies) plus a pure-JS inflate in the connector — a `data-connect` change, not a `data-connectors` one.
+
+**Tradeoffs vs the live-API connector:** the export is complete and rate-limit-free but asynchronous (POST → wait for the job/email), a full dump each time (no cheap incremental refresh — the live-API path's `current_leaf_message_uuid` delta wins there), and likely throttled to ~once/day. Best used for the initial bulk backfill, with the live-API connector for incremental updates.
+
+Confirmed endpoints (live, 2026-06-10):
+
+- `GET /api/organizations` → `[{uuid, name, capabilities, …}]`
+- `GET /api/organizations/:org/chat_conversations_v2?limit&offset&starred` → `{data:[…], has_more}` (no `total`; page on `has_more`)
+- `GET /api/organizations/:org/chat_conversations/:id?tree=True&rendering_mode=messages&render_all_tools=true&return_dangling_human_message=true` → `{…, chat_messages:[{uuid,text,content,sender,index,parent_message_uuid,…}]}`
+- `GET /api/organizations/:org/projects?include_harmony_projects=true&limit&offset&starred` → bare array of rich project objects
+
 ## Goal
 
 Create a new Playwright-based connector for `claude.ai` that follows the repo's documented connector workflow and can be iterated safely as we learn more about the live product.

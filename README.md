@@ -30,6 +30,20 @@ Each connector has a status indicating its maturity level:
 | Steam | Valve | Experimental | steam.profile, steam.games, steam.friends |
 | Whole Foods Market | Whole Foods | Experimental | wholefoods.profile, wholefoods.orders, wholefoods.nutrition |
 
+## Context Gateway
+
+Open Data Labs also provides the ability to access data from sources via web API. The list of available sources via their service, [Context Gateway](https://dev.opendatalabs.com/docs/data-sources), are below:
+
+| Source       | Status      | Scopes                                          |
+| ------------ | ----------- | ----------------------------------------------- |
+| GitHub       | Available   | `read:profile`, `read:repositories`, `read:starred` |
+| iCloud Notes | Available   | `read:notes`, `read:folders`                    |
+| Instagram    | Available   | `read:profile`, `read:following`, `read:ads`    |
+| Oura Ring    | Available   | `read:readiness`, `read:sleep`, `read:activity` |
+| Spotify      | Coming soon | `read:profile`, `read:savedTracks`, `read:playlists` |
+
+See the [Context Gateway docs](https://dev.opendatalabs.com/docs/data-sources) for full schemas and example responses.
+
 ## Running a connector
 
 ```bash

@@ -6,7 +6,7 @@
     {
       "id": "chatgpt-playwright",
       "company": "openai",
-      "version": "2.0.0",
+      "version": "3.0.0",
       "name": "ChatGPT",
       "status": "stable",
       "description": "Exports your email, memories, and all conversations from ChatGPT.",
@@ -25,8 +25,8 @@
         "metadata": "openai/chatgpt-playwright.json"
       },
       "checksums": {
-        "script": "sha256:72518dd765ff2103a0ad7dd184a9efcfac359764fca1613714400e661b2fe73a",
-        "metadata": "sha256:be7140f442a11a4475f1778e8e32e93d3a633d4ad515ed925bf7ecca461d793d"
+        "script": "sha256:f0bebc7055a0b49c87cece29bdcd078e447d88a575e643d02f30f5b6daa2e95b",
+        "metadata": "sha256:b4ced371d0a87c5d3d202ff0835b361caa0124732da179fb913688a6b29fc914"
       }
     },
     {
@@ -336,19 +336,19 @@
       }
     },
     {
-      "id": "claude-playwright",
+      "id": "claude-export-playwright",
       "company": "Anthropic",
-      "version": "1.1.0",
+      "version": "2.0.0",
       "name": "Claude",
       "status": "experimental",
-      "description": "Exports your Claude conversations and projects from claude.ai.",
+      "description": "Exports your Claude conversations and projects via Anthropic's official data export (one complete archive, no per-conversation rate limiting).",
       "files": {
-        "script": "anthropic/claude-playwright.js",
-        "metadata": "anthropic/claude-playwright.json"
+        "script": "anthropic/claude-export-playwright.js",
+        "metadata": "anthropic/claude-export-playwright.json"
       },
       "checksums": {
-        "script": "sha256:4e070bc31afd210563db5c0ece547c9535f197b79b5b28951d87993c8538dafe",
-        "metadata": "sha256:f95d69603c9bcd0a41be780721a20a2d6587cb901a8b52d29a0a601c089e2f1e"
+        "script": "sha256:1b8b4caf80b5e976822fa201b8232edd0d562858ce71f976dd1ebe449da909c1",
+        "metadata": "sha256:083af470ca0a590fff2b4929716c10332db230ab8ed7d83aa974cf5f183e2f53"
       }
     },
     {
