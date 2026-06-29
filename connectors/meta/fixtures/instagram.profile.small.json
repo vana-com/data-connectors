@@ -1,0 +1,11 @@
+{
+  "username": "desk.light.mock",
+  "full_name": "Mock Personal Account",
+  "bio": "Sample fixture profile for connector tests.",
+  "follower_count": 184,
+  "following_count": 312,
+  "media_count": 27,
+  "is_private": true,
+  "is_verified": false,
+  "is_business": false
+}
