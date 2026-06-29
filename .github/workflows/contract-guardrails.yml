@@ -27,6 +27,12 @@ jobs:
       - name: Validate scope-schema coverage (HC-RESULT-CONTRACT-001)
         run: node scripts/validate-scope-schemas.mjs
 
+      - name: Validate connector fixtures
+        run: node scripts/generate-fixture-index.mjs --validate-only
+
+      - name: Check fixture index
+        run: node scripts/generate-fixture-index.mjs --check
+
       - name: Check connector index and artifacts
         run: node scripts/generate-connector-index.mjs --check
 

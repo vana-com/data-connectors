@@ -1,0 +1,47 @@
+{
+  "$schema": "./schemas/fixture-index.schema.json",
+  "indexVersion": "1.0",
+  "sourceRepo": "https://github.com/vana-com/data-connectors",
+  "generatedAt": "2026-04-13T00:00:00Z",
+  "fixtures": [
+    {
+      "id": "spotify-playwright.spotify.savedTracks.empty",
+      "connectorId": "spotify-playwright",
+      "sourceId": "spotify",
+      "scope": "spotify.savedTracks",
+      "scenario": "empty",
+      "recordCount": 0,
+      "path": "connectors/spotify/fixtures/spotify.savedTracks.empty.json",
+      "rawUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main/connectors/spotify/fixtures/spotify.savedTracks.empty.json",
+      "schemaPath": "connectors/spotify/schemas/spotify.savedTracks.json",
+      "sizeBytes": 38,
+      "sha256": "sha256:1083809a5e7b2adb1c94cf74a067c80182da1b96b7fa90d4b648487e7bda7fef"
+    },
+    {
+      "id": "spotify-playwright.spotify.savedTracks.small",
+      "connectorId": "spotify-playwright",
+      "sourceId": "spotify",
+      "scope": "spotify.savedTracks",
+      "scenario": "small",
+      "recordCount": 3,
+      "path": "connectors/spotify/fixtures/spotify.savedTracks.small.json",
+      "rawUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main/connectors/spotify/fixtures/spotify.savedTracks.small.json",
+      "schemaPath": "connectors/spotify/schemas/spotify.savedTracks.json",
+      "sizeBytes": 1355,
+      "sha256": "sha256:0f577bfb2877e93b7b6e0b2c89b855906faaca373d2865c5a11d8ef47aa7063f"
+    },
+    {
+      "id": "spotify-playwright.spotify.savedTracks.large",
+      "connectorId": "spotify-playwright",
+      "sourceId": "spotify",
+      "scope": "spotify.savedTracks",
+      "scenario": "large",
+      "recordCount": 15,
+      "path": "connectors/spotify/fixtures/spotify.savedTracks.large.json",
+      "rawUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main/connectors/spotify/fixtures/spotify.savedTracks.large.json",
+      "schemaPath": "connectors/spotify/schemas/spotify.savedTracks.json",
+      "sizeBytes": 6358,
+      "sha256": "sha256:b1fe3c82003fef4f222161eed65c5a3e76c7cc13cc793b39940c3589c394c840"
+    }
+  ]
+}

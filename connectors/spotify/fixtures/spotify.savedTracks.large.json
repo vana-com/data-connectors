@@ -1,0 +1,308 @@
+{
+  "savedTracks": [
+    {
+      "added_at": "2026-01-03T08:11:00Z",
+      "name": "First Compile",
+      "artists": [
+        {
+          "name": "Patch Bay"
+        }
+      ],
+      "album": {
+        "name": "Local Builds",
+        "artists": [
+          {
+            "name": "Patch Bay"
+          }
+        ]
+      },
+      "duration_ms": 181000,
+      "uri": "spotify:track:mock000000000000100001",
+      "explicit": false
+    },
+    {
+      "added_at": "2026-01-04T10:43:27Z",
+      "name": "Merge Window",
+      "artists": [
+        {
+          "name": "North Channel"
+        }
+      ],
+      "album": {
+        "name": "Blue Green",
+        "artists": [
+          {
+            "name": "North Channel"
+          }
+        ]
+      },
+      "duration_ms": 205000,
+      "uri": "spotify:track:mock000000000000100002",
+      "explicit": false
+    },
+    {
+      "added_at": "2026-01-04T16:09:52Z",
+      "name": "Permission Prompt",
+      "artists": [
+        {
+          "name": "Dialog State"
+        }
+      ],
+      "album": {
+        "name": "Modals",
+        "artists": [
+          {
+            "name": "Dialog State"
+          }
+        ]
+      },
+      "duration_ms": 166000,
+      "uri": "spotify:track:mock000000000000100003",
+      "explicit": false
+    },
+    {
+      "added_at": "2026-01-06T19:30:14Z",
+      "name": "Index Drift",
+      "artists": [
+        {
+          "name": "Checksum Club"
+        }
+      ],
+      "album": {
+        "name": "Release Assets",
+        "artists": [
+          {
+            "name": "Checksum Club"
+          }
+        ]
+      },
+      "duration_ms": 244000,
+      "uri": "spotify:track:mock000000000000100004",
+      "explicit": true
+    },
+    {
+      "added_at": "2026-01-08T07:44:38Z",
+      "name": "Saved Session",
+      "artists": [
+        {
+          "name": "Cookie Jar"
+        }
+      ],
+      "album": {
+        "name": "Browser Profile",
+        "artists": [
+          {
+            "name": "Cookie Jar"
+          }
+        ]
+      },
+      "duration_ms": 193000,
+      "uri": "spotify:track:mock000000000000100005",
+      "explicit": false
+    },
+    {
+      "added_at": "2026-01-09T12:06:21Z",
+      "name": "Headless Again",
+      "artists": [
+        {
+          "name": "Viewport"
+        }
+      ],
+      "album": {
+        "name": "Runner Mode",
+        "artists": [
+          {
+            "name": "Viewport"
+          }
+        ]
+      },
+      "duration_ms": 229000,
+      "uri": "spotify:track:mock000000000000100006",
+      "explicit": false
+    },
+    {
+      "added_at": "2026-01-10T23:15:46Z",
+      "name": "Paged Response",
+      "artists": [
+        {
+          "name": "Cursor Line"
+        },
+        {
+          "name": "Lena Trace"
+        }
+      ],
+      "album": {
+        "name": "Next Token",
+        "artists": [
+          {
+            "name": "Cursor Line"
+          }
+        ]
+      },
+      "duration_ms": 258000,
+      "uri": "spotify:track:mock000000000000100007",
+      "explicit": false
+    },
+    {
+      "added_at": "2026-01-11T13:27:33Z",
+      "name": "Schema Pass",
+      "artists": [
+        {
+          "name": "Draft Seven"
+        }
+      ],
+      "album": {
+        "name": "Validator",
+        "artists": [
+          {
+            "name": "Draft Seven"
+          }
+        ]
+      },
+      "duration_ms": 211000,
+      "uri": "spotify:track:mock000000000000100008",
+      "explicit": false
+    },
+    {
+      "added_at": "2026-01-13T20:40:09Z",
+      "name": "Local Fixture",
+      "artists": [
+        {
+          "name": "Desk Test"
+        }
+      ],
+      "album": {
+        "name": "No Paste",
+        "artists": [
+          {
+            "name": "Desk Test"
+          }
+        ]
+      },
+      "duration_ms": 174000,
+      "uri": "spotify:track:mock000000000000100009",
+      "explicit": false
+    },
+    {
+      "added_at": "2026-01-14T18:02:55Z",
+      "name": "Nightly Export",
+      "artists": [
+        {
+          "name": "Batch Light"
+        }
+      ],
+      "album": {
+        "name": "Background Tasks",
+        "artists": [
+          {
+            "name": "Batch Light"
+          }
+        ]
+      },
+      "duration_ms": 267000,
+      "uri": "spotify:track:mock000000000000100010",
+      "explicit": true
+    },
+    {
+      "added_at": "2026-01-15T09:59:12Z",
+      "name": "Agent Safe",
+      "artists": [
+        {
+          "name": "Context Budget"
+        }
+      ],
+      "album": {
+        "name": "Tokens Left",
+        "artists": [
+          {
+            "name": "Context Budget"
+          }
+        ]
+      },
+      "duration_ms": 198000,
+      "uri": "spotify:track:mock000000000000100011",
+      "explicit": false
+    },
+    {
+      "added_at": "2026-01-16T21:35:44Z",
+      "name": "Preview Pane",
+      "artists": [
+        {
+          "name": "Glass Dock"
+        }
+      ],
+      "album": {
+        "name": "Workbench",
+        "artists": [
+          {
+            "name": "Glass Dock"
+          }
+        ]
+      },
+      "duration_ms": 221000,
+      "uri": "spotify:track:mock000000000000100012",
+      "explicit": false
+    },
+    {
+      "added_at": "2026-01-17T11:20:31Z",
+      "name": "Edge Cache",
+      "artists": [
+        {
+          "name": "Static Host"
+        }
+      ],
+      "album": {
+        "name": "Raw URL",
+        "artists": [
+          {
+            "name": "Static Host"
+          }
+        ]
+      },
+      "duration_ms": 203000,
+      "uri": "spotify:track:mock000000000000100013",
+      "explicit": false
+    },
+    {
+      "added_at": "2026-01-18T15:49:05Z",
+      "name": "Fixture Index",
+      "artists": [
+        {
+          "name": "Catalog Mode"
+        }
+      ],
+      "album": {
+        "name": "Registry",
+        "artists": [
+          {
+            "name": "Catalog Mode"
+          }
+        ]
+      },
+      "duration_ms": 246000,
+      "uri": "spotify:track:mock000000000000100014",
+      "explicit": false
+    },
+    {
+      "added_at": "2026-01-19T17:08:37Z",
+      "name": "Mock Library",
+      "artists": [
+        {
+          "name": "Synthetic Stereo"
+        }
+      ],
+      "album": {
+        "name": "Fixture Pack",
+        "artists": [
+          {
+            "name": "Synthetic Stereo"
+          }
+        ]
+      },
+      "duration_ms": 232000,
+      "uri": "spotify:track:mock000000000000100015",
+      "explicit": false
+    }
+  ],
+  "total": 15
+}

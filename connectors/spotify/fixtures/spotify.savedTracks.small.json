@@ -1,0 +1,68 @@
+{
+  "savedTracks": [
+    {
+      "added_at": "2026-01-05T14:22:11Z",
+      "name": "Morning Circuit",
+      "artists": [
+        {
+          "name": "Nova Signal"
+        }
+      ],
+      "album": {
+        "name": "Desk Light",
+        "artists": [
+          {
+            "name": "Nova Signal"
+          }
+        ]
+      },
+      "duration_ms": 214000,
+      "uri": "spotify:track:mock000000000000000001",
+      "explicit": false
+    },
+    {
+      "added_at": "2026-01-07T09:18:43Z",
+      "name": "Soft Launch",
+      "artists": [
+        {
+          "name": "The Rollout"
+        }
+      ],
+      "album": {
+        "name": "Feature Flags",
+        "artists": [
+          {
+            "name": "The Rollout"
+          }
+        ]
+      },
+      "duration_ms": 187000,
+      "uri": "spotify:track:mock000000000000000002",
+      "explicit": false
+    },
+    {
+      "added_at": "2026-01-12T22:03:19Z",
+      "name": "Redline",
+      "artists": [
+        {
+          "name": "Eastbound Static"
+        },
+        {
+          "name": "Mira Vale"
+        }
+      ],
+      "album": {
+        "name": "After Hours Queue",
+        "artists": [
+          {
+            "name": "Eastbound Static"
+          }
+        ]
+      },
+      "duration_ms": 239000,
+      "uri": "spotify:track:mock000000000000000003",
+      "explicit": true
+    }
+  ],
+  "total": 3
+}

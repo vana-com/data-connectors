@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/vana-com/data-connectors/schemas/fixture-index.schema.json",
+  "title": "Connector Fixture Index v1",
+  "type": "object",
+  "required": [
+    "indexVersion",
+    "sourceRepo",
+    "generatedAt",
+    "fixtures"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "indexVersion": {
+      "const": "1.0"
+    },
+    "sourceRepo": {
+      "type": "string",
+      "format": "uri"
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "fixtures": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/fixture"
+      }
+    }
+  },
+  "$defs": {
+    "fixture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "connectorId",
+        "sourceId",
+        "scope",
+        "scenario",
+        "recordCount",
+        "path",
+        "rawUrl",
+        "schemaPath",
+        "sizeBytes",
+        "sha256"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[a-z][a-z0-9-]*$"
+        },
+        "connectorId": {
+          "type": "string"
+        },
+        "sourceId": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$"
+        },
+        "scenario": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$"
+        },
+        "recordCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "path": {
+          "type": "string",
+          "pattern": "^connectors/[^/]+/fixtures/[A-Za-z0-9._-]+\\.json$"
+        },
+        "rawUrl": {
+          "type": "string",
+          "format": "uri"
+        },
+        "schemaPath": {
+          "type": "string",
+          "pattern": "^connectors/[^/]+/schemas/[A-Za-z0-9._-]+\\.json$"
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      }
+    }
+  }
+}

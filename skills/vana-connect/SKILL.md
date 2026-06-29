@@ -94,6 +94,19 @@ If the requested platform is present, use the CLI flow below.
 
 **If no connector exists for the platform,** tell the user you'll build one — this involves researching the platform's data APIs, writing the extraction code, and testing it. Let them know it'll take a bit and they're welcome to do something else while you work. Then read `CREATE.md` and follow it.
 
+If the user is building or testing an app and needs sample data, prefer the
+public fixture flow over pasting large JSON into the agent:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vana-com/data-connectors/main/fixture-index.json
+```
+
+Find the matching `sourceId`, `scope`, and `scenario`, then download the entry's
+`rawUrl` into a local `fixtures/` directory. Fixtures are synthetic scope
+payloads that conform to the connector schema. The raw URL points at latest
+`main`; compare the downloaded file against the entry's `sha256` if exact bytes
+matter.
+
 ### 2. Connect with the CLI
 
 Start with the agent-safe probe:

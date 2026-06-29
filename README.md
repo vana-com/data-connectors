@@ -63,6 +63,7 @@ See [`skills/vana-connect/`](skills/vana-connect/) for the agent skill: setup, r
 | **`skills/`** | AI agent skill for creating/running connectors (`vana-connect/`) | AI agents (Claude, etc.) |
 | **`schemas/`** | Shared meta-schemas such as `manifest.schema.json` | Validation |
 | **`types/`** | TypeScript type definitions (`connector.d.ts`) | TypeScript consumers |
+| **`fixture-index.json`** | Public index of schema-valid connector fixtures with main-branch raw GitHub URLs and checksums | Builders and AI agents |
 
 ```
 connectors/                        # All platform connectors
@@ -71,6 +72,8 @@ connectors/                        # All platform connectors
 │   ├── <name>-playwright.json     #   Metadata (login URL, selectors, scopes)
 │   ├── schemas/
 │   │   └── <platform>.<scope>.json
+│   ├── fixtures/
+│   │   └── <platform>.<scope>.<scenario>.json
 │   └── icons/
 │
 scripts/                           # Developer tooling (human-driven)
@@ -89,6 +92,7 @@ schemas/                           # Shared meta-schemas
 ├── manifest.schema.json
 │
 registry.json                      # Central registry (checksums, versions, OTA)
+fixture-index.json                 # Public fixture catalog for builders and agents
 run-connector.cjs                  # Symlink → skills/vana-connect/scripts/run-connector.cjs
 test-connector.cjs                 # Standalone test runner
 create-connector.sh                # Quick autonomous scaffold script
@@ -100,6 +104,11 @@ create-connector.sh                # Quick autonomous scaffold script
 `data-connect` and `context-gateway`.
 
 - `connector-index.json` is the authoritative release index.
+- `fixture-index.json` is the public fixture catalog for schema-valid
+  synthetic sample data. Builders and agents should download fixture raw URLs
+  instead of pasting large JSON payloads into prompts or terminals. Raw URLs
+  point at latest `main`; use the included SHA-256 checksum when exact bytes
+  matter.
 - `connector-index.json.sigstore.json` is the detached Sigstore bundle for the
   authoritative signed index published at the stable `connectors-latest`
   release URL.
@@ -121,9 +130,40 @@ Each connector lives in `connectors/<company>/`. A connector bundle keeps its ru
 - **`<name>-playwright.js`** -- the connector script (plain JS, runs inside the Playwright runner sidecar)
 - **`<name>-playwright.json`** -- metadata (display name, login URL, selectors, scopes)
 - **`schemas/<platform>.<scope>.json`** -- connector-owned JSON Schemas for every declared scope
+- **`fixtures/<platform>.<scope>.<scenario>.json`** -- optional synthetic sample payloads for local builder tests
 - **`icons/...`** -- canonical local icon assets referenced by the manifest via a path relative to that connector directory
 
 Some connectors also include a README with platform-specific setup instructions (e.g., API keys).
+
+### Builder fixtures
+
+Fixtures are public, synthetic scope payloads for app builders and AI agents.
+Use them when a realistic local sample is needed but a live account export would
+be too large to paste into an agent prompt.
+
+Fixture files live next to the connector:
+
+```text
+connectors/<company>/fixtures/<scope>.<scenario>.json
+```
+
+Start each shipped scope with these scenarios when useful:
+
+- `empty` -- valid no-data state
+- `small` -- a compact sample for UI smoke tests
+- `large` -- a larger sample for pagination, performance, and summarization tests
+
+Each fixture must be valid JSON, map to a scope declared by a connector manifest
+in the same directory, and conform to `connectors/<company>/schemas/<scope>.json`.
+The generated `fixture-index.json` records the fixture id, connector id, source
+id, scope, scenario, record count, repo path, latest-main raw URL, schema path,
+byte size, and SHA-256 checksum.
+
+```bash
+npm run fixtures:validate
+npm run fixture-index:generate
+npm run fixture-index:check
+```
 
 ### Scripts vs. skills
 

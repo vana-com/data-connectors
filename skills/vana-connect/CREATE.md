@@ -205,7 +205,39 @@ After (enriched):
 
 ---
 
-## Step 5 -- Register and Contribute
+## Step 5 -- Add Builder Fixtures
+
+When a connector has a stable scope schema, add synthetic fixtures so builders
+and agents can test with realistic payloads without pasting large user exports
+into a prompt.
+
+Place fixtures next to the connector:
+
+```text
+connectors/<company>/fixtures/<scope>.<scenario>.json
+```
+
+Use these scenarios when they make sense:
+
+- `empty` -- valid no-data state
+- `small` -- compact UI/test sample
+- `large` -- larger pagination, performance, or summarization sample
+
+Each fixture is the payload for one scope, not a full connector result. For
+example, a `spotify.savedTracks.small.json` fixture contains the value that would
+appear under the `spotify.savedTracks` result key.
+
+Run the fixture gates before contributing:
+
+```bash
+npm run fixtures:validate
+npm run fixture-index:generate
+npm run fixture-index:check
+```
+
+---
+
+## Step 6 -- Register and Contribute
 
 ```bash
 node scripts/register.cjs connectors/<company>/<name>-playwright.js
