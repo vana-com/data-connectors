@@ -1,0 +1,13 @@
+{
+  "username": "north.channel.studio",
+  "full_name": "North Channel Studio",
+  "bio": "Independent design studio. Type, motion, and the occasional field recording. Mock fixture data — not a real account.",
+  "profile_pic_url": "https://example.com/mock/north-channel-avatar.jpg",
+  "external_url": "https://example.com/north-channel",
+  "follower_count": 48213,
+  "following_count": 642,
+  "media_count": 391,
+  "is_private": false,
+  "is_verified": true,
+  "is_business": true
+}

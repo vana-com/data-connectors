@@ -1,0 +1,13 @@
+{
+  "username": "new.account.placeholder",
+  "full_name": "New Account",
+  "bio": "",
+  "profile_pic_url": "",
+  "external_url": "",
+  "follower_count": 0,
+  "following_count": 0,
+  "media_count": 0,
+  "is_private": true,
+  "is_verified": false,
+  "is_business": false
+}

@@ -5,6 +5,45 @@
   "generatedAt": "2026-04-13T00:00:00Z",
   "fixtures": [
     {
+      "id": "instagram-playwright.instagram.profile.empty",
+      "connectorId": "instagram-playwright",
+      "sourceId": "instagram",
+      "scope": "instagram.profile",
+      "scenario": "empty",
+      "recordCount": 0,
+      "path": "connectors/meta/fixtures/instagram.profile.empty.json",
+      "rawUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main/connectors/meta/fixtures/instagram.profile.empty.json",
+      "schemaPath": "connectors/meta/schemas/instagram.profile.json",
+      "sizeBytes": 271,
+      "sha256": "sha256:f294a6ca5ff524edf68110ef8b564c1df15284beccc1dc28bf8af7ff16a7e5f3"
+    },
+    {
+      "id": "instagram-playwright.instagram.profile.small",
+      "connectorId": "instagram-playwright",
+      "sourceId": "instagram",
+      "scope": "instagram.profile",
+      "scenario": "small",
+      "recordCount": 0,
+      "path": "connectors/meta/fixtures/instagram.profile.small.json",
+      "rawUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main/connectors/meta/fixtures/instagram.profile.small.json",
+      "schemaPath": "connectors/meta/schemas/instagram.profile.json",
+      "sizeBytes": 274,
+      "sha256": "sha256:1840789166c70c1468b7296b8842f0ff2b937da2a75f2d26d5a84a6d7c192efc"
+    },
+    {
+      "id": "instagram-playwright.instagram.profile.large",
+      "connectorId": "instagram-playwright",
+      "sourceId": "instagram",
+      "scope": "instagram.profile",
+      "scenario": "large",
+      "recordCount": 0,
+      "path": "connectors/meta/fixtures/instagram.profile.large.json",
+      "rawUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main/connectors/meta/fixtures/instagram.profile.large.json",
+      "schemaPath": "connectors/meta/schemas/instagram.profile.json",
+      "sizeBytes": 484,
+      "sha256": "sha256:9b304fea3be9c2e3937060d8374c1d1ba77cc66cfa578868950c2a7a7d246f9c"
+    },
+    {
       "id": "spotify-playwright.spotify.savedTracks.empty",
       "connectorId": "spotify-playwright",
       "sourceId": "spotify",
