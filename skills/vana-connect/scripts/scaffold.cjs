@@ -4,7 +4,7 @@
  *
  * Usage: node scaffold.cjs <platform> [company] [output-dir]
  *
- * Defaults: company = platform, output-dir = ~/.dataconnect/connectors
+ * Defaults: company = platform, output-dir = ~/.vana/desktop/connectors
  */
 
 const fs = require('fs');
@@ -12,7 +12,7 @@ const path = require('path');
 
 const platform = process.argv[2];
 const company = process.argv[3] || platform;
-const outputDir = process.argv[4] || path.join(require('os').homedir(), '.dataconnect', 'connectors');
+const outputDir = process.argv[4] || path.join(require('os').homedir(), '.vana', 'desktop', 'connectors');
 
 if (!platform) {
   console.error('Usage: node scaffold.cjs <platform> [company] [output-dir]');

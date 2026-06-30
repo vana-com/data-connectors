@@ -5,7 +5,7 @@
  * Usage: node scripts/fetch-connector.cjs <platform>
  *
  * Searches the registry for the platform, downloads the connector script,
- * metadata, and connector-local schemas to ~/.dataconnect/connectors/.
+ * metadata, and connector-local schemas to ~/.vana/desktop/connectors/.
  * Prints the local path on success.
  *
  * Exit codes: 0 = found and downloaded, 1 = not found or error.
@@ -24,7 +24,7 @@ if (!platform) {
 
 const REGISTRY_URL = 'https://raw.githubusercontent.com/vana-com/data-connectors/main/registry.json';
 const BASE_URL = 'https://raw.githubusercontent.com/vana-com/data-connectors/main';
-const CONNECTORS_DIR = path.join(os.homedir(), '.dataconnect', 'connectors');
+const CONNECTORS_DIR = path.join(os.homedir(), '.vana', 'desktop', 'connectors');
 
 function fetch(url) {
   return new Promise((resolve, reject) => {

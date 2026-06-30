@@ -6,7 +6,7 @@
  *
  * Options:
  *   --inputs '{"key":"val"}'  Pre-supply credentials/2FA
- *   --output <path>           Result file path (default: ~/.dataconnect/last-result.json)
+ *   --output <path>           Result file path (default: ~/.vana/desktop/last-result.json)
  *   --pretty                  Human-readable colored output instead of JSON
  *   --runner-dir <path>       Path to playwright-runner (auto-detected if not set)
  *
@@ -37,7 +37,7 @@ const rawArgs = process.argv.slice(2);
 const positional = [];
 let preSuppliedInputs = {};
 let pretty = false;
-let outputPath = path.join(homedir, '.dataconnect', 'last-result.json');
+let outputPath = path.join(homedir, '.vana', 'desktop', 'last-result.json');
 let runnerDir = null;
 
 for (let i = 0; i < rawArgs.length; i++) {
@@ -66,8 +66,8 @@ if (!connectorPath) {
 // Scope IPC files by connector name + timestamp so multiple runs never collide.
 const connectorSlug = path.basename(connectorPath, path.extname(connectorPath));
 const runId = `${connectorSlug}-${Date.now()}`;
-const PENDING_INPUT_PATH = path.join(homedir, '.dataconnect', `pending-input-${runId}.json`);
-const INPUT_RESPONSE_PATH = path.join(homedir, '.dataconnect', `input-response-${runId}.json`);
+const PENDING_INPUT_PATH = path.join(homedir, '.vana', 'desktop', `pending-input-${runId}.json`);
+const INPUT_RESPONSE_PATH = path.join(homedir, '.vana', 'desktop', `input-response-${runId}.json`);
 
 // ─── Pretty output helpers ───────────────────────────────────
 
@@ -122,7 +122,7 @@ function resolveRunnerDir() {
   }
 
   const candidates = [
-    path.join(homedir, '.dataconnect', 'playwright-runner'),
+    path.join(homedir, '.vana', 'desktop', 'playwright-runner'),
     process.env.PLAYWRIGHT_RUNNER_DIR,
     path.resolve(__dirname, '..', '..', '..', 'data-dt-app', 'playwright-runner'),
   ].filter(Boolean);

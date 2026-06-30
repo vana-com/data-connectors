@@ -61,7 +61,7 @@ Use the published CLI to provision the runtime:
 vana setup --yes
 ```
 
-Before running, tell the user this downloads a browser engine and some dependencies into `~/.dataconnect/`. This is a one-time step.
+Before running, tell the user this downloads a browser engine and some dependencies into `~/.vana/desktop/`. This is a one-time step.
 
 ## Verify
 
@@ -89,7 +89,7 @@ bash skills/vana-connect/scripts/setup.sh
 | `npx -y @opendatalabs/connect@canary` | Published canary CLI fallback |
 | `/home/tnunamak/code/vana-connect/dist/cli/bin.js` | Local development fallback |
 | `~/.local/share/vana/` | Hosted-installer release payloads |
-| `~/.dataconnect/connectors/` | Connector scripts |
-| `~/.dataconnect/browser-profiles/` | Persistent sessions (cookies) |
-| `~/.dataconnect/last-result.json` | Most recent result |
-| `~/.dataconnect/logs/` | Setup, fetch, and run logs |
+| `~/.vana/desktop/connectors/` | Connector scripts |
+| `~/.vana/desktop/browser-profiles/` | Persistent sessions (cookies) |
+| `~/.vana/desktop/last-result.json` | Most recent result |
+| `~/.vana/desktop/logs/` | Setup, fetch, and run logs |

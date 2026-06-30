@@ -8,21 +8,21 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DATACONNECT="$HOME/.dataconnect"
+VANA_DIR="$HOME/.vana/desktop"
 
 # Skip if already set up
-if [[ -f "$DATACONNECT/playwright-runner/index.cjs" && -f "$DATACONNECT/run-connector.cjs" ]]; then
-  echo "Already set up. To reinstall, remove ~/.dataconnect/playwright-runner/ first."
+if [[ -f "$VANA_DIR/playwright-runner/index.cjs" && -f "$VANA_DIR/run-connector.cjs" ]]; then
+  echo "Already set up. To reinstall, remove ~/.vana/desktop/playwright-runner/ first."
   exit 0
 fi
 
 echo "Setting up vana-connect..."
 
-mkdir -p "$DATACONNECT/connectors"
+mkdir -p "$VANA_DIR/connectors"
 
 # 1. Clone playwright-runner (sparse checkout, minimal download)
 echo "Downloading playwright-runner..."
-cd "$DATACONNECT"
+cd "$VANA_DIR"
 rm -rf _data-connect
 git clone --depth 1 --filter=blob:none --sparse --branch main \
   https://github.com/vana-com/data-connect.git _data-connect 2>&1
@@ -32,7 +32,7 @@ cd .. && rm -rf _data-connect
 
 # 2. Install dependencies
 echo "Installing dependencies..."
-cd "$DATACONNECT/playwright-runner" && npm install 2>&1
+cd "$VANA_DIR/playwright-runner" && npm install 2>&1
 
 # 3. Install Chromium
 echo "Installing Chromium (this may take a minute)..."
@@ -43,17 +43,17 @@ npx playwright install chromium 2>&1 || {
 
 # 4. Copy run-connector.cjs
 if [[ -f "$SCRIPT_DIR/run-connector.cjs" ]]; then
-  cp "$SCRIPT_DIR/run-connector.cjs" "$DATACONNECT/run-connector.cjs"
+  cp "$SCRIPT_DIR/run-connector.cjs" "$VANA_DIR/run-connector.cjs"
 else
   echo "Warning: run-connector.cjs not found at $SCRIPT_DIR/run-connector.cjs"
-  echo "Copy it manually: cp skills/vana-connect/scripts/run-connector.cjs ~/.dataconnect/run-connector.cjs"
+  echo "Copy it manually: cp skills/vana-connect/scripts/run-connector.cjs ~/.vana/desktop/run-connector.cjs"
 fi
 
 # Verify
 echo ""
-if [[ -f "$DATACONNECT/playwright-runner/index.cjs" && -f "$DATACONNECT/run-connector.cjs" ]]; then
+if [[ -f "$VANA_DIR/playwright-runner/index.cjs" && -f "$VANA_DIR/run-connector.cjs" ]]; then
   echo "Setup complete!"
 else
-  echo "Setup may be incomplete. Check ~/.dataconnect/ for missing files."
+  echo "Setup may be incomplete. Check ~/.vana/desktop/ for missing files."
   exit 1
 fi

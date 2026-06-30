@@ -7,7 +7,7 @@ Build a data connector for a platform that isn't in the registry yet.
 - `reference/PAGE-API.md` -- full `page` object API
 - `reference/PATTERNS.md` -- data extraction approaches and code examples
 
-All `node scripts/...` commands refer to `skills/vana-connect/scripts/` in the data-connectors repo. `run-connector.cjs` is at `~/.dataconnect/run-connector.cjs` (installed by SETUP.md).
+All `node scripts/...` commands refer to `skills/vana-connect/scripts/` in the data-connectors repo. `run-connector.cjs` is at `~/.vana/desktop/run-connector.cjs` (installed by SETUP.md).
 
 ## Connector Format
 
@@ -31,7 +31,7 @@ Scripts are plain JavaScript (CJS), no imports, no require. The runner injects a
 | GitHub     | DOM extraction     | 3    | Server-rendered, no client API           |
 | Spotify    | In-page fetch      | 1    | Well-documented public API               |
 
-Look at existing connectors in `~/.dataconnect/connectors/` for working examples.
+Look at existing connectors in `~/.vana/desktop/connectors/` for working examples.
 
 ---
 
@@ -167,8 +167,8 @@ Run the connector and validate in one step:
 
 ```bash
 node scripts/validate.cjs connectors/<company>/<name>-playwright.js && \
-  node ~/.dataconnect/run-connector.cjs connectors/<company>/<name>-playwright.js [start-url] && \
-  node scripts/validate.cjs connectors/<company>/<name>-playwright.js --check-result ~/.dataconnect/last-result.json
+  node ~/.vana/desktop/run-connector.cjs connectors/<company>/<name>-playwright.js [start-url] && \
+  node scripts/validate.cjs connectors/<company>/<name>-playwright.js --check-result ~/.vana/desktop/last-result.json
 ```
 
 The validator checks structure, output quality, debug code, data cleanliness, schema descriptions, and login method diversity. Fix all reported issues and re-run.
@@ -184,7 +184,7 @@ Schemas are an API contract — app developers build against them.
 ### Generate the skeleton
 
 ```bash
-node scripts/generate-schemas.cjs ~/.dataconnect/last-result.json <platform> [output-dir]
+node scripts/generate-schemas.cjs ~/.vana/desktop/last-result.json <platform> [output-dir]
 ```
 
 ### Enrich from what you know

@@ -74,7 +74,7 @@ vana logs
 vana logs <platform>
 ```
 
-If the runtime is missing, tell the user: "I need to do a one-time setup first. This downloads a browser engine and some dependencies into `~/.dataconnect/` and usually takes about a minute." Then run:
+If the runtime is missing, tell the user: "I need to do a one-time setup first. This downloads a browser engine and some dependencies into `~/.vana/desktop/` and usually takes about a minute." Then run:
 
 ```bash
 vana setup --yes
@@ -156,7 +156,7 @@ vana logs
 vana logs <platform>
 ```
 
-Prefer that over manually hunting through `~/.dataconnect/logs/` or rerunning blindly.
+Prefer that over manually hunting through `~/.vana/desktop/logs/` or rerunning blindly.
 
 After a successful connect, prefer the CLI data surfaces over raw file inspection when possible:
 
@@ -172,7 +172,7 @@ vana logs <platform>
 If you built or modified a connector, immediately run validation — before presenting results to the user:
 
 ```bash
-node scripts/validate.cjs connectors/<company>/<name>-playwright.js --check-result ~/.dataconnect/last-result.json
+node scripts/validate.cjs connectors/<company>/<name>-playwright.js --check-result ~/.vana/desktop/last-result.json
 ```
 
 Fix any issues the validator reports. The validator checks debug code, login method diversity, schema descriptions, data cleanliness, and more — it is the quality gate. Iterate until validation passes.
@@ -201,7 +201,7 @@ The user can't see what you're doing behind the scenes. Keep them informed at ke
 
 3. **After collection**, summarize results in human terms — not file paths:
    - Good: "Connected! I collected 249 issues, 63 projects, 9 teams, and your profile from Linear."
-   - Bad: "Data saved to ~/.dataconnect/last-result.json"
+   - Bad: "Data saved to ~/.vana/desktop/last-result.json"
    - Prefer the CLI outcome plus the result file. Build the summary from `exportSummary` and the scoped keys.
 
 4. **On failure**, explain what went wrong and what the user can do:

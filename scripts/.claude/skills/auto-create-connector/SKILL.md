@@ -49,7 +49,7 @@ node capture-session.cjs <platform> <login-url>
 ```
 
 This opens a headed browser. The user logs in manually (handles CAPTCHAs, 2FA, OAuth).
-The session persists in `~/.dataconnect/browser-profiles/<platform>-playwright/` and is
+The session persists in `~/.vana/desktop/browser-profiles/<platform>-playwright/` and is
 automatically reused by the connector during testing.
 
 ## Workflow
@@ -117,7 +117,7 @@ If web search doesn't reveal clear APIs, use Chrome browser automation tools to:
 
 2. Check if the browser profile exists:
    ```bash
-   ls ~/.dataconnect/browser-profiles/<platform>-playwright/ 2>/dev/null && echo "Profile exists" || echo "No profile"
+   ls ~/.vana/desktop/browser-profiles/<platform>-playwright/ 2>/dev/null && echo "Profile exists" || echo "No profile"
    ```
 
 3. If no session/profile, tell the user and run capture:
@@ -266,7 +266,7 @@ Re-run the validator after each fix until the report shows `"valid": true`.
 **Check if session or credentials are available:**
 ```bash
 # Check for captured session (from Step 1.5)
-ls ~/.dataconnect/browser-profiles/<platform>-playwright/ 2>/dev/null && echo "Session profile exists" || echo "No session profile"
+ls ~/.vana/desktop/browser-profiles/<platform>-playwright/ 2>/dev/null && echo "Session profile exists" || echo "No session profile"
 
 # Check for .env credentials
 grep -q "USER_LOGIN_<PLATFORM_UPPER>" .env 2>/dev/null && echo "Credentials found" || echo "No credentials"

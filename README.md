@@ -333,7 +333,7 @@ See [`skills/vana-connect/CREATE.md`](skills/vana-connect/CREATE.md) for the ful
 2. **Implement:** Write login + data collection logic (see CREATE.md for auth patterns, extraction strategies, and reference connectors)
 3. **Validate structure:** `node scripts/validate-connector.cjs connectors/<company>/<name>-playwright.js`
 4. **Test:** `node run-connector.cjs connectors/<company>/<name>-playwright.js --inputs '{"username":"x","password":"y"}'`
-5. **Validate output:** `node scripts/validate-connector.cjs connectors/<company>/<name>-playwright.js --check-result ~/.dataconnect/last-result.json`
+5. **Validate output:** `node scripts/validate-connector.cjs connectors/<company>/<name>-playwright.js --check-result ~/.vana/desktop/last-result.json`
 6. **Register:** `node skills/vana-connect/scripts/register.cjs connectors/<company>/<name>-playwright.js` -- adds entry + checksums to `registry.json`
 
 ---
@@ -437,14 +437,14 @@ The `CONNECTORS_PATH` environment variable tells the fetch script to skip downlo
 node scripts/sync-connectors-dev.js
 ```
 
-This copies your connector files to `~/.dataconnect/connectors/` where the running app reads them. The app checks this directory first, so your local edits take effect without rebuilding.
+This copies your connector files to `~/.vana/desktop/connectors/` where the running app reads them. The app checks this directory first, so your local edits take effect without rebuilding.
 
 ### Iteration loop
 
 1. Edit your connector script
 2. Run `node scripts/sync-connectors-dev.js` (from the DataConnect repo)
 3. Click the connector in the app to test
-4. Check logs in `~/Library/Logs/DataConnect/` (macOS) for debugging
+4. Check logs in `~/Library/Logs/org.vana.desktop/` (macOS) for debugging
 
 ### Standalone test runner
 

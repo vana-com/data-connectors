@@ -1,6 +1,6 @@
 # Recipes
 
-What to do with collected data. Each recipe starts from `~/.dataconnect/last-result.json`.
+What to do with collected data. Each recipe starts from `~/.vana/desktop/last-result.json`.
 
 ---
 
@@ -56,7 +56,7 @@ Show the profile before saving. Ask what to change.
 Where to save:
 - **Claude Code:** User memory or CLAUDE.md
 - **OpenClaw/Kimi:** `USER.md` in the agent's workspace
-- **Generic:** `~/.dataconnect/user-profile.md`
+- **Generic:** `~/.vana/desktop/user-profile.md`
 
 When adding a new platform to an existing profile, merge. Don't overwrite.
 
@@ -109,7 +109,7 @@ Export personal data to portable formats.
 The result file is already JSON. Copy it:
 
 ```bash
-cp ~/.dataconnect/last-result.json ~/backups/github-export-2026-03-10.json
+cp ~/.vana/desktop/last-result.json ~/backups/github-export-2026-03-10.json
 ```
 
 ### CSV (for tabular data)
@@ -131,7 +131,7 @@ Run the connector on a schedule (cron, agent heartbeat, etc.) and timestamp each
 
 ```bash
 node run-connector.cjs <connector> <url>
-cp ~/.dataconnect/last-result.json ~/backups/<platform>-$(date +%Y-%m-%d).json
+cp ~/.vana/desktop/last-result.json ~/backups/<platform>-$(date +%Y-%m-%d).json
 ```
 
 ---
@@ -143,7 +143,7 @@ Combine data from multiple platforms.
 ### Approach
 
 1. Connect platforms one at a time. Each run produces a separate result file.
-2. Before each run, copy the previous result: `cp ~/.dataconnect/last-result.json ~/.dataconnect/<platform>-result.json`
+2. Before each run, copy the previous result: `cp ~/.vana/desktop/last-result.json ~/.vana/desktop/<platform>-result.json`
 3. After all platforms are connected, read all result files and synthesize.
 
 ### What cross-referencing reveals
