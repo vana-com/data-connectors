@@ -1,0 +1,274 @@
+{
+  "likedVideos": [
+    {
+      "videoId": "mockvid0101",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0101",
+      "videoTitle": "Every Sorting Algorithm Visualized",
+      "channelTitle": "Synth Garden",
+      "channelUrl": "https://www.youtube.com/@synthgardenmock",
+      "durationText": "4:12",
+      "thumbnailUrl": "https://i.ytimg.com/vi/mockvid0101/hqdefault.jpg"
+    },
+    {
+      "videoId": "mockvid0102",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0102",
+      "videoTitle": "Urban Sketching: Drawing a Rainy Street",
+      "channelTitle": "Deskcraft Studio",
+      "channelUrl": "https://www.youtube.com/@deskcraftmock",
+      "durationText": "8:37",
+      "thumbnailUrl": "https://i.ytimg.com/vi/mockvid0102/hqdefault.jpg"
+    },
+    {
+      "videoId": "mockvid0103",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0103",
+      "videoTitle": "The Physics of Curveballs",
+      "channelTitle": "Quiet Circuits",
+      "channelUrl": "https://www.youtube.com/@quietcircuitsmock",
+      "durationText": "10:04",
+      "thumbnailUrl": "https://i.ytimg.com/vi/mockvid0103/hqdefault.jpg"
+    },
+    {
+      "videoId": "mockvid0104",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0104",
+      "videoTitle": "Fermentation Basics: Your First Sourdough",
+      "channelTitle": "Mock Metropolis",
+      "channelUrl": "https://www.youtube.com/@mockmetropolis",
+      "durationText": "12:58",
+      "thumbnailUrl": "https://i.ytimg.com/vi/mockvid0104/hqdefault.jpg"
+    },
+    {
+      "videoId": "mockvid0105",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0105",
+      "videoTitle": "Inside a Modern Wind Turbine",
+      "channelTitle": "The Sample Lab",
+      "channelUrl": "https://www.youtube.com/@thesamplelabmock",
+      "durationText": "16:20",
+      "thumbnailUrl": "https://i.ytimg.com/vi/mockvid0105/hqdefault.jpg"
+    },
+    {
+      "videoId": "mockvid0106",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0106",
+      "videoTitle": "Lo-fi Beats to Debug Production To",
+      "channelTitle": "Ferrocity Motors",
+      "channelUrl": "https://www.youtube.com/@ferrocitymock",
+      "durationText": "21:45",
+      "thumbnailUrl": "https://i.ytimg.com/vi/mockvid0106/hqdefault.jpg"
+    },
+    {
+      "videoId": "mockvid0107",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0107",
+      "videoTitle": "Van Conversion Tour: 80 Days of Work",
+      "channelTitle": "Lowpoly Atlas",
+      "channelUrl": "https://www.youtube.com/@lowpolyatlasmock",
+      "durationText": "6:03",
+      "thumbnailUrl": "https://i.ytimg.com/vi/mockvid0107/hqdefault.jpg"
+    },
+    {
+      "videoId": "mockvid0108",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0108",
+      "videoTitle": "What Is a Monad, Really?",
+      "channelTitle": "Pixel Kitchen",
+      "channelUrl": "https://www.youtube.com/@pixelkitchenmock",
+      "durationText": "3:29",
+      "thumbnailUrl": "https://i.ytimg.com/vi/mockvid0108/hqdefault.jpg"
+    },
+    {
+      "videoId": "mockvid0109",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0109",
+      "videoTitle": "Slow Motion Water Balloons at 20,000 FPS",
+      "channelTitle": "Orbit Lectures",
+      "channelUrl": "https://www.youtube.com/@orbitlecturesmock",
+      "durationText": "27:11",
+      "thumbnailUrl": "https://i.ytimg.com/vi/mockvid0109/hqdefault.jpg"
+    },
+    {
+      "videoId": "mockvid0110",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0110",
+      "videoTitle": "Making Pottery With My Eyes Closed",
+      "channelTitle": "Trailform",
+      "channelUrl": "https://www.youtube.com/@trailformmock",
+      "durationText": "9:48",
+      "thumbnailUrl": "https://i.ytimg.com/vi/mockvid0110/hqdefault.jpg"
+    },
+    {
+      "videoId": "mockvid0111",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0111",
+      "videoTitle": "The Deepest Cave Dive Ever Simulated",
+      "channelTitle": "Synth Garden",
+      "channelUrl": "https://www.youtube.com/@synthgardenmock",
+      "durationText": "4:12",
+      "thumbnailUrl": "https://i.ytimg.com/vi/mockvid0111/hqdefault.jpg"
+    },
+    {
+      "videoId": "mockvid0112",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0112",
+      "videoTitle": "Speedrunning a Spreadsheet World Record",
+      "channelTitle": "Deskcraft Studio",
+      "channelUrl": "https://www.youtube.com/@deskcraftmock",
+      "durationText": "8:37",
+      "thumbnailUrl": "https://i.ytimg.com/vi/mockvid0112/hqdefault.jpg"
+    },
+    {
+      "videoId": "mockvid0113",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0113",
+      "videoTitle": "How Noise-Cancelling Headphones Work",
+      "channelTitle": "Quiet Circuits",
+      "channelUrl": "https://www.youtube.com/@quietcircuitsmock",
+      "durationText": "10:04",
+      "thumbnailUrl": "https://i.ytimg.com/vi/mockvid0113/hqdefault.jpg"
+    },
+    {
+      "videoId": "mockvid0114",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0114",
+      "videoTitle": "Baking Bagels Like a New York Deli",
+      "channelTitle": "Mock Metropolis",
+      "channelUrl": "https://www.youtube.com/@mockmetropolis",
+      "durationText": "12:58",
+      "thumbnailUrl": "https://i.ytimg.com/vi/mockvid0114/hqdefault.jpg"
+    },
+    {
+      "videoId": "mockvid0115",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0115",
+      "videoTitle": "A Tour of the Mock City Transit Museum",
+      "channelTitle": "The Sample Lab",
+      "channelUrl": "https://www.youtube.com/@thesamplelabmock",
+      "durationText": "16:20",
+      "thumbnailUrl": "https://i.ytimg.com/vi/mockvid0115/hqdefault.jpg"
+    },
+    {
+      "videoId": "mockvid0116",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0116",
+      "videoTitle": "Why Old Maps Got Coastlines So Wrong",
+      "channelTitle": "Ferrocity Motors",
+      "channelUrl": "https://www.youtube.com/@ferrocitymock",
+      "durationText": "21:45",
+      "thumbnailUrl": "https://i.ytimg.com/vi/mockvid0116/hqdefault.jpg"
+    },
+    {
+      "videoId": "mockvid0117",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0117",
+      "videoTitle": "Building a Tiny House in 30 Days",
+      "channelTitle": "Lowpoly Atlas",
+      "channelUrl": "https://www.youtube.com/@lowpolyatlasmock",
+      "durationText": "6:03",
+      "thumbnailUrl": "https://i.ytimg.com/vi/mockvid0117/hqdefault.jpg"
+    },
+    {
+      "videoId": "mockvid0118",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0118",
+      "videoTitle": "The Art of the Film Title Sequence",
+      "channelTitle": "Pixel Kitchen",
+      "channelUrl": "https://www.youtube.com/@pixelkitchenmock",
+      "durationText": "3:29",
+      "thumbnailUrl": "https://i.ytimg.com/vi/mockvid0118/hqdefault.jpg"
+    },
+    {
+      "videoId": "mockvid0119",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0119",
+      "videoTitle": "Growing Chili Peppers Indoors, Full Guide",
+      "channelTitle": "Orbit Lectures",
+      "channelUrl": "https://www.youtube.com/@orbitlecturesmock",
+      "durationText": "27:11",
+      "thumbnailUrl": "https://i.ytimg.com/vi/mockvid0119/hqdefault.jpg"
+    },
+    {
+      "videoId": "mockvid0120",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0120",
+      "videoTitle": "Reverse Engineering a Retro Game Console",
+      "channelTitle": "Trailform",
+      "channelUrl": "https://www.youtube.com/@trailformmock",
+      "durationText": "9:48",
+      "thumbnailUrl": "https://i.ytimg.com/vi/mockvid0120/hqdefault.jpg"
+    },
+    {
+      "videoId": "mockvid0121",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0121",
+      "videoTitle": "Free Solo Climbing: Training Fundamentals",
+      "channelTitle": "Synth Garden",
+      "channelUrl": "https://www.youtube.com/@synthgardenmock",
+      "durationText": "4:12",
+      "thumbnailUrl": "https://i.ytimg.com/vi/mockvid0121/hqdefault.jpg"
+    },
+    {
+      "videoId": "mockvid0122",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0122",
+      "videoTitle": "The Loudest Sound Ever Recorded",
+      "channelTitle": "Deskcraft Studio",
+      "channelUrl": "https://www.youtube.com/@deskcraftmock",
+      "durationText": "8:37",
+      "thumbnailUrl": "https://i.ytimg.com/vi/mockvid0122/hqdefault.jpg"
+    },
+    {
+      "videoId": "mockvid0123",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0123",
+      "videoTitle": "Minimal Desk Setup Tour 2026",
+      "channelTitle": "Quiet Circuits",
+      "channelUrl": "https://www.youtube.com/@quietcircuitsmock",
+      "durationText": "10:04",
+      "thumbnailUrl": "https://i.ytimg.com/vi/mockvid0123/hqdefault.jpg"
+    },
+    {
+      "videoId": "mockvid0124",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0124",
+      "videoTitle": "How Suspension Bridges Actually Work",
+      "channelTitle": "Mock Metropolis",
+      "channelUrl": "https://www.youtube.com/@mockmetropolis",
+      "durationText": "12:58",
+      "thumbnailUrl": "https://i.ytimg.com/vi/mockvid0124/hqdefault.jpg"
+    },
+    {
+      "videoId": "mockvid0125",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0125",
+      "videoTitle": "I Built a Mechanical Keyboard From Scratch",
+      "channelTitle": "The Sample Lab",
+      "channelUrl": "https://www.youtube.com/@thesamplelabmock",
+      "durationText": "16:20",
+      "thumbnailUrl": "https://i.ytimg.com/vi/mockvid0125/hqdefault.jpg"
+    },
+    {
+      "videoId": "mockvid0126",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0126",
+      "videoTitle": "One-Pan Miso Butter Pasta in 15 Minutes",
+      "channelTitle": "Ferrocity Motors",
+      "channelUrl": "https://www.youtube.com/@ferrocitymock",
+      "durationText": "21:45",
+      "thumbnailUrl": "https://i.ytimg.com/vi/mockvid0126/hqdefault.jpg"
+    },
+    {
+      "videoId": "mockvid0127",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0127",
+      "videoTitle": "The History of the Synthesizer, Explained",
+      "channelTitle": "Lowpoly Atlas",
+      "channelUrl": "https://www.youtube.com/@lowpolyatlasmock",
+      "durationText": "6:03",
+      "thumbnailUrl": "https://i.ytimg.com/vi/mockvid0127/hqdefault.jpg"
+    },
+    {
+      "videoId": "mockvid0128",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0128",
+      "videoTitle": "Hiking the Fjord Loop: 4 Days Solo",
+      "channelTitle": "Pixel Kitchen",
+      "channelUrl": "https://www.youtube.com/@pixelkitchenmock",
+      "durationText": "3:29",
+      "thumbnailUrl": "https://i.ytimg.com/vi/mockvid0128/hqdefault.jpg"
+    },
+    {
+      "videoId": "mockvid0129",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0129",
+      "videoTitle": "Why Compilers Reorder Your Code",
+      "channelTitle": "Orbit Lectures",
+      "channelUrl": "https://www.youtube.com/@orbitlecturesmock",
+      "durationText": "27:11",
+      "thumbnailUrl": "https://i.ytimg.com/vi/mockvid0129/hqdefault.jpg"
+    },
+    {
+      "videoId": "mockvid0130",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0130",
+      "videoTitle": "Restoring a 1970s Turntable, Part 2",
+      "channelTitle": "Trailform",
+      "channelUrl": "https://www.youtube.com/@trailformmock",
+      "durationText": "9:48",
+      "thumbnailUrl": "https://i.ytimg.com/vi/mockvid0130/hqdefault.jpg"
+    }
+  ]
+}

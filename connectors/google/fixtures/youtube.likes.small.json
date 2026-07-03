@@ -1,0 +1,40 @@
+{
+  "likedVideos": [
+    {
+      "videoId": "mockvid0101",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0101",
+      "videoTitle": "Every Sorting Algorithm Visualized",
+      "channelTitle": "Synth Garden",
+      "channelUrl": "https://www.youtube.com/@synthgardenmock",
+      "durationText": "4:12",
+      "thumbnailUrl": "https://i.ytimg.com/vi/mockvid0101/hqdefault.jpg"
+    },
+    {
+      "videoId": "mockvid0102",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0102",
+      "videoTitle": "Urban Sketching: Drawing a Rainy Street",
+      "channelTitle": "Deskcraft Studio",
+      "channelUrl": "https://www.youtube.com/@deskcraftmock",
+      "durationText": "8:37",
+      "thumbnailUrl": "https://i.ytimg.com/vi/mockvid0102/hqdefault.jpg"
+    },
+    {
+      "videoId": "mockvid0103",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0103",
+      "videoTitle": "The Physics of Curveballs",
+      "channelTitle": "Quiet Circuits",
+      "channelUrl": "https://www.youtube.com/@quietcircuitsmock",
+      "durationText": "10:04",
+      "thumbnailUrl": "https://i.ytimg.com/vi/mockvid0103/hqdefault.jpg"
+    },
+    {
+      "videoId": "mockvid0104",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0104",
+      "videoTitle": "Fermentation Basics: Your First Sourdough",
+      "channelTitle": "Mock Metropolis",
+      "channelUrl": "https://www.youtube.com/@mockmetropolis",
+      "durationText": "12:58",
+      "thumbnailUrl": "https://i.ytimg.com/vi/mockvid0104/hqdefault.jpg"
+    }
+  ]
+}

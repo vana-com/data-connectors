@@ -1,0 +1,41 @@
+{
+  "timeWindow": "top 50 most recent items",
+  "history": [
+    {
+      "watchedAtText": "Today",
+      "videoId": "mockvid0001",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0001",
+      "videoTitle": "How Suspension Bridges Actually Work",
+      "channelTitle": "Pixel Kitchen",
+      "views": "1.2K views",
+      "description": "A step-by-step walkthrough with diagrams and slow-motion footage."
+    },
+    {
+      "watchedAtText": "Today",
+      "videoId": "mockvid0002",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0002",
+      "videoTitle": "I Built a Mechanical Keyboard From Scratch",
+      "channelTitle": "Orbit Lectures",
+      "views": "48K views",
+      "description": "Full parts list and measurements in the pinned comment."
+    },
+    {
+      "watchedAtText": "Today",
+      "videoId": "mockvid0003",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0003",
+      "videoTitle": "One-Pan Miso Butter Pasta in 15 Minutes",
+      "channelTitle": "Trailform",
+      "views": "97K views",
+      "description": null
+    },
+    {
+      "watchedAtText": "Today",
+      "videoId": "mockvid0004",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0004",
+      "videoTitle": "The History of the Synthesizer, Explained",
+      "channelTitle": "Synth Garden",
+      "views": "312K views",
+      "description": "Recorded live, lightly edited. Chapters in the description."
+    }
+  ]
+}

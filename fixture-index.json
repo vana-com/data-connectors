@@ -81,6 +81,84 @@
       "schemaPath": "connectors/spotify/schemas/spotify.savedTracks.json",
       "sizeBytes": 6358,
       "sha256": "sha256:b1fe3c82003fef4f222161eed65c5a3e76c7cc13cc793b39940c3589c394c840"
+    },
+    {
+      "id": "youtube-playwright.youtube.history.empty",
+      "connectorId": "youtube-playwright",
+      "sourceId": "youtube",
+      "scope": "youtube.history",
+      "scenario": "empty",
+      "recordCount": 0,
+      "path": "connectors/google/fixtures/youtube.history.empty.json",
+      "rawUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main/connectors/google/fixtures/youtube.history.empty.json",
+      "schemaPath": "connectors/google/schemas/youtube.history.json",
+      "sizeBytes": 64,
+      "sha256": "sha256:e1920da9025417bba991f2edc74e91aa4444d86a13e402ad5625fbfc5e12e1aa"
+    },
+    {
+      "id": "youtube-playwright.youtube.history.small",
+      "connectorId": "youtube-playwright",
+      "sourceId": "youtube",
+      "scope": "youtube.history",
+      "scenario": "small",
+      "recordCount": 4,
+      "path": "connectors/google/fixtures/youtube.history.small.json",
+      "rawUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main/connectors/google/fixtures/youtube.history.small.json",
+      "schemaPath": "connectors/google/schemas/youtube.history.json",
+      "sizeBytes": 1431,
+      "sha256": "sha256:4d3fb2096b2a46741c42894095fdd12ffea69b3fbe905b1b507167236a43197f"
+    },
+    {
+      "id": "youtube-playwright.youtube.history.large",
+      "connectorId": "youtube-playwright",
+      "sourceId": "youtube",
+      "scope": "youtube.history",
+      "scenario": "large",
+      "recordCount": 30,
+      "path": "connectors/google/fixtures/youtube.history.large.json",
+      "rawUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main/connectors/google/fixtures/youtube.history.large.json",
+      "schemaPath": "connectors/google/schemas/youtube.history.json",
+      "sizeBytes": 10107,
+      "sha256": "sha256:fd202ae77b4f21f7bfe26f9b3b2f50a6f7af5cd76ab933f8ebe9ed762fc98eb6"
+    },
+    {
+      "id": "youtube-playwright.youtube.likes.empty",
+      "connectorId": "youtube-playwright",
+      "sourceId": "youtube",
+      "scope": "youtube.likes",
+      "scenario": "empty",
+      "recordCount": 0,
+      "path": "connectors/google/fixtures/youtube.likes.empty.json",
+      "rawUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main/connectors/google/fixtures/youtube.likes.empty.json",
+      "schemaPath": "connectors/google/schemas/youtube.likes.json",
+      "sizeBytes": 24,
+      "sha256": "sha256:b142328617d8c8ecc8d81c3cee885930154515b95b131e9c53214e78d807434d"
+    },
+    {
+      "id": "youtube-playwright.youtube.likes.small",
+      "connectorId": "youtube-playwright",
+      "sourceId": "youtube",
+      "scope": "youtube.likes",
+      "scenario": "small",
+      "recordCount": 4,
+      "path": "connectors/google/fixtures/youtube.likes.small.json",
+      "rawUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main/connectors/google/fixtures/youtube.likes.small.json",
+      "schemaPath": "connectors/google/schemas/youtube.likes.json",
+      "sizeBytes": 1531,
+      "sha256": "sha256:a134c8f9097f8cdbcce2acb3e18383595ea09a9cc729131ae9c3f7bda665c5a5"
+    },
+    {
+      "id": "youtube-playwright.youtube.likes.large",
+      "connectorId": "youtube-playwright",
+      "sourceId": "youtube",
+      "scope": "youtube.likes",
+      "scenario": "large",
+      "recordCount": 30,
+      "path": "connectors/google/fixtures/youtube.likes.large.json",
+      "rawUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main/connectors/google/fixtures/youtube.likes.large.json",
+      "schemaPath": "connectors/google/schemas/youtube.likes.json",
+      "sizeBytes": 11318,
+      "sha256": "sha256:2d02bcef10dbb34b7a84e6a875b5b555fc0fe4fbb7712ce5067af6d9e9fb3f35"
     }
   ]
 }

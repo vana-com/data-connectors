@@ -1,0 +1,275 @@
+{
+  "timeWindow": "top 50 most recent items",
+  "history": [
+    {
+      "watchedAtText": "Today",
+      "videoId": "mockvid0001",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0001",
+      "videoTitle": "How Suspension Bridges Actually Work",
+      "channelTitle": "Pixel Kitchen",
+      "views": "1.2K views",
+      "description": "A step-by-step walkthrough with diagrams and slow-motion footage."
+    },
+    {
+      "watchedAtText": "Today",
+      "videoId": "mockvid0002",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0002",
+      "videoTitle": "I Built a Mechanical Keyboard From Scratch",
+      "channelTitle": "Orbit Lectures",
+      "views": "48K views",
+      "description": "Full parts list and measurements in the pinned comment."
+    },
+    {
+      "watchedAtText": "Today",
+      "videoId": "mockvid0003",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0003",
+      "videoTitle": "One-Pan Miso Butter Pasta in 15 Minutes",
+      "channelTitle": "Trailform",
+      "views": "97K views",
+      "description": null
+    },
+    {
+      "watchedAtText": "Today",
+      "videoId": "mockvid0004",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0004",
+      "videoTitle": "The History of the Synthesizer, Explained",
+      "channelTitle": "Synth Garden",
+      "views": "312K views",
+      "description": "Recorded live, lightly edited. Chapters in the description."
+    },
+    {
+      "watchedAtText": "Today",
+      "videoId": "mockvid0005",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0005",
+      "videoTitle": "Hiking the Fjord Loop: 4 Days Solo",
+      "channelTitle": "Deskcraft Studio",
+      "views": "1.4M views",
+      "description": null
+    },
+    {
+      "watchedAtText": "Today",
+      "videoId": "mockvid0006",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0006",
+      "videoTitle": "Why Compilers Reorder Your Code",
+      "channelTitle": "Quiet Circuits",
+      "views": "2.1M views",
+      "description": "Part of the ongoing explainer series."
+    },
+    {
+      "watchedAtText": "Yesterday",
+      "videoId": "mockvid0007",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0007",
+      "videoTitle": "Restoring a 1970s Turntable, Part 2",
+      "channelTitle": "Mock Metropolis",
+      "views": "620K views",
+      "description": "A step-by-step walkthrough with diagrams and slow-motion footage."
+    },
+    {
+      "watchedAtText": "Yesterday",
+      "videoId": "mockvid0008",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0008",
+      "videoTitle": "Every Sorting Algorithm Visualized",
+      "channelTitle": "The Sample Lab",
+      "views": "8.7K views",
+      "description": "Full parts list and measurements in the pinned comment."
+    },
+    {
+      "watchedAtText": "Yesterday",
+      "videoId": "mockvid0009",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0009",
+      "videoTitle": "Urban Sketching: Drawing a Rainy Street",
+      "channelTitle": "Ferrocity Motors",
+      "views": "1.2K views",
+      "description": null
+    },
+    {
+      "watchedAtText": "Yesterday",
+      "videoId": "mockvid0010",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0010",
+      "videoTitle": "The Physics of Curveballs",
+      "channelTitle": "Lowpoly Atlas",
+      "views": "48K views",
+      "description": "Recorded live, lightly edited. Chapters in the description."
+    },
+    {
+      "watchedAtText": "Yesterday",
+      "videoId": "mockvid0011",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0011",
+      "videoTitle": "Fermentation Basics: Your First Sourdough",
+      "channelTitle": "Pixel Kitchen",
+      "views": "97K views",
+      "description": null
+    },
+    {
+      "watchedAtText": "Yesterday",
+      "videoId": "mockvid0012",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0012",
+      "videoTitle": "Inside a Modern Wind Turbine",
+      "channelTitle": "Orbit Lectures",
+      "views": "312K views",
+      "description": "Part of the ongoing explainer series."
+    },
+    {
+      "watchedAtText": "Jun 30 2026",
+      "videoId": "mockvid0013",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0013",
+      "videoTitle": "Lo-fi Beats to Debug Production To",
+      "channelTitle": "Trailform",
+      "views": "1.4M views",
+      "description": "A step-by-step walkthrough with diagrams and slow-motion footage."
+    },
+    {
+      "watchedAtText": "Jun 30 2026",
+      "videoId": "mockvid0014",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0014",
+      "videoTitle": "Van Conversion Tour: 80 Days of Work",
+      "channelTitle": "Synth Garden",
+      "views": "2.1M views",
+      "description": "Full parts list and measurements in the pinned comment."
+    },
+    {
+      "watchedAtText": "Jun 30 2026",
+      "videoId": "mockvid0015",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0015",
+      "videoTitle": "What Is a Monad, Really?",
+      "channelTitle": "Deskcraft Studio",
+      "views": "620K views",
+      "description": null
+    },
+    {
+      "watchedAtText": "Jun 29 2026",
+      "videoId": "mockvid0016",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0016",
+      "videoTitle": "Slow Motion Water Balloons at 20,000 FPS",
+      "channelTitle": "Quiet Circuits",
+      "views": "8.7K views",
+      "description": "Recorded live, lightly edited. Chapters in the description."
+    },
+    {
+      "watchedAtText": "Jun 29 2026",
+      "videoId": "mockvid0017",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0017",
+      "videoTitle": "Making Pottery With My Eyes Closed",
+      "channelTitle": "Mock Metropolis",
+      "views": "1.2K views",
+      "description": null
+    },
+    {
+      "watchedAtText": "Jun 29 2026",
+      "videoId": "mockvid0018",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0018",
+      "videoTitle": "The Deepest Cave Dive Ever Simulated",
+      "channelTitle": "The Sample Lab",
+      "views": "48K views",
+      "description": "Part of the ongoing explainer series."
+    },
+    {
+      "watchedAtText": "Jun 27 2026",
+      "videoId": "mockvid0019",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0019",
+      "videoTitle": "Speedrunning a Spreadsheet World Record",
+      "channelTitle": "Ferrocity Motors",
+      "views": "97K views",
+      "description": "A step-by-step walkthrough with diagrams and slow-motion footage."
+    },
+    {
+      "watchedAtText": "Jun 27 2026",
+      "videoId": "mockvid0020",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0020",
+      "videoTitle": "How Noise-Cancelling Headphones Work",
+      "channelTitle": "Lowpoly Atlas",
+      "views": "312K views",
+      "description": "Full parts list and measurements in the pinned comment."
+    },
+    {
+      "watchedAtText": "Jun 27 2026",
+      "videoId": "mockvid0021",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0021",
+      "videoTitle": "Baking Bagels Like a New York Deli",
+      "channelTitle": "Pixel Kitchen",
+      "views": "1.4M views",
+      "description": null
+    },
+    {
+      "watchedAtText": "Jun 24 2026",
+      "videoId": "mockvid0022",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0022",
+      "videoTitle": "A Tour of the Mock City Transit Museum",
+      "channelTitle": "Orbit Lectures",
+      "views": "2.1M views",
+      "description": "Recorded live, lightly edited. Chapters in the description."
+    },
+    {
+      "watchedAtText": "Jun 24 2026",
+      "videoId": "mockvid0023",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0023",
+      "videoTitle": "Why Old Maps Got Coastlines So Wrong",
+      "channelTitle": "Trailform",
+      "views": "620K views",
+      "description": null
+    },
+    {
+      "watchedAtText": "Jun 24 2026",
+      "videoId": "mockvid0024",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0024",
+      "videoTitle": "Building a Tiny House in 30 Days",
+      "channelTitle": "Synth Garden",
+      "views": "8.7K views",
+      "description": "Part of the ongoing explainer series."
+    },
+    {
+      "watchedAtText": "Jun 21 2026",
+      "videoId": "mockvid0025",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0025",
+      "videoTitle": "The Art of the Film Title Sequence",
+      "channelTitle": "Deskcraft Studio",
+      "views": "1.2K views",
+      "description": "A step-by-step walkthrough with diagrams and slow-motion footage."
+    },
+    {
+      "watchedAtText": "Jun 21 2026",
+      "videoId": "mockvid0026",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0026",
+      "videoTitle": "Growing Chili Peppers Indoors, Full Guide",
+      "channelTitle": "Quiet Circuits",
+      "views": "48K views",
+      "description": "Full parts list and measurements in the pinned comment."
+    },
+    {
+      "watchedAtText": "Jun 21 2026",
+      "videoId": "mockvid0027",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0027",
+      "videoTitle": "Reverse Engineering a Retro Game Console",
+      "channelTitle": "Mock Metropolis",
+      "views": "97K views",
+      "description": null
+    },
+    {
+      "watchedAtText": "Jun 15 2026",
+      "videoId": "mockvid0028",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0028",
+      "videoTitle": "Free Solo Climbing: Training Fundamentals",
+      "channelTitle": "The Sample Lab",
+      "views": "312K views",
+      "description": "Recorded live, lightly edited. Chapters in the description."
+    },
+    {
+      "watchedAtText": "Jun 15 2026",
+      "videoId": "mockvid0029",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0029",
+      "videoTitle": "The Loudest Sound Ever Recorded",
+      "channelTitle": "Ferrocity Motors",
+      "views": "1.4M views",
+      "description": null
+    },
+    {
+      "watchedAtText": "Jun 15 2026",
+      "videoId": "mockvid0030",
+      "videoUrl": "https://www.youtube.com/watch?v=mockvid0030",
+      "videoTitle": "Minimal Desk Setup Tour 2026",
+      "channelTitle": "Lowpoly Atlas",
+      "views": "2.1M views",
+      "description": "Part of the ongoing explainer series."
+    }
+  ]
+}
