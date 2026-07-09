@@ -308,7 +308,7 @@ Not required before PR:
 - `schemas/claude.projects.json`
 - `icons/claude.svg`
 - `registry.json`
-- `connectors/anthropic/CLAUDE_CONNECTOR_PLAN.md`
+- `docs/connector-notes-anthropic-claude.md`
 
 ## How To Validate
 

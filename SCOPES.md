@@ -7,7 +7,9 @@ This file is **maintained by hand.** It is the source of truth people read when
 they need to answer "can the web flow produce `instagram.ads`?" (it can't — see
 the table). There is intentionally no generator and no automated sync: the set
 of web-fulfillable scopes changes rarely, so when it changes, edit this file
-directly. (Background: [BUI-395](https://linear.app/vana-team/issue/BUI-395/instagram-scope-mismatch-found-in-cg-lab-e2e).)
+directly. (Background: an Instagram scope mismatch surfaced in an end-to-end
+test — a scope requested via the web flow that only the desktop connector can
+actually produce.)
 
 ## How to read this
 
@@ -25,7 +27,8 @@ directly. (Background: [BUI-395](https://linear.app/vana-team/issue/BUI-395/inst
 
 > A request for a scope marked Desktop-only (e.g. `instagram.ads`) cannot be
 > satisfied by the web flow alone — the Personal Server will have no data for it.
-> That is the exact mismatch BUI-395 surfaced.
+> That is the exact web-vs-desktop scope mismatch this registry exists to make
+> explicit.
 
 ## Coverage
 

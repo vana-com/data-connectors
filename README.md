@@ -21,11 +21,13 @@ Each connector has a status indicating its maturity level:
 | Oura Ring | Oura | Stable | oura.readiness, oura.sleep, oura.activity |
 | Spotify | Spotify | Stable | spotify.profile, spotify.savedTracks, spotify.playlists |
 | Amazon | Amazon | Beta | amazon.profile, amazon.orders |
+| DoorDash | DoorDash | Beta | doordash.orders |
 | Instagram Ads | Meta | Beta | instagram.ads |
 | Shop | Shopify | Beta | shop.orders |
 | Uber | Uber | Beta | uber.trips, uber.receipts |
 | YouTube | Google | Beta | youtube.profile, youtube.subscriptions, youtube.playlists, youtube.playlistItems, youtube.likes, youtube.watchLater, youtube.history |
 | Claude | Anthropic | Experimental | claude.conversations, claude.projects |
+| iCloud Notes | Apple | Experimental | icloud_notes.notes, icloud_notes.folders |
 | [H-E-B](connectors/heb/) | HEB | Experimental | heb.profile, heb.orders, heb.nutrition |
 | Steam | Valve | Experimental | steam.profile, steam.games, steam.friends |
 | Whole Foods Market | Whole Foods | Experimental | wholefoods.profile, wholefoods.orders, wholefoods.nutrition |
@@ -535,3 +537,12 @@ This fetches matching versions from the signed `connectors-latest`
 `connector-index.json`, verifies the detached Sigstore bundles plus the
 artifact/manifest/script checksums, and writes the scripts + manifests to a
 local snapshot directory. It's analogous to `npm install`.
+
+---
+
+## License
+
+Licensed under the Apache License, Version 2.0. See [`LICENSE`](LICENSE) and
+[`NOTICE`](NOTICE).
+
+Copyright 2026 OpenDataLabs contributors.

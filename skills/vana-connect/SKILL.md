@@ -50,7 +50,7 @@ npx -y @opendatalabs/connect@canary
 If the user is explicitly testing local changes, fall back to:
 
 ```bash
-node /home/tnunamak/code/vana-connect/dist/cli/bin.js
+node ~/code/vana-connect/dist/cli/bin.js
 ```
 
 If neither path is available, follow `SETUP.md` in this folder.
@@ -224,4 +224,4 @@ Use this order when choosing the CLI entrypoint:
 1. installed `vana`
 2. official installer path for the current canary
 3. `npx -y @opendatalabs/connect@canary`
-4. `node /home/tnunamak/code/vana-connect/dist/cli/bin.js` only for local development or debugging
+4. `node ~/code/vana-connect/dist/cli/bin.js` only for local development or debugging

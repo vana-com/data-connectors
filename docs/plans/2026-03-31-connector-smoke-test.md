@@ -1,6 +1,6 @@
 # Connector Smoke Test Harness — Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build a batch test harness that runs stable connectors headlessly, validates output against declared scopes, and reports per-connector health as a colored terminal table + JSON report.
 

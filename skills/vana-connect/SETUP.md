@@ -40,7 +40,7 @@ npx -y @opendatalabs/connect@canary --help
 
 ## Local development fallback
 
-From `/home/tnunamak/code/vana-connect`:
+From `~/code/vana-connect`:
 
 ```bash
 pnpm install
@@ -50,7 +50,7 @@ pnpm build
 Verify:
 
 ```bash
-ls /home/tnunamak/code/vana-connect/dist/cli/bin.js
+ls ~/code/vana-connect/dist/cli/bin.js
 ```
 
 ## Install the runtime
@@ -87,7 +87,7 @@ bash skills/vana-connect/scripts/setup.sh
 |------|---------|
 | `vana` | Preferred installed CLI entrypoint |
 | `npx -y @opendatalabs/connect@canary` | Published canary CLI fallback |
-| `/home/tnunamak/code/vana-connect/dist/cli/bin.js` | Local development fallback |
+| `~/code/vana-connect/dist/cli/bin.js` | Local development fallback |
 | `~/.local/share/vana/` | Hosted-installer release payloads |
 | `~/.vana/desktop/connectors/` | Connector scripts |
 | `~/.vana/desktop/browser-profiles/` | Persistent sessions (cookies) |

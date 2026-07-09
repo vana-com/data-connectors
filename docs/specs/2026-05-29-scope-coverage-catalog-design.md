@@ -3,7 +3,7 @@
 **Date:** 2026-05-29
 **Author:** Maciej (brainstormed 2026-05-29)
 **Status:** Accepted
-**Linear:** [BUI-395 — Instagram scope mismatch found in CG lab E2E](https://linear.app/vana-team/issue/BUI-395/instagram-scope-mismatch-found-in-cg-lab-e2e)
+**Background:** an Instagram scope mismatch surfaced in an end-to-end test
 **Artifact:** `SCOPES.md` (repo root)
 
 ---
@@ -31,7 +31,7 @@ The architecture is two-tier:
 
 "Which tier can fulfill which scope" was undocumented; the only place the web set
 existed was a hardcoded list in `unity-surfaces`
-(`web-writable-scopes.ts`). The open question on BUI-395 was *where* this should
+(`web-writable-scopes.ts`). The open question was *where* this should
 be documented. This spec answers: one file in data-connectors.
 
 ## 3. Decision — manual file, deliberately not generated
