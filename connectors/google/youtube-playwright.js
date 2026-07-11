@@ -145,6 +145,12 @@ const checkLoginStatus = async () => {
 
 const settleLoggedInSession = async () => {
   try {
+    // Wait for the topbar to render a decisive element (avatar OR sign-in link)
+    // before judging. Otherwise a freshly-loaded YouTube page reports
+    // "not logged in" simply because the avatar button hasn't mounted yet —
+    // which is exactly how a successful manual login gets misread as a failure
+    // right after the headed→headless switch.
+    await waitForYoutubeLoginSurface(8000);
     let state = await getYoutubeSessionState();
 
     if (state.hasAccountMenu && !state.hasSignInLink) {
@@ -807,34 +813,28 @@ const scrapeHistory = async () => {
         if (results.length >= ${MAX_HISTORY_ITEMS}) break;
 
         // Section date header: "Today", "Yesterday", "Jan 23, 2026", etc.
-        // New DOM: ytd-item-section-header-renderer > #header > #title (a plain div)
+        // Current DOM renders it as ytd-item-section-header-renderer > h2.
         const headerTitleEl = section.querySelector(
-          'ytd-item-section-header-renderer #header #title, ' +
+          'ytd-item-section-header-renderer h2, ' +
+          'ytd-item-section-header-renderer #title, ' +
           '#header #title'
         );
         const watchedAtText = headerTitleEl
           ? (headerTitleEl.textContent || '').trim() || null
           : null;
 
-        // History page now uses yt-lockup-view-model (new renderer)
-        // Each lockup has class "content-id-{videoId}" for easy extraction
+        // Each video is a yt-lockup-view-model. YouTube obfuscates the inner
+        // class names (yt-lockup-view-model__*, content-id-*), so extract via
+        // STABLE structural selectors: the /watch href, the h3 title, and the
+        // channel aria-label. (The old class-based selectors silently matched
+        // nothing, so every item was skipped → 0 history captured.)
         const lockups = section.querySelectorAll('yt-lockup-view-model');
 
         for (const lockup of lockups) {
           if (results.length >= ${MAX_HISTORY_ITEMS}) break;
 
-          // videoId from the content-id-* class
-          const contentIdClass = Array.from(lockup.classList)
-            .find(c => c.startsWith('content-id-'));
-          const videoId = contentIdClass
-            ? contentIdClass.replace('content-id-', '')
-            : null;
-
-          // Video URL — thumbnail anchor or title anchor
-          const linkEl = lockup.querySelector(
-            'a.yt-lockup-view-model__content-image, ' +
-            'a.yt-lockup-metadata-view-model__title'
-          );
+          // Link to the video — the /watch anchor, not an obfuscated class.
+          const linkEl = lockup.querySelector('a[href*="/watch"]');
           if (!linkEl) continue;
 
           const href = linkEl.getAttribute('href') || '';
@@ -842,46 +842,43 @@ const scrapeHistory = async () => {
             ? href
             : 'https://www.youtube.com' + href;
 
+          // videoId from ?v=, falling back to the legacy content-id-* class.
+          const vMatch = href.match(/[?&]v=([^&]+)/);
+          const contentIdClass = Array.from(lockup.classList)
+            .find(c => c.startsWith('content-id-'));
+          const videoId = vMatch
+            ? vMatch[1]
+            : (contentIdClass ? contentIdClass.replace('content-id-', '') : null);
+
           // De-dup across scroll re-evaluations
           const key = videoId || videoUrl;
           if (seen.has(key)) continue;
           seen.add(key);
 
-          // Title: prefer h3[title] attribute (full, untruncated)
-          const titleEl = lockup.querySelector(
-            'h3.yt-lockup-metadata-view-model__heading-reset'
-          );
+          // Title: the h3's title attribute (full, untruncated) or its text.
+          const titleEl = lockup.querySelector('h3[title], h3');
           const videoTitle = titleEl
             ? (titleEl.getAttribute('title') || titleEl.textContent || '').trim() || null
             : null;
 
-          // Channel name: from avatar aria-label ("Go to channel X")
+          // Channel name: from avatar/link aria-label ("Go to channel X").
           const avatarEl = lockup.querySelector('[aria-label^="Go to channel"]');
           const channelTitle = avatarEl
             ? (avatarEl.getAttribute('aria-label') || '')
                 .replace(/^Go to channel\\s+/i, '').trim() || null
             : null;
 
-          // Views: last .metadata-text span inside the first padded row
-          const firstRow = lockup.querySelector(
-            '.yt-content-metadata-view-model__metadata-row--metadata-row-padding'
-          );
+          // Views: a metadata span ending in "views" (best-effort).
           let views = null;
-          if (firstRow) {
-            const metaSpans = firstRow.querySelectorAll(
-              '.yt-content-metadata-view-model__metadata-text'
-            );
-            const lastSpan = metaSpans[metaSpans.length - 1];
-            if (lastSpan) views = (lastSpan.textContent || '').trim() || null;
+          const metaSpans = lockup.querySelectorAll(
+            'span[role="text"], .yt-content-metadata-view-model__metadata-text'
+          );
+          for (const sp of metaSpans) {
+            const t = (sp.textContent || '').trim();
+            if (/\\bviews?\\b/i.test(t)) { views = t; break; }
           }
 
-          // Description: multi-line text snippet
-          const descEl = lockup.querySelector(
-            '.yt-content-metadata-view-model__metadata-text-max-lines-2'
-          );
-          const description = descEl
-            ? (descEl.textContent || '').trim() || null
-            : null;
+          const description = null;
 
           if (!videoTitle && !videoId) continue;
 
@@ -1175,7 +1172,14 @@ const scrapeHistory = async () => {
           );
           await page.goHeadless({ resumeUrl: 'https://www.youtube.com/' });
         }
-        state.isLoggedIn = await settleLoggedInSession();
+        // Retry instead of judging on the first frame — mirrors the programmatic
+        // path above. The headed→headless switch + resume needs a beat for the
+        // signed-in topbar to re-render.
+        for (let i = 0; i < 10; i++) {
+          state.isLoggedIn = await settleLoggedInSession();
+          if (state.isLoggedIn) break;
+          await waitForYoutubeLoginSurface(2000);
+        }
       }
 
       await page.setData('status', 'Login completed');
@@ -1185,7 +1189,13 @@ const scrapeHistory = async () => {
 
     if (!state.isLoggedIn) {
       await page.setData('error', 'Login failed or timed out');
-      return { error: 'Login failed or timed out' };
+      // Include the required `timestamp` so this surfaces as a clean login
+      // failure, not a "Protocol violation: timestamp is required".
+      return {
+        success: false,
+        error: 'Login failed or timed out',
+        timestamp: new Date().toISOString(),
+      };
     }
 
     // ═══ Phase 1: Extract Email ═══
@@ -1424,7 +1434,7 @@ const scrapeHistory = async () => {
           };
         })(),
         timestamp: new Date().toISOString(),
-        version: '1.0.0-playwright',
+        version: '1.0.1-playwright',
         platform: 'youtube'
       };
     };
@@ -1446,6 +1456,10 @@ const scrapeHistory = async () => {
 
   } catch (error) {
     await page.setData('error', error.message);
-    return { success: false, error: error.message };
+    return {
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString(),
+    };
   }
 })();
