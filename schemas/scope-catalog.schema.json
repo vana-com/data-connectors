@@ -152,6 +152,15 @@
                     "required": ["blocker"]
                   },
                   "else": { "not": { "required": ["blocker"] } }
+                },
+                {
+                  "if": { "properties": { "status": { "const": "supported" } }, "required": ["status"] },
+                  "else": {
+                    "not": {
+                      "properties": { "limits": { "type": "array" } },
+                      "required": ["limits"]
+                    }
+                  }
                 }
               ],
               "additionalProperties": false
@@ -163,5 +172,40 @@
       "additionalProperties": false
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "distribution": {
+            "type": "object",
+            "properties": {
+              "sourceCommit": { "type": "string" }
+            },
+            "required": ["sourceCommit"]
+          }
+        },
+        "required": ["distribution"]
+      },
+      "then": {
+        "properties": {
+          "scopes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "url": { "type": "string" }
+                  },
+                  "required": ["url"]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
   "additionalProperties": false
 }

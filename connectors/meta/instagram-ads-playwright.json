@@ -15,7 +15,7 @@
     {
       "scope": "instagram.ads",
       "label": "Your ad interests",
-      "description": "Advertisers the user has seen ads from, ad topic interests, and targeting categories based on their Instagram activity"
+      "description": "Advertisers the user has seen ads from and ad topic interests based on their Instagram activity"
     }
   ],
   "id": "instagram-ads-playwright",

@@ -49,7 +49,15 @@
     {
       "scope": "github.contributions",
       "label": "Your contribution graph",
-      "description": "Daily contribution counts for the last 4 years (per-year scrape, not just rolling 12 months), monthly totals, per-year totals, and your top day"
+      "description": "Daily contribution counts for the last 4 years (per-year scrape, not just rolling 12 months), monthly totals, per-year totals, and your top day",
+      "limits": [
+        {
+          "type": "timeWindow",
+          "value": 4,
+          "unit": "years",
+          "description": "The Desktop connector collects the four most recent calendar years."
+        }
+      ]
     },
     {
       "scope": "github.history",

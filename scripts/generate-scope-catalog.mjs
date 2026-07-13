@@ -171,6 +171,9 @@ function buildCatalog(repoRoot, { sourceCommit, releaseTag } = {}) {
   if (sourceCommit && !/^[0-9a-f]{40}$/.test(sourceCommit)) {
     throw new Error("sourceCommit must be a full lowercase Git commit SHA");
   }
+  if (sourceCommit && releaseTag !== `connectors-${sourceCommit.slice(0, 12)}`) {
+    throw new Error("releaseTag must match connectors-<sourceCommit first 12 characters>");
+  }
   const webInputPath = join(repoRoot, "scopes", "web-capabilities.json");
   const webInput = readJson(webInputPath);
   const webInputSchema = readJson(

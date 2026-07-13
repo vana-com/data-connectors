@@ -74,6 +74,15 @@
             "required": ["blockerId"]
           },
           "else": { "not": { "required": ["blockerId"] } }
+        },
+        {
+          "if": { "properties": { "status": { "const": "supported" } }, "required": ["status"] },
+          "else": {
+            "not": {
+              "properties": { "limits": { "type": "array" } },
+              "required": ["limits"]
+            }
+          }
         }
       ],
       "additionalProperties": false

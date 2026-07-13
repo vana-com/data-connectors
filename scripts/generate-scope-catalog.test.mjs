@@ -5,6 +5,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
+import Ajv2020 from "ajv/dist/2020.js";
+
 import { generateScopeCatalog } from "./generate-scope-catalog.mjs";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -146,6 +148,26 @@ test("malformed Web capability entries fail schema validation", () => {
   );
 });
 
+test("unsupported Web capability entries cannot declare limits", () => {
+  const root = makeFixture();
+  const inputPath = join(root, "scopes", "web-capabilities.json");
+  const input = JSON.parse(readFileSync(inputPath));
+  input.scopes[0].limits = [
+    {
+      type: "maxItems",
+      value: 1,
+      unit: "item",
+      description: "Contradictory unsupported limit.",
+    },
+  ];
+  writeJson(inputPath, input);
+
+  assert.throws(
+    () => generateScopeCatalog({ repoRoot: root }),
+    /web-capabilities\.json failed schema validation/,
+  );
+});
+
 test("conflicting registered schema evidence fails", () => {
   const root = makeFixture();
   const registryPath = join(root, "registry.json");
@@ -235,6 +257,52 @@ test("release generation embeds immutable payload-schema URLs", () => {
   );
 });
 
+test("release generation rejects a tag unrelated to its source commit", () => {
+  const root = makeFixture();
+  assert.throws(
+    () =>
+      generateScopeCatalog({
+        repoRoot: root,
+        sourceCommit: "b".repeat(40),
+        releaseTag: "connectors-cccccccccccc",
+      }),
+    /releaseTag must match connectors-<sourceCommit first 12 characters>/,
+  );
+});
+
+test("release-shaped catalogs require immutable URLs for every payload schema", () => {
+  const root = makeFixture();
+  const sourceCommit = "b".repeat(40);
+  generateScopeCatalog({
+    repoRoot: root,
+    sourceCommit,
+    releaseTag: `connectors-${sourceCommit.slice(0, 12)}`,
+  });
+  const catalog = JSON.parse(readFileSync(join(root, "scope-catalog.json")));
+  delete catalog.scopes[0].schema.url;
+  const schema = JSON.parse(
+    readFileSync(join(root, "schemas", "scope-catalog.schema.json")),
+  );
+  const validate = new Ajv2020({ strict: false }).compile(schema);
+
+  assert.equal(validate(catalog), false);
+  assert.match(JSON.stringify(validate.errors), /must have required property 'url'/);
+});
+
+test("manifest schema requires version 1.1 or later for structured limits", () => {
+  const manifest = JSON.parse(
+    readFileSync(join(repoRoot, "connectors", "google", "youtube-playwright.json")),
+  );
+  manifest.manifest_version = "1.0";
+  const schema = JSON.parse(
+    readFileSync(join(repoRoot, "schemas", "manifest.schema.json")),
+  );
+  const validate = new Ajv2020({ strict: false, validateFormats: false }).compile(schema);
+
+  assert.equal(validate(manifest), false);
+  assert.match(JSON.stringify(validate.errors), /manifest_version/);
+});
+
 test("release workflow runs for connector changes", () => {
   const workflow = readFileSync(
     join(repoRoot, ".github", "workflows", "publish-connector-release-index.yml"),
@@ -268,6 +336,10 @@ test("the checked-in catalog contains every published scope exactly once", () =>
     /last 4 years/,
   );
   assert.equal(
+    catalog.scopes.find(({ scopeId }) => scopeId === "instagram.ads").description,
+    "Advertisers the user has seen ads from and ad topic interests based on their Instagram activity",
+  );
+  assert.equal(
     catalog.scopes
       .find(({ scopeId }) => scopeId === "youtube.history")
       .fulfillment.desktop.connectors[0].limits[0].value,
@@ -285,6 +357,16 @@ test("the checked-in catalog contains every published scope exactly once", () =>
       { type: "maxItems", value: 300, unit: "events" },
       { type: "timeWindow", value: 90, unit: "days" },
     ],
+  );
+  assert.deepEqual(
+    catalog.scopes
+      .find(({ scopeId }) => scopeId === "github.contributions")
+      .fulfillment.desktop.connectors[0].limits.map(({ type, value, unit }) => ({
+        type,
+        value,
+        unit,
+      })),
+    [{ type: "timeWindow", value: 4, unit: "years" }],
   );
   assert.equal(
     catalog.scopes

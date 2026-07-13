@@ -187,5 +187,27 @@
       "additionalProperties": true
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "scopes": {
+            "contains": {
+              "type": "object",
+              "required": ["limits"]
+            }
+          }
+        },
+        "required": ["scopes"]
+      },
+      "then": {
+        "properties": {
+          "manifest_version": {
+            "pattern": "^(?:1\\.[1-9][0-9]*|(?:[2-9]|[1-9][0-9]+)\\.[0-9]+)$"
+          }
+        }
+      }
+    }
+  ],
   "additionalProperties": false
 }

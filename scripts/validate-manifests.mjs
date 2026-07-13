@@ -108,6 +108,17 @@ function validateScopes(scopes, sourceId, manifestVersion, errors, path) {
               errors.push(`${prefix} must be an object`);
               continue;
             }
+            const allowedLimitFields = new Set([
+              "type",
+              "value",
+              "unit",
+              "description",
+            ]);
+            for (const key of Object.keys(limit)) {
+              if (!allowedLimitFields.has(key)) {
+                errors.push(`${prefix} has disallowed field "${key}"`);
+              }
+            }
             if (!["maxItems", "timeWindow"].includes(limit.type)) {
               errors.push(`${prefix}.type must be "maxItems" or "timeWindow"`);
             }

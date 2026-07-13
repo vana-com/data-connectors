@@ -210,7 +210,15 @@
           "connectors": [
             {
               "id": "github-playwright",
-              "status": "stable"
+              "status": "stable",
+              "limits": [
+                {
+                  "type": "timeWindow",
+                  "value": 4,
+                  "unit": "years",
+                  "description": "The Desktop connector collects the four most recent calendar years."
+                }
+              ]
             }
           ]
         },
@@ -474,7 +482,7 @@
     {
       "sourceId": "instagram",
       "scopeId": "instagram.ads",
-      "description": "Advertisers the user has seen ads from, ad topic interests, and targeting categories based on their Instagram activity",
+      "description": "Advertisers the user has seen ads from and ad topic interests based on their Instagram activity",
       "schema": {
         "path": "connectors/meta/schemas/instagram.ads.json"
       },
