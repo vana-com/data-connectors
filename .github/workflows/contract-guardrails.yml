@@ -18,6 +18,9 @@ jobs:
         with:
           node-version: "20"
 
+      - name: Install contract tooling dependencies
+        run: npm ci
+
       - name: Validate manifests (HC-MANIFEST-CONTRACT-001/002/003, HC-VERSIONING-INDEPENDENT-001, HC-WHAT-NOT-TO-DO-002)
         run: node scripts/validate-manifests.mjs
 
@@ -26,6 +29,12 @@ jobs:
 
       - name: Validate scope-schema coverage (HC-RESULT-CONTRACT-001)
         run: node scripts/validate-scope-schemas.mjs
+
+      - name: Test source/scope catalog contract
+        run: node --test scripts/generate-scope-catalog.test.mjs
+
+      - name: Check source/scope catalog generated files
+        run: node scripts/generate-scope-catalog.mjs --check
 
       - name: Validate connector fixtures
         run: node scripts/generate-fixture-index.mjs --validate-only

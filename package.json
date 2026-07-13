@@ -6,7 +6,9 @@
   "files": [
     "packages/connector-installer-core/index.mjs",
     "packages/connector-installer-cli/index.mjs",
-    "schemas/connector-index.schema.json"
+    "schemas/connector-index.schema.json",
+    "schemas/scope-catalog.schema.json",
+    "scope-catalog.json"
   ],
   "exports": {
     "./installer-core": "./packages/connector-installer-core/index.mjs"
@@ -23,6 +25,12 @@
     "fixture-index:generate": "node ./scripts/generate-fixture-index.mjs",
     "fixture-index:check": "node ./scripts/generate-fixture-index.mjs --check",
     "fixtures:validate": "node ./scripts/generate-fixture-index.mjs --validate-only",
+    "scope-catalog:generate": "node ./scripts/generate-scope-catalog.mjs",
+    "scope-catalog:check": "node ./scripts/generate-scope-catalog.mjs --check",
+    "scope-catalog:test": "node --test ./scripts/generate-scope-catalog.test.mjs",
     "release:sign": "node ./scripts/sign-release-assets.mjs"
+  },
+  "devDependencies": {
+    "ajv": "^8.17.1"
   }
 }

@@ -9,6 +9,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(__dirname, "..");
 const artifactsDir = join(repoRoot, "artifacts");
 const indexPath = join(repoRoot, "connector-index.json");
+const scopeCatalogPath = join(repoRoot, "scope-catalog.json");
+const scopeCatalogSchemaPath = join(repoRoot, "schemas", "scope-catalog.schema.json");
 
 function walkArtifacts(dir) {
   if (!existsSync(dir)) {
@@ -42,22 +44,31 @@ async function signSubject(subjectPath) {
 }
 
 async function main() {
-  if (!existsSync(indexPath)) {
-    throw new Error(`Missing ${indexPath}`);
+  const publicContractPaths = [indexPath, scopeCatalogPath, scopeCatalogSchemaPath];
+  for (const path of publicContractPaths) {
+    if (!existsSync(path)) {
+      throw new Error(`Missing ${path}`);
+    }
   }
 
   const artifactPaths = walkArtifacts(artifactsDir);
   for (const staleBundle of walkArtifacts(artifactsDir).map(bundlePathFor)) {
     rmSync(staleBundle, { force: true });
   }
-  rmSync(bundlePathFor(indexPath), { force: true });
+  for (const path of publicContractPaths) {
+    rmSync(bundlePathFor(path), { force: true });
+  }
 
-  await signSubject(indexPath);
+  for (const path of publicContractPaths) {
+    await signSubject(path);
+  }
   for (const artifactPath of artifactPaths) {
     await signSubject(artifactPath);
   }
 
-  console.log(`Signed ${artifactPaths.length + 1} release subject(s).`);
+  console.log(
+    `Signed ${artifactPaths.length + publicContractPaths.length} release subject(s).`,
+  );
 }
 
 main().catch((error) => {

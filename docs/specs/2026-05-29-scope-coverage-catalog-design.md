@@ -4,7 +4,11 @@
 **Author:** Maciej (brainstormed 2026-05-29)
 **Status:** Accepted
 **Linear:** [BUI-395 — Instagram scope mismatch found in CG lab E2E](https://linear.app/vana-team/issue/BUI-395/instagram-scope-mismatch-found-in-cg-lab-e2e)
-**Artifact:** `SCOPES.md` (repo root)
+**Superseded by BUI-705:** `SCOPES.md` is now generated from the public
+machine-readable catalog. This document records the earlier BUI-395 decision
+and is not the current maintenance contract.
+
+**Historical artifact:** `SCOPES.md` (repo root)
 
 ---
 

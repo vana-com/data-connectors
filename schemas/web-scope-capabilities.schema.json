@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:vana:data-connectors:web-scope-capabilities:1.0.0",
+  "title": "Web scope capabilities input",
+  "type": "object",
+  "required": ["$schema", "schemaVersion", "contract", "provenance", "blockers", "scopes"],
+  "properties": {
+    "$schema": { "const": "../schemas/web-scope-capabilities.schema.json" },
+    "schemaVersion": { "const": "1.0.0" },
+    "contract": { "type": "string", "minLength": 1 },
+    "provenance": {
+      "type": "object",
+      "required": ["issue", "baselineCommit", "note"],
+      "properties": {
+        "issue": { "type": "string", "minLength": 1 },
+        "baselineCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "note": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "blockers": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/blocker" }
+    },
+    "scopes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/webScope" }
+    }
+  },
+  "$defs": {
+    "limit": {
+      "type": "object",
+      "required": ["type", "value", "unit", "description"],
+      "properties": {
+        "type": { "type": "string", "enum": ["maxItems"] },
+        "value": { "type": "integer", "minimum": 1 },
+        "unit": { "type": "string", "minLength": 1 },
+        "description": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "blocker": {
+      "type": "object",
+      "required": ["id", "description", "requiredCapture"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+        "description": { "type": "string", "minLength": 1 },
+        "requiredCapture": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      },
+      "additionalProperties": false
+    },
+    "webScope": {
+      "type": "object",
+      "required": ["scopeId", "status"],
+      "properties": {
+        "scopeId": { "type": "string", "pattern": "^[a-z0-9_-]+\\.[A-Za-z0-9_.-]+$" },
+        "status": { "type": "string", "enum": ["supported", "unsupported", "blocked"] },
+        "limits": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/limit" }
+        },
+        "blockerId": { "type": "string", "pattern": "^[a-z0-9-]+$" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "blocked" } }, "required": ["status"] },
+          "then": {
+            "properties": { "blockerId": { "type": "string", "pattern": "^[a-z0-9-]+$" } },
+            "required": ["blockerId"]
+          },
+          "else": { "not": { "required": ["blockerId"] } }
+        }
+      ],
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

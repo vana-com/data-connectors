@@ -93,6 +93,8 @@ schemas/                           # Shared meta-schemas
 │
 registry.json                      # Central registry (checksums, versions, OTA)
 fixture-index.json                 # Public fixture catalog for builders and agents
+scope-catalog.json                 # Generated public source/scope contract
+scopes/web-capabilities.json       # Hand-authored Web/Data Pipe truth and limits
 run-connector.cjs                  # Symlink → skills/vana-connect/scripts/run-connector.cjs
 test-connector.cjs                 # Standalone test runner
 create-connector.sh                # Quick autonomous scaffold script
@@ -104,6 +106,18 @@ create-connector.sh                # Quick autonomous scaffold script
 `data-connect` and `context-gateway`.
 
 - `connector-index.json` is the authoritative release index.
+- `scope-catalog.json` is the generated, schema-validated public contract for
+  source IDs, scope IDs, payload schema paths, Desktop/Web fulfillment, material
+  limits, and maturity. `SCOPES.md` is generated from the same model.
+- Pin `scope-catalog.json` from an immutable GitHub release named
+  `connectors-<commit12>`, for example
+  `https://github.com/vana-com/data-connectors/releases/download/connectors-<commit12>/scope-catalog.json`.
+  The release tag resolves the full source commit; resolve each catalog
+  `schema.path` against that commit. A raw `main` URL is not a version pin.
+- `scope-catalog.json.sigstore.json` is the catalog's detached Sigstore bundle.
+- The same immutable release includes `scope-catalog.schema.json` and its
+  detached Sigstore bundle. The catalog's `catalogSchema` object names both the
+  checked-in schema path and the flat release-asset filename.
 - `fixture-index.json` is the public fixture catalog for schema-valid
   synthetic sample data. Builders and agents should download fixture raw URLs
   instead of pasting large JSON payloads into prompts or terminals. Raw URLs

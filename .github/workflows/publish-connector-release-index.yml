@@ -11,8 +11,15 @@ on:
       - "packages/connector-installer-core/**"
       - "packages/connector-installer-cli/**"
       - "schemas/connector-index.schema.json"
+      - "schemas/scope-catalog.schema.json"
+      - "schemas/web-scope-capabilities.schema.json"
       - "scripts/generate-connector-index.mjs"
+      - "scripts/generate-scope-catalog.mjs"
+      - "scripts/sign-release-assets.mjs"
+      - "scope-catalog.json"
+      - "scopes/web-capabilities.json"
       - "package.json"
+      - "package-lock.json"
 
 permissions:
   id-token: write
@@ -53,6 +60,9 @@ jobs:
           CONNECTOR_ENABLE_SIGSTORE_METADATA: "1"
         run: node scripts/generate-connector-index.mjs
 
+      - name: Check source/scope catalog
+        run: node scripts/generate-scope-catalog.mjs --check
+
       - name: Sign connector release subjects
         run: npm run release:sign
 
@@ -62,6 +72,8 @@ jobs:
         with:
           subject-path: |
             ${{ github.workspace }}/connector-index.json
+            ${{ github.workspace }}/scope-catalog.json
+            ${{ github.workspace }}/schemas/scope-catalog.schema.json
             ${{ github.workspace }}/artifacts/**/*.tgz
 
       - name: Update latest release tag
@@ -78,6 +90,10 @@ jobs:
           files: |
             connector-index.json
             connector-index.json.sigstore.json
+            scope-catalog.json
+            scope-catalog.json.sigstore.json
+            schemas/scope-catalog.schema.json
+            schemas/scope-catalog.schema.json.sigstore.json
             artifacts/**/*.tgz
             artifacts/**/*.tgz.sigstore.json
 
@@ -90,3 +106,7 @@ jobs:
           files: |
             connector-index.json
             connector-index.json.sigstore.json
+            scope-catalog.json
+            scope-catalog.json.sigstore.json
+            schemas/scope-catalog.schema.json
+            schemas/scope-catalog.schema.json.sigstore.json
