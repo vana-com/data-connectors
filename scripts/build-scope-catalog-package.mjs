@@ -72,12 +72,13 @@ export function buildScopeCatalogPackage({
   packageRoot = defaultPackageRoot,
   previousPackageRoot = null,
 } = {}) {
+  const packageTemplatePath = join(packageRoot, "package.template.json");
   const packageJsonPath = join(packageRoot, "package.json");
   const readmePath = join(packageRoot, "README.md");
-  if (!existsSync(packageJsonPath) || !existsSync(readmePath)) {
-    throw new Error("Package root must contain authored package.json and README.md");
+  if (!existsSync(packageTemplatePath) || !existsSync(readmePath)) {
+    throw new Error("Package root must contain authored package.template.json and README.md");
   }
-  const packageJson = readJson(packageJsonPath);
+  const packageJson = readJson(packageTemplatePath);
   if (packageJson.name !== "@opendatalabs/scope-catalog") {
     throw new Error("Package name must remain @opendatalabs/scope-catalog");
   }
@@ -89,6 +90,7 @@ export function buildScopeCatalogPackage({
   for (const path of [
     "CHANGELOG.md",
     "connectors",
+    "package.json",
     "release.json",
     "schemas",
     "scope-catalog.json",
@@ -96,7 +98,8 @@ export function buildScopeCatalogPackage({
     rmSync(join(packageRoot, path), { force: true, recursive: true });
   }
 
-  writeJson(packageJsonPath, { ...packageJson, version: release.currentVersion });
+  const { name, ...packageMetadata } = packageJson;
+  writeJson(packageJsonPath, { name, version: release.currentVersion, ...packageMetadata });
   copyFileSync(join(repoRoot, "scope-catalog.json"), join(packageRoot, "scope-catalog.json"));
   mkdirSync(join(packageRoot, "schemas"), { recursive: true });
   copyFileSync(

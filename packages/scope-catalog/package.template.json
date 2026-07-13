@@ -1,6 +1,5 @@
 {
   "name": "@opendatalabs/scope-catalog",
-  "version": "1.0.0",
   "description": "Versioned public Vana source and scope catalog",
   "type": "module",
   "repository": {

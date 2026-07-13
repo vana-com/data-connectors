@@ -36,6 +36,7 @@ const requiredFiles = [
   "schemas",
   "scope-catalog.json",
 ];
+const sourceOnlyFiles = new Set([".gitignore", "package.template.json"]);
 
 function readJson(path) {
   return JSON.parse(readFileSync(path, "utf8"));
@@ -44,6 +45,7 @@ function readJson(path) {
 function listFiles(root, directory = root) {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const path = join(directory, entry.name);
+    if (sourceOnlyFiles.has(relative(root, path))) return [];
     return entry.isDirectory() ? listFiles(root, path) : [relative(root, path)];
   });
 }
@@ -111,7 +113,10 @@ export function checkScopeCatalogPackage({
   }
 
   const expectedRoot = mkdtempSync(join(tmpdir(), "scope-catalog-package-check-"));
-  cpSync(join(packageRoot, "package.json"), join(expectedRoot, "package.json"));
+  cpSync(
+    join(packageRoot, "package.template.json"),
+    join(expectedRoot, "package.template.json"),
+  );
   cpSync(join(packageRoot, "README.md"), join(expectedRoot, "README.md"));
   buildScopeCatalogPackage({
     repoRoot,

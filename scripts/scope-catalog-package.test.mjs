@@ -189,8 +189,12 @@ test("initial, unchanged, major, minor and patch contracts select deterministic 
 
 test("package build preserves package-relative paths and check rejects extra payload schemas", () => {
   const packageRoot = mkdtempSync(join(tmpdir(), "scope-catalog-package-output-"));
-  cpSync(join(repoRoot, "packages", "scope-catalog", "package.json"), join(packageRoot, "package.json"));
+  cpSync(
+    join(repoRoot, "packages", "scope-catalog", "package.template.json"),
+    join(packageRoot, "package.template.json"),
+  );
   cpSync(join(repoRoot, "packages", "scope-catalog", "README.md"), join(packageRoot, "README.md"));
+  cpSync(join(repoRoot, "packages", "scope-catalog", ".gitignore"), join(packageRoot, ".gitignore"));
 
   buildScopeCatalogPackage({ repoRoot, packageRoot });
   const catalog = readJson(join(packageRoot, "scope-catalog.json"));
@@ -471,8 +475,8 @@ test("later builds bump from the published package and keep a cumulative changel
   const previousRepoRoot = makeContractFixture();
   const previousPackageRoot = mkdtempSync(join(tmpdir(), "scope-catalog-package-previous-"));
   cpSync(
-    join(repoRoot, "packages", "scope-catalog", "package.json"),
-    join(previousPackageRoot, "package.json"),
+    join(repoRoot, "packages", "scope-catalog", "package.template.json"),
+    join(previousPackageRoot, "package.template.json"),
   );
   cpSync(
     join(repoRoot, "packages", "scope-catalog", "README.md"),
@@ -489,8 +493,8 @@ test("later builds bump from the published package and keep a cumulative changel
   });
   const currentPackageRoot = mkdtempSync(join(tmpdir(), "scope-catalog-package-current-"));
   cpSync(
-    join(repoRoot, "packages", "scope-catalog", "package.json"),
-    join(currentPackageRoot, "package.json"),
+    join(repoRoot, "packages", "scope-catalog", "package.template.json"),
+    join(currentPackageRoot, "package.template.json"),
   );
   cpSync(
     join(repoRoot, "packages", "scope-catalog", "README.md"),
@@ -514,8 +518,8 @@ test("later fulfillment changes without limits round-trip through release.json",
   const previousRepoRoot = makeContractFixture();
   const previousPackageRoot = mkdtempSync(join(tmpdir(), "scope-catalog-package-previous-"));
   cpSync(
-    join(repoRoot, "packages", "scope-catalog", "package.json"),
-    join(previousPackageRoot, "package.json"),
+    join(repoRoot, "packages", "scope-catalog", "package.template.json"),
+    join(previousPackageRoot, "package.template.json"),
   );
   cpSync(
     join(repoRoot, "packages", "scope-catalog", "README.md"),
@@ -536,8 +540,8 @@ test("later fulfillment changes without limits round-trip through release.json",
   });
   const currentPackageRoot = mkdtempSync(join(tmpdir(), "scope-catalog-package-current-"));
   cpSync(
-    join(repoRoot, "packages", "scope-catalog", "package.json"),
-    join(currentPackageRoot, "package.json"),
+    join(repoRoot, "packages", "scope-catalog", "package.template.json"),
+    join(currentPackageRoot, "package.template.json"),
   );
   cpSync(
     join(repoRoot, "packages", "scope-catalog", "README.md"),
