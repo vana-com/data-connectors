@@ -2,7 +2,7 @@
   "manifest_version": "1.0",
   "connector_id": "instagram-ads-playwright",
   "source_id": "instagram",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "name": "Instagram Ads",
   "company": "Meta",
   "description": "Exports your Instagram ad interests — advertisers and ad topics.",

@@ -2,7 +2,7 @@
   "manifest_version": "1.1",
   "connector_id": "youtube-playwright",
   "source_id": "youtube",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "name": "YouTube",
   "company": "Google",
   "description": "Exports your YouTube profile, subscriptions, playlists, playlist items, liked videos, watch later list, and top 50 recent watch history entries.",
