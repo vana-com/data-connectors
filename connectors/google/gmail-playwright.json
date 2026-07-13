@@ -1,0 +1,35 @@
+{
+  "manifest_version": "1.1",
+  "connector_id": "gmail-playwright",
+  "source_id": "gmail",
+  "version": "1.0.0",
+  "name": "Gmail Receipts",
+  "company": "Google",
+  "description": "Exports up to 100 recent Gmail purchase receipts and travel confirmations using a local authenticated browser session.",
+  "runtime": "playwright",
+  "page_api_version": 1,
+  "connect_url": "https://mail.google.com/mail/u/0/#search/category%3Apurchases+OR+flight+OR+ticket",
+  "connect_selector": "[aria-label=\"Search mail\"], [role=\"main\"]",
+  "icon": "icons/gmail.svg",
+  "scopes": [
+    {
+      "scope": "gmail.receipts",
+      "label": "Your purchase and travel confirmations",
+      "description": "Recent Gmail messages matching purchases, flights, or tickets, including sender, subject, date, and preview text.",
+      "limits": [
+        {
+          "type": "maxItems",
+          "value": 100,
+          "unit": "messages",
+          "description": "The Desktop connector returns at most the 100 most recent Gmail rows matching the purchase and travel search."
+        }
+      ]
+    }
+  ],
+  "capabilities": ["headed-takeover"],
+  "id": "gmail-playwright",
+  "connectURL": "https://mail.google.com/mail/u/0/#search/category%3Apurchases+OR+flight+OR+ticket",
+  "connectSelector": "[aria-label=\"Search mail\"], [role=\"main\"]",
+  "iconURL": "icons/gmail.svg",
+  "exportFrequency": "weekly"
+}

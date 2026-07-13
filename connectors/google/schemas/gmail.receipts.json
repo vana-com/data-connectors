@@ -1,0 +1,38 @@
+{
+  "name": "Gmail Receipts and Travel Confirmations",
+  "version": "1.0.0",
+  "scope": "gmail.receipts",
+  "dialect": "json",
+  "description": "A chronologically ordered list of up to 100 recent Gmail rows matching purchase receipts, flight confirmations, or ticket messages.",
+  "schema": {
+    "type": "array",
+    "maxItems": 100,
+    "items": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique Gmail message or thread-row identifier exposed by the authenticated mailbox."
+        },
+        "date": {
+          "type": "string",
+          "description": "Gmail's displayed received date or timestamp for the message row."
+        },
+        "sender": {
+          "type": "string",
+          "description": "Sender name, email address, or both when Gmail exposes both values."
+        },
+        "subject": {
+          "type": "string",
+          "description": "Subject line displayed in the Gmail search result."
+        },
+        "snippet": {
+          "type": "string",
+          "description": "Short preview text displayed alongside the message subject."
+        }
+      },
+      "required": ["id", "date", "sender", "subject", "snippet"],
+      "additionalProperties": false
+    }
+  }
+}

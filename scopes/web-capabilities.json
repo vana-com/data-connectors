@@ -31,6 +31,7 @@
     { "scopeId": "github.profile", "status": "supported" },
     { "scopeId": "github.repositories", "status": "unsupported" },
     { "scopeId": "github.starred", "status": "unsupported" },
+    { "scopeId": "gmail.receipts", "status": "unsupported" },
     { "scopeId": "heb.nutrition", "status": "unsupported" },
     { "scopeId": "heb.orders", "status": "unsupported" },
     { "scopeId": "heb.profile", "status": "unsupported" },

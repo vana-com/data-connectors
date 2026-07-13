@@ -5,6 +5,32 @@
   "generatedAt": "2026-07-13T00:00:00Z",
   "fixtures": [
     {
+      "id": "gmail-playwright.gmail.receipts.empty",
+      "connectorId": "gmail-playwright",
+      "sourceId": "gmail",
+      "scope": "gmail.receipts",
+      "scenario": "empty",
+      "recordCount": 0,
+      "path": "connectors/google/fixtures/gmail.receipts.empty.json",
+      "rawUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main/connectors/google/fixtures/gmail.receipts.empty.json",
+      "schemaPath": "connectors/google/schemas/gmail.receipts.json",
+      "sizeBytes": 3,
+      "sha256": "sha256:37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "id": "gmail-playwright.gmail.receipts.small",
+      "connectorId": "gmail-playwright",
+      "sourceId": "gmail",
+      "scope": "gmail.receipts",
+      "scenario": "small",
+      "recordCount": 3,
+      "path": "connectors/google/fixtures/gmail.receipts.small.json",
+      "rawUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main/connectors/google/fixtures/gmail.receipts.small.json",
+      "schemaPath": "connectors/google/schemas/gmail.receipts.json",
+      "sizeBytes": 834,
+      "sha256": "sha256:9ba2cde62c7ca80b5c7717954d0573786c21e68634cae443cbf4cccf331784db"
+    },
+    {
       "id": "instagram-playwright.instagram.profile.empty",
       "connectorId": "instagram-playwright",
       "sourceId": "instagram",
