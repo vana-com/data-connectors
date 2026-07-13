@@ -80,16 +80,26 @@ function makeFixture() {
     blockers: [],
     scopes: [{ scopeId: "alpha.profile", status: "unsupported" }],
   });
+  writeFileSync(
+    join(root, "README.md"),
+    `# Fixture
+
+<!-- BEGIN GENERATED CONNECTOR OVERVIEW -->
+stale overview
+<!-- END GENERATED CONNECTOR OVERVIEW -->
+`,
+  );
   return root;
 }
 
 test("generated files are clean and exclude unregistered manifests", () => {
   const root = makeFixture();
   generateScopeCatalog({ repoRoot: root });
-  generateScopeCatalog({ repoRoot: root, check: true });
 
   const catalog = JSON.parse(readFileSync(join(root, "scope-catalog.json")));
   const markdown = readFileSync(join(root, "SCOPES.md"), "utf8");
+  const readmePath = join(root, "README.md");
+  const readme = readFileSync(readmePath, "utf8");
   assert.deepEqual(catalog.scopes.map(({ scopeId }) => scopeId), ["alpha.profile"]);
   assert.equal(catalog.scopes[0].description, "The published Alpha profile.");
   assert.deepEqual(catalog.scopes[0].fulfillment.desktop.connectors[0].limits, [
@@ -113,6 +123,18 @@ test("generated files are clean and exclude unregistered manifests", () => {
   assert.match(markdown, /A website cannot run the local Node\.js\/Playwright connector/);
   assert.match(markdown, /\| No \| Yes \|/);
   assert.doesNotMatch(markdown, /✅|—/);
+  assert.match(
+    readme,
+    /\| `alpha` \| `alpha\.profile` \| alpha-playwright \(stable\) \|/,
+  );
+  assert.doesNotMatch(readme, /ignored/);
+  generateScopeCatalog({ repoRoot: root, check: true });
+
+  writeFileSync(readmePath, readme.replace("`alpha.profile`", "`stale.scope`"));
+  assert.throws(
+    () => generateScopeCatalog({ repoRoot: root, check: true }),
+    /README\.md drift detected/,
+  );
 });
 
 test("missing Web capability entries fail exact-set validation", () => {
