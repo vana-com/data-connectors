@@ -14,6 +14,8 @@ Each connector has a status indicating its maturity level:
 
 This table is an overview, not the public contract. [`scope-catalog.json`](scope-catalog.json) is the authoritative machine-readable contract for sources and scopes. [`SCOPES.md`](SCOPES.md) is its generated human-readable view.
 
+The catalog separates two collection paths. **Vana Desktop (local)** runs registered Playwright connectors on your device. **Vana Web (hosted)** requests data from Open Data Labs' hosted collection service, called Data Pipe. A website cannot run the local Node.js/Playwright connector or read your signed-in session on another site. Vana Web could ask an installed Vana Desktop app to collect the data, but that is still Desktop collection.
+
 | Platform | Company | Status | Scopes |
 |----------|---------|--------|--------|
 | ChatGPT | OpenAI | Stable | chatgpt.conversations, chatgpt.memories |
@@ -98,7 +100,7 @@ schemas/                           # Shared meta-schemas
 registry.json                      # Central registry (checksums, versions, OTA)
 fixture-index.json                 # Public fixture catalog for builders and agents
 scope-catalog.json                 # Generated public source/scope contract
-scopes/web-capabilities.json       # Hand-authored Web/Data Pipe truth and limits
+scopes/web-capabilities.json       # Hand-authored Vana Web hosted-collection truth and limits
 run-connector.cjs                  # Symlink → skills/vana-connect/scripts/run-connector.cjs
 test-connector.cjs                 # Standalone test runner
 create-connector.sh                # Quick autonomous scaffold script
@@ -111,7 +113,7 @@ create-connector.sh                # Quick autonomous scaffold script
 
 - `connector-index.json` is the authoritative release index.
 - `scope-catalog.json` is the generated, schema-validated public contract for
-  source IDs, scope IDs, payload schema paths, Desktop/Web fulfillment, material
+  source IDs, scope IDs, payload schema paths, Vana Desktop/Vana Web fulfillment, material
   limits, and maturity. `SCOPES.md` is generated from the same model.
 - Pin `scope-catalog.json` from an immutable GitHub release named
   `connectors-<commit12>`, for example

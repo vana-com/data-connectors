@@ -89,6 +89,7 @@ test("generated files are clean and exclude unregistered manifests", () => {
   generateScopeCatalog({ repoRoot: root, check: true });
 
   const catalog = JSON.parse(readFileSync(join(root, "scope-catalog.json")));
+  const markdown = readFileSync(join(root, "SCOPES.md"), "utf8");
   assert.deepEqual(catalog.scopes.map(({ scopeId }) => scopeId), ["alpha.profile"]);
   assert.equal(catalog.scopes[0].description, "The published Alpha profile.");
   assert.deepEqual(catalog.scopes[0].fulfillment.desktop.connectors[0].limits, [
@@ -107,6 +108,11 @@ test("generated files are clean and exclude unregistered manifests", () => {
     manifests: ["connectors/alpha/alpha-playwright.json"],
     webCapabilities: "scopes/web-capabilities.json",
   });
+  assert.match(markdown, /Vana Web \(hosted\)/);
+  assert.match(markdown, /Vana Desktop \(local\)/);
+  assert.match(markdown, /A website cannot run the local Node\.js\/Playwright connector/);
+  assert.match(markdown, /\| No \| Yes \|/);
+  assert.doesNotMatch(markdown, /✅|—/);
 });
 
 test("missing Web capability entries fail exact-set validation", () => {
