@@ -24,6 +24,8 @@ const indexPath = join(repoRoot, "connector-index.json");
 const artifactsDir = join(repoRoot, "artifacts");
 const shouldEmitSignatureMetadata =
   process.env.CONNECTOR_ENABLE_SIGSTORE_METADATA === "1";
+const shouldUseReleaseAssets =
+  process.env.CONNECTOR_USE_RELEASE_ASSETS === "1";
 
 function resolveSourceCommit() {
   const explicitCommit = process.env.CONNECTOR_SOURCE_COMMIT?.trim();
@@ -111,6 +113,33 @@ function buildSigstoreBundleMetadata(bundlePath, bundleUrl = null) {
     type: "sigstoreBundle",
     bundlePath,
     ...(bundleUrl ? { bundleUrl } : {}),
+  };
+}
+
+function refreshReleaseDistributionMetadata(entry, releaseMetadata) {
+  const artifactRelativePath = entry.artifactPath;
+  const artifactFilename = basename(artifactRelativePath);
+  const sourceCommit = entry.sourceCommit ?? entry.gitRef ?? resolveSourceCommit();
+  const signature = buildSigstoreBundleMetadata(
+    `${artifactFilename}.sigstore.json`,
+    buildArtifactUrl({
+      artifactRelativePath: `${artifactRelativePath}.sigstore.json`,
+      releaseTag: releaseMetadata.releaseTag,
+      repo: releaseMetadata.repo,
+      sourceCommit,
+    }),
+  );
+
+  return {
+    ...entry,
+    releaseId: releaseMetadata.releaseId,
+    artifactUrl: buildArtifactUrl({
+      artifactRelativePath,
+      releaseTag: releaseMetadata.releaseTag,
+      repo: releaseMetadata.repo,
+      sourceCommit,
+    }),
+    ...(signature ? { artifactSignature: signature } : {}),
   };
 }
 
@@ -469,7 +498,12 @@ async function main() {
         throw new Error(`${entry.id}@${entry.version} immutable artifact drifted`);
       }
       expectedArtifactPaths.add(existingVersion.artifactPath);
-      nextIndex.connectors[entry.id] = previousVersions;
+      const preservedVersion = shouldUseReleaseAssets
+        ? refreshReleaseDistributionMetadata(existingVersion, releaseMetadata)
+        : existingVersion;
+      nextIndex.connectors[entry.id] = previousVersions.map((version) =>
+        version.version === entry.version ? preservedVersion : version,
+      );
       continue;
     }
 
