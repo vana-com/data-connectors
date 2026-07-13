@@ -30,8 +30,8 @@ jobs:
       - name: Validate scope-schema coverage (HC-RESULT-CONTRACT-001)
         run: node scripts/validate-scope-schemas.mjs
 
-      - name: Test source/scope catalog contract
-        run: node --test scripts/generate-scope-catalog.test.mjs
+      - name: Test catalog and connector artifact contracts
+        run: node --test scripts/connector-artifact-contract.test.mjs scripts/generate-scope-catalog.test.mjs
 
       - name: Check source/scope catalog generated files
         run: node scripts/generate-scope-catalog.mjs --check

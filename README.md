@@ -127,8 +127,9 @@ create-connector.sh                # Quick autonomous scaffold script
 - `connector-index.json.sigstore.json` is the detached Sigstore bundle for the
   authoritative signed index published at the stable `connectors-latest`
   release URL.
-- `registry.json` remains connector-local compatibility data only while
-  consumers finish migrating old assumptions away.
+- `registry.json` is the sole publishability gate for connectors and their
+  scopes. Only registry-selected manifests enter generated public catalogs and
+  release indexes.
 - `artifacts/<connector>/<connector>-<version>.tgz` is the immutable bundle
   format consumed by installers.
 - `artifacts/**/*.tgz.sigstore.json` is the detached Sigstore bundle for each

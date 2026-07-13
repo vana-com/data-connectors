@@ -17,6 +17,8 @@ import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { assertBundledScopeSchemasMatch } from "./connector-artifact-contract.mjs";
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(__dirname, "..");
 const registryPath = join(repoRoot, "registry.json");
@@ -497,6 +499,10 @@ async function main() {
       ) {
         throw new Error(`${entry.id}@${entry.version} immutable artifact drifted`);
       }
+      assertBundledScopeSchemasMatch({
+        artifactPath: existingArtifactPath,
+        manifestPath: metadataPath,
+      });
       expectedArtifactPaths.add(existingVersion.artifactPath);
       const preservedVersion = shouldUseReleaseAssets
         ? refreshReleaseDistributionMetadata(existingVersion, releaseMetadata)

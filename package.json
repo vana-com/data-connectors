@@ -22,6 +22,7 @@
   "scripts": {
     "connector-index:generate": "node ./scripts/generate-connector-index.mjs",
     "connector-index:check": "node ./scripts/generate-connector-index.mjs --check",
+    "connector-index:test": "node --test ./scripts/connector-artifact-contract.test.mjs",
     "fixture-index:generate": "node ./scripts/generate-fixture-index.mjs",
     "fixture-index:check": "node ./scripts/generate-fixture-index.mjs --check",
     "fixtures:validate": "node ./scripts/generate-fixture-index.mjs --validate-only",
