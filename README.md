@@ -1,6 +1,6 @@
 # Data Connectors
 
-Playwright-based data connectors for [DataConnect](https://github.com/vana-com/data-connect). Each connector exports a user's data from a web platform using browser automation. Credentials never leave the device.
+Playwright-based data connectors for Vana Desktop in [Unity Surfaces](https://github.com/vana-com/unity-surfaces). Each connector exports your data from a web platform using browser automation. Credentials never leave your device.
 
 ## Connector status
 
@@ -109,7 +109,7 @@ create-connector.sh                # Quick autonomous scaffold script
 ## Distribution contract
 
 `data-connectors` is the canonical connector distribution source for both
-`data-connect` and `context-gateway`.
+`unity-surfaces` and `context-gateway`.
 
 - `connector-index.json` is the authoritative release index.
 - `scope-catalog.json` is the generated, schema-validated public contract for
@@ -205,7 +205,7 @@ Both produce the same connector files (`connectors/<company>/<name>-playwright.j
 
 ## How connectors work
 
-Connectors run in a sandboxed Playwright browser managed by the DataConnect app. The runner provides a `page` API object (not raw Playwright). The browser starts headless; connectors call `page.showBrowser()` when login is needed and `page.goHeadless()` after.
+Connectors run in a sandboxed Playwright browser managed by Vana Desktop in Unity Surfaces. The runner provides a `page` API object (not raw Playwright). The browser starts headless; connectors call `page.showBrowser()` when login is needed and `page.goHeadless()` after.
 
 ### Two-phase architecture
 
@@ -362,7 +362,7 @@ See [`skills/vana-connect/CREATE.md`](skills/vana-connect/CREATE.md) for the ful
 
 ## Page API reference
 
-The `page` object is available as a global in connector scripts. The runner implementation lives in [data-connect/playwright-runner](https://github.com/vana-com/data-connect/tree/main/playwright-runner).
+The `page` object is available as a global in connector scripts. The runner implementation lives in [Unity Surfaces](https://github.com/vana-com/unity-surfaces/tree/main/apps/desktop/playwright-runner).
 
 | Method | Description |
 |--------|-------------|
@@ -410,7 +410,7 @@ const { email, password } = await page.requestInput({
 });
 ```
 
-The runner relays the request to the driver (Tauri app, agent, CLI) and resolves with the response. The `schema` field uses JSON Schema — the same format used by OpenAI, Anthropic, and Google for LLM tool definitions. See the [headless-first runner spec](https://github.com/vana-com/data-connect/blob/main/docs/260310-headless-first-runner-spec.md) for the full protocol design.
+The runner relays the request to the driver (Tauri app, agent, CLI) and resolves with the response. The `schema` field uses JSON Schema — the same format used by OpenAI, Anthropic, and Google for LLM tool definitions. See the [headless-first runner spec](https://github.com/vana-com/unity-surfaces/blob/main/apps/desktop/docs/260310-headless-first-runner-spec.md) for the full protocol design.
 
 ### Progress reporting
 
@@ -431,50 +431,17 @@ await page.setProgress({
 
 ## Testing locally
 
-### Prerequisites
-
-- [DataConnect](https://github.com/vana-com/data-connect) cloned and able to run (`npm run tauri:dev`)
-
-### Setup
-
-1. Clone this repo alongside DataConnect:
-
-```bash
-git clone https://github.com/vana-com/data-connectors.git
-```
-
-2. Point DataConnect to your local connectors during development:
-
-```bash
-# From the DataConnect repo
-CONNECTORS_PATH=../data-connectors npm run tauri:dev
-```
-
-The `CONNECTORS_PATH` environment variable tells the fetch script to skip downloading and use your local directory instead.
-
-3. After editing connector files, sync them to the app's runtime directory:
-
-```bash
-# From the DataConnect repo
-node scripts/sync-connectors-dev.js
-```
-
-This copies your connector files to `~/.vana/desktop/connectors/` where the running app reads them. The app checks this directory first, so your local edits take effect without rebuilding.
-
-### Iteration loop
-
-1. Edit your connector script
-2. Run `node scripts/sync-connectors-dev.js` (from the DataConnect repo)
-3. Click the connector in the app to test
-4. Check logs in `~/Library/Logs/org.vana.desktop/` (macOS) for debugging
+Vana Desktop development belongs to [Unity Surfaces](https://github.com/vana-com/unity-surfaces/tree/main/apps/desktop). Follow that repo's Desktop instructions for app setup, connector syncing, and runtime debugging.
 
 ### Standalone test runner
 
-Test connectors without the full DataConnect app. The runner spawns playwright-runner as a child process and outputs JSON protocol messages.
+Test connectors without the full Vana Desktop app. The runner spawns `playwright-runner` as a child process and outputs JSON protocol messages.
 
-**Prerequisites:** The [DataConnect](https://github.com/vana-com/data-connect) repo cloned alongside this one (the runner auto-detects `../data-dt-app/playwright-runner`), or set `PLAYWRIGHT_RUNNER_DIR` to point to the playwright-runner directory.
+**Prerequisites:** Clone [Unity Surfaces](https://github.com/vana-com/unity-surfaces) alongside this repo, then point `PLAYWRIGHT_RUNNER_DIR` at its Desktop runner.
 
 ```bash
+export PLAYWRIGHT_RUNNER_DIR=../unity-surfaces/apps/desktop/playwright-runner
+
 # Run a connector (headed by default, browser visible)
 node run-connector.cjs ./connectors/linkedin/linkedin-playwright.js
 
@@ -545,12 +512,16 @@ shasum -a 256 connectors/<company>/<name>-playwright.json | awk '{print "sha256:
 
 ## How consumers get connectors
 
-Both [Context Gateway](https://github.com/vana-com/context-gateway) and [DataConnect](https://github.com/vana-com/data-connect) consume connectors from this repo as pinned dependencies.
+Both [Context Gateway](https://github.com/vana-com/context-gateway) and [Unity Surfaces](https://github.com/vana-com/unity-surfaces) consume connectors from this repo as pinned dependencies.
 
 Each consumer declares version constraints in a `connector-dependencies.json` file and resolves them with:
 
 ```bash
+# Context Gateway
 npm run connectors:resolve
+
+# Unity Surfaces
+pnpm --dir apps/desktop connectors:resolve
 ```
 
 This fetches matching versions from the signed `connectors-latest`
