@@ -1,0 +1,26 @@
+{
+  "name": "LinkedIn Languages",
+  "version": "1.0.0",
+  "scope": "linkedin.languages",
+  "dialect": "json",
+  "description": "LinkedIn languages with proficiency levels",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "languages": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "proficiency": { "type": "string" }
+          },
+          "required": ["name", "proficiency"],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": ["languages"],
+    "additionalProperties": false
+  }
+}

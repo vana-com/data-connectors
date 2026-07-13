@@ -1,0 +1,49 @@
+{
+  "name": "Oura Activity",
+  "version": "1.0.0",
+  "scope": "oura.activity",
+  "dialect": "json",
+  "description": "Daily activity data from Oura Ring including activity scores, step counts, calorie expenditure, and time spent at different activity levels.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "days": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "day": { "type": "string", "format": "date", "description": "Date in YYYY-MM-DD format" },
+            "score": { "type": ["integer", "null"], "minimum": 0, "maximum": 100, "description": "Overall activity score (0-100)" },
+            "timestamp": { "type": "string", "format": "date-time" },
+            "activeCalories": { "type": ["integer", "null"], "description": "Calories burned through activity" },
+            "totalCalories": { "type": ["integer", "null"], "description": "Total calories burned including BMR" },
+            "steps": { "type": ["integer", "null"], "description": "Total step count" },
+            "equivalentWalkingDistance": { "type": ["integer", "null"], "description": "Equivalent walking distance in meters" },
+            "highActivityTime": { "type": ["integer", "null"], "description": "Time in high activity in seconds" },
+            "mediumActivityTime": { "type": ["integer", "null"], "description": "Time in medium activity in seconds" },
+            "lowActivityTime": { "type": ["integer", "null"], "description": "Time in low activity in seconds" },
+            "sedentaryTime": { "type": ["integer", "null"], "description": "Sedentary time in seconds" },
+            "restingTime": { "type": ["integer", "null"], "description": "Resting time in seconds" },
+            "inactivityAlerts": { "type": ["integer", "null"], "description": "Number of inactivity alerts received" },
+            "contributors": {
+              "type": "object",
+              "properties": {
+                "meet_daily_targets": { "type": ["integer", "null"], "description": "Meeting daily targets score (0-100)" },
+                "move_every_hour": { "type": ["integer", "null"], "description": "Hourly movement score (0-100)" },
+                "recovery_time": { "type": ["integer", "null"], "description": "Recovery time score (0-100)" },
+                "stay_active": { "type": ["integer", "null"], "description": "Stay active score (0-100)" },
+                "training_frequency": { "type": ["integer", "null"], "description": "Training frequency score (0-100)" },
+                "training_volume": { "type": ["integer", "null"], "description": "Training volume score (0-100)" }
+              },
+              "additionalProperties": true
+            }
+          },
+          "required": ["day", "score"]
+        }
+      }
+    },
+    "required": ["days"],
+    "additionalProperties": false
+  }
+}

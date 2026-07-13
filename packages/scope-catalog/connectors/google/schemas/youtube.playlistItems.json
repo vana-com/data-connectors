@@ -1,0 +1,44 @@
+{
+  "name": "YouTube Playlist Items",
+  "version": "1.0.0",
+  "scope": "youtube.playlistItems",
+  "dialect": "json",
+  "description": "Videos inside user playlists, including video titles and URLs.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "playlists": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "playlistId": { "type": "string" },
+            "playlistTitle": { "type": ["string", "null"] },
+            "playlistUrl": { "type": ["string", "null"] },
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "videoId": { "type": ["string", "null"] },
+                  "videoUrl": { "type": "string" },
+                  "videoTitle": { "type": "string" },
+                  "channelTitle": { "type": ["string", "null"] },
+                  "channelUrl": { "type": ["string", "null"] },
+                  "durationText": { "type": ["string", "null"] },
+                  "thumbnailUrl": { "type": ["string", "null"] }
+                },
+                "required": ["videoUrl", "videoTitle"],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": ["playlistId", "items"],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": ["playlists"],
+    "additionalProperties": false
+  }
+}

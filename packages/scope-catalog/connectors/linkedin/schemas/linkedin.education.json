@@ -1,0 +1,29 @@
+{
+  "name": "LinkedIn Education",
+  "version": "1.0.0",
+  "scope": "linkedin.education",
+  "dialect": "json",
+  "description": "LinkedIn education history including schools, degrees, years, grades, and logos",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "education": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "schoolName": { "type": "string" },
+            "degree": { "type": "string" },
+            "years": { "type": "string" },
+            "grade": { "type": "string" },
+            "logoUrl": { "type": "string" }
+          },
+          "required": ["schoolName", "degree", "years", "grade", "logoUrl"],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": ["education"],
+    "additionalProperties": false
+  }
+}

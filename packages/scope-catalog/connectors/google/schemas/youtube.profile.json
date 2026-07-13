@@ -1,0 +1,26 @@
+{
+  "name": "YouTube Profile",
+  "version": "1.0.0",
+  "scope": "youtube.profile",
+  "dialect": "json",
+  "description": "Basic YouTube profile information including email, channel URL, handle, and joined date.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "email": { "type": ["string", "null"] },
+      "channelUrl": { "type": ["string", "null"] },
+      "handle": { "type": ["string", "null"] },
+      "joinedDate": { "type": ["string", "null"] },
+      "channelTitle": { "type": ["string", "null"] },
+      "channelId": { "type": ["string", "null"] },
+      "avatarUrl": { "type": ["string", "null"] },
+      "description": { "type": ["string", "null"] },
+      "country": { "type": ["string", "null"] },
+      "subscriberCount": { "type": ["number", "null"] },
+      "viewCount": { "type": ["number", "null"] },
+      "videoCount": { "type": ["number", "null"] }
+    },
+    "required": [],
+    "additionalProperties": false
+  }
+}

@@ -1,0 +1,69 @@
+{
+  "name": "Oura Sleep",
+  "version": "1.0.0",
+  "scope": "oura.sleep",
+  "dialect": "json",
+  "description": "Sleep data from Oura Ring including daily sleep scores with contributor breakdowns and detailed sleep period data with durations, stages, heart rate, and HRV.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "dailyScores": {
+        "type": "array",
+        "description": "Daily sleep score summaries",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "day": { "type": "string", "format": "date", "description": "Date in YYYY-MM-DD format" },
+            "score": { "type": ["integer", "null"], "minimum": 0, "maximum": 100, "description": "Overall sleep score (0-100)" },
+            "timestamp": { "type": "string", "format": "date-time" },
+            "contributors": {
+              "type": "object",
+              "properties": {
+                "deep_sleep": { "type": ["integer", "null"], "description": "Deep sleep contributor score (0-100)" },
+                "efficiency": { "type": ["integer", "null"], "description": "Sleep efficiency contributor score (0-100)" },
+                "latency": { "type": ["integer", "null"], "description": "Sleep latency contributor score (0-100)" },
+                "rem_sleep": { "type": ["integer", "null"], "description": "REM sleep contributor score (0-100)" },
+                "restfulness": { "type": ["integer", "null"], "description": "Restfulness contributor score (0-100)" },
+                "timing": { "type": ["integer", "null"], "description": "Sleep timing contributor score (0-100)" },
+                "total_sleep": { "type": ["integer", "null"], "description": "Total sleep contributor score (0-100)" }
+              },
+              "additionalProperties": true
+            }
+          },
+          "required": ["day", "score"]
+        }
+      },
+      "sleepPeriods": {
+        "type": "array",
+        "description": "Detailed sleep period records",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "day": { "type": "string", "format": "date", "description": "Date in YYYY-MM-DD format" },
+            "type": { "type": "string", "enum": ["long_sleep", "short_sleep", "rest"], "description": "Type of sleep period" },
+            "bedtimeStart": { "type": ["string", "null"], "format": "date-time", "description": "Bedtime start in ISO 8601" },
+            "bedtimeEnd": { "type": ["string", "null"], "format": "date-time", "description": "Bedtime end in ISO 8601" },
+            "totalSleepDuration": { "type": ["integer", "null"], "description": "Total sleep duration in seconds" },
+            "timeInBed": { "type": ["integer", "null"], "description": "Total time in bed in seconds" },
+            "deepSleepDuration": { "type": ["integer", "null"], "description": "Deep sleep duration in seconds" },
+            "lightSleepDuration": { "type": ["integer", "null"], "description": "Light sleep duration in seconds" },
+            "remSleepDuration": { "type": ["integer", "null"], "description": "REM sleep duration in seconds" },
+            "awakeTime": { "type": ["integer", "null"], "description": "Awake time during sleep in seconds" },
+            "efficiency": { "type": ["integer", "null"], "description": "Sleep efficiency percentage" },
+            "latency": { "type": ["integer", "null"], "description": "Sleep onset latency in seconds" },
+            "averageHeartRate": { "type": ["number", "null"], "description": "Average heart rate during sleep in BPM" },
+            "averageHrv": { "type": ["integer", "null"], "description": "Average heart rate variability during sleep in ms" },
+            "lowestHeartRate": { "type": ["integer", "null"], "description": "Lowest heart rate during sleep in BPM" },
+            "averageBreath": { "type": ["number", "null"], "description": "Average breathing rate during sleep in breaths/min" },
+            "restlessPeriods": { "type": ["integer", "null"], "description": "Number of restless periods during sleep" }
+          },
+          "required": ["day"]
+        }
+      }
+    },
+    "required": ["dailyScores", "sleepPeriods"],
+    "additionalProperties": false
+  }
+}

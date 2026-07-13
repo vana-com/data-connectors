@@ -1,0 +1,29 @@
+{
+  "name": "LinkedIn Experience",
+  "version": "1.0.0",
+  "scope": "linkedin.experience",
+  "dialect": "json",
+  "description": "LinkedIn work experience including job titles, companies, dates, locations, and descriptions",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "experiences": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "jobTitle": { "type": "string" },
+            "companyName": { "type": "string" },
+            "dates": { "type": "string" },
+            "location": { "type": "string" },
+            "description": { "type": "string" }
+          },
+          "required": ["jobTitle", "companyName", "dates", "location", "description"],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": ["experiences"],
+    "additionalProperties": false
+  }
+}

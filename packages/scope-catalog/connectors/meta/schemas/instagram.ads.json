@@ -1,0 +1,47 @@
+{
+  "name": "Instagram Ad Interests",
+  "version": "1.0.0",
+  "scope": "instagram.ads",
+  "dialect": "json",
+  "description": "Advertisers the user has seen ads from, ad topic interests, and targeting categories based on their Instagram activity",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "advertisers": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" }
+          },
+          "required": ["name"],
+          "additionalProperties": false
+        }
+      },
+      "ad_topics": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" }
+          },
+          "required": ["name"],
+          "additionalProperties": false
+        }
+      },
+      "categories": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "description": { "type": ["string", "null"] }
+          },
+          "required": ["name"]
+        }
+      }
+    },
+    "required": ["advertisers", "ad_topics"],
+    "additionalProperties": false
+  }
+}

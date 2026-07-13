@@ -29,6 +29,10 @@
     "scope-catalog:generate": "node ./scripts/generate-scope-catalog.mjs",
     "scope-catalog:check": "node ./scripts/generate-scope-catalog.mjs --check",
     "scope-catalog:test": "node --test ./scripts/generate-scope-catalog.test.mjs",
+    "scope-catalog-package:build": "node ./scripts/build-scope-catalog-package.mjs",
+    "scope-catalog-package:check": "node ./scripts/check-scope-catalog-package.mjs",
+    "scope-catalog-package:diff": "node ./scripts/diff-scope-catalog-package.mjs",
+    "scope-catalog-package:test": "node --test ./scripts/scope-catalog-package.test.mjs",
     "release:sign": "node ./scripts/sign-release-assets.mjs"
   },
   "devDependencies": {

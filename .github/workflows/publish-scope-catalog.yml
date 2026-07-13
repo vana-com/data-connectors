@@ -1,0 +1,255 @@
+name: Publish Scope Catalog
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmInitialPublish:
+        description: "Confirm Callum approved the first @opendatalabs/scope-catalog@1.0.0 publish"
+        required: true
+        type: boolean
+        default: false
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/publish-scope-catalog.yml"
+      - "connectors/**/*-playwright.json"
+      - "connectors/**/schemas/*.json"
+      - "packages/scope-catalog/**"
+      - "registry.json"
+      - "schemas/manifest.schema.json"
+      - "schemas/scope-catalog.schema.json"
+      - "schemas/web-scope-capabilities.schema.json"
+      - "scope-catalog.json"
+      - "scopes/web-capabilities.json"
+      - "scripts/build-scope-catalog-package.mjs"
+      - "scripts/check-scope-catalog-package.mjs"
+      - "scripts/diff-scope-catalog-package.mjs"
+      - "scripts/generate-scope-catalog.mjs"
+      - "scripts/generate-scope-catalog.test.mjs"
+      - "scripts/scope-catalog-package.test.mjs"
+      - "package.json"
+      - "package-lock.json"
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: publish-scope-catalog
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.4.0"
+          registry-url: https://registry.npmjs.org
+
+      - name: Pin trusted-publishing-compatible npm
+        run: npm install --global npm@11.5.1
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate BUI-705 manifest and schema inputs
+        run: |
+          node scripts/validate-manifests.mjs
+          node scripts/normalize-manifests.mjs --check
+          node scripts/validate-scope-schemas.mjs
+
+      - name: Test BUI-705 catalog contract
+        run: npm run scope-catalog:test
+
+      - name: Check BUI-705 generated catalog
+        run: npm run scope-catalog:check
+
+      - name: Resolve exact previous package
+        id: previous
+        env:
+          PACKAGE_NAME: "@opendatalabs/scope-catalog"
+        run: |
+          set -euo pipefail
+          previous_dir="$RUNNER_TEMP/scope-catalog-previous"
+          mkdir -p "$previous_dir/packed" "$previous_dir/unpacked"
+
+          set +e
+          npm view "$PACKAGE_NAME" version --json > "$previous_dir/version.json" 2> "$previous_dir/view-error.log"
+          view_status=$?
+          set -e
+
+          if [ "$view_status" -eq 0 ]; then
+            previous_version="$(node -p "JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'))" "$previous_dir/version.json")"
+            npm pack "$PACKAGE_NAME@$previous_version" --pack-destination "$previous_dir/packed" --json > "$previous_dir/pack.json"
+            tarball="$(node -p "JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'))[0].filename" "$previous_dir/pack.json")"
+            tar -xzf "$previous_dir/packed/$tarball" -C "$previous_dir/unpacked"
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "version=$previous_version" >> "$GITHUB_OUTPUT"
+            echo "root=$previous_dir/unpacked/package" >> "$GITHUB_OUTPUT"
+          elif grep -q "E404" "$previous_dir/view-error.log"; then
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "version=" >> "$GITHUB_OUTPUT"
+            echo "root=" >> "$GITHUB_OUTPUT"
+          else
+            cat "$previous_dir/view-error.log" >&2
+            exit "$view_status"
+          fi
+
+      - name: Build package and semantic release metadata
+        env:
+          PACKAGE_EXISTS: ${{ steps.previous.outputs.exists }}
+          PREVIOUS_PACKAGE_ROOT: ${{ steps.previous.outputs.root }}
+        run: |
+          if [ "$PACKAGE_EXISTS" = "true" ]; then
+            npm run scope-catalog-package:build -- --previous-package "$PREVIOUS_PACKAGE_ROOT"
+          else
+            npm run scope-catalog-package:build
+          fi
+
+      - name: Check deterministic package
+        env:
+          PACKAGE_EXISTS: ${{ steps.previous.outputs.exists }}
+          PREVIOUS_PACKAGE_ROOT: ${{ steps.previous.outputs.root }}
+        run: |
+          if [ "$PACKAGE_EXISTS" = "true" ]; then
+            npm run scope-catalog-package:check -- --previous-package "$PREVIOUS_PACKAGE_ROOT"
+          else
+            npm run scope-catalog-package:check
+          fi
+
+      - name: Test package contract and release gates
+        run: npm run scope-catalog-package:test
+
+      - name: Decide whether publication is allowed
+        id: release
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INITIAL_CONFIRMED: ${{ github.event_name == 'workflow_dispatch' && inputs.confirmInitialPublish == true }}
+          PACKAGE_EXISTS: ${{ steps.previous.outputs.exists }}
+        run: |
+          set -euo pipefail
+          decision="$(node --input-type=module <<'NODE'
+          import { readFileSync } from "node:fs";
+          import { decideScopeCatalogPublication } from "./scripts/diff-scope-catalog-package.mjs";
+
+          const release = JSON.parse(
+            readFileSync("./packages/scope-catalog/release.json", "utf8"),
+          );
+          const decision = decideScopeCatalogPublication({
+            eventName: process.env.EVENT_NAME,
+            packageExists: process.env.PACKAGE_EXISTS === "true",
+            initialConfirmed: process.env.INITIAL_CONFIRMED === "true",
+            release,
+          });
+          process.stdout.write(JSON.stringify({ ...decision, release }));
+          NODE
+          )"
+          impact="$(node -p "JSON.parse(process.argv[1]).release.impact" "$decision")"
+          version="$(node -p "JSON.parse(process.argv[1]).release.currentVersion" "$decision")"
+          should_publish="$(node -p "JSON.parse(process.argv[1]).shouldPublish" "$decision")"
+          authentication="$(node -p "JSON.parse(process.argv[1]).authentication" "$decision")"
+          reason="$(node -p "JSON.parse(process.argv[1]).reason" "$decision")"
+
+          echo "impact=$impact" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "should_publish=$should_publish" >> "$GITHUB_OUTPUT"
+          echo "authentication=$authentication" >> "$GITHUB_OUTPUT"
+          echo "reason=$reason" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "### Scope catalog package"
+            echo "- Version: \`$version\`"
+            echo "- Impact: \`$impact\`"
+            echo "- Publish: \`$should_publish\`"
+            echo "- Authentication: \`$authentication\`"
+            echo "- Reason: $reason"
+            if [ "$authentication" = "bootstrap-token" ]; then
+              echo "- After 1.0.0: configure npm trusted publishing, delete the NPM_TOKEN GitHub secret, and revoke the bootstrap token."
+            elif [ "$authentication" = "oidc-trusted-publishing" ]; then
+              echo "- NPM_TOKEN is not passed; npm trusted publishing must already be configured for this workflow."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Pack exact package contents
+        id: pack
+        run: |
+          set -euo pipefail
+          pack_dir="$RUNNER_TEMP/scope-catalog-pack"
+          mkdir -p "$pack_dir"
+          npm pack ./packages/scope-catalog --pack-destination "$pack_dir" --json > "$pack_dir/pack.json"
+          filename="$(node -p "JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'))[0].filename" "$pack_dir/pack.json")"
+          echo "tarball=$pack_dir/$filename" >> "$GITHUB_OUTPUT"
+
+      - name: Smoke-test every package export
+        env:
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+        run: |
+          set -euo pipefail
+          consumer="$RUNNER_TEMP/scope-catalog-consumer"
+          mkdir -p "$consumer"
+          cd "$consumer"
+          npm init -y >/dev/null
+          npm install --ignore-scripts "$TARBALL"
+          node --input-type=module <<'NODE'
+          import { createRequire } from "node:module";
+
+          const require = createRequire(import.meta.url);
+          const catalog = require("@opendatalabs/scope-catalog/scope-catalog.json");
+          require("@opendatalabs/scope-catalog/schemas/scope-catalog.schema.json");
+          require("@opendatalabs/scope-catalog/release.json");
+          require("@opendatalabs/scope-catalog/package.json");
+          for (const scope of catalog.scopes) {
+            require(`@opendatalabs/scope-catalog/${scope.schema.path}`);
+          }
+          console.log(`Imported all required exports and ${catalog.scopes.length} payload schemas.`);
+          NODE
+
+      - name: Publish initial package with bootstrap token
+        if: >-
+          steps.release.outputs.should_publish == 'true' &&
+          steps.release.outputs.authentication == 'bootstrap-token' &&
+          steps.previous.outputs.exists != 'true' &&
+          github.event_name == 'workflow_dispatch' &&
+          inputs.confirmInitialPublish == true
+        env:
+          CHECKED_OUT_SHA: ${{ github.sha }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          current_main_sha="$(git ls-remote --exit-code origin refs/heads/main | awk '{ print $1 }')"
+          if [ "$CHECKED_OUT_SHA" != "$current_main_sha" ]; then
+            {
+              echo "### Scope catalog publication skipped"
+              echo "- Reason: this run no longer represents current main."
+              echo "- Checked-out SHA: \`$CHECKED_OUT_SHA\`"
+              echo "- Current main SHA: \`$current_main_sha\`"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          npm publish "${{ steps.pack.outputs.tarball }}" --access public --provenance
+
+      - name: Publish later package with trusted publishing
+        if: >-
+          steps.release.outputs.should_publish == 'true' &&
+          steps.release.outputs.authentication == 'oidc-trusted-publishing' &&
+          steps.previous.outputs.exists == 'true'
+        env:
+          CHECKED_OUT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          current_main_sha="$(git ls-remote --exit-code origin refs/heads/main | awk '{ print $1 }')"
+          if [ "$CHECKED_OUT_SHA" != "$current_main_sha" ]; then
+            {
+              echo "### Scope catalog publication skipped"
+              echo "- Reason: this run no longer represents current main."
+              echo "- Checked-out SHA: \`$CHECKED_OUT_SHA\`"
+              echo "- Current main SHA: \`$current_main_sha\`"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          npm publish "${{ steps.pack.outputs.tarball }}" --access public --provenance

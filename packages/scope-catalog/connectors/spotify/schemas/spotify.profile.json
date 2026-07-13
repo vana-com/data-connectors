@@ -1,0 +1,23 @@
+{
+  "name": "Spotify Profile",
+  "version": "1.0.0",
+  "scope": "spotify.profile",
+  "dialect": "json",
+  "description": "Basic Spotify profile information including display name, followers, and following counts",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "id": { "type": "string" },
+      "display_name": { "type": "string" },
+      "uri": { "type": "string" },
+      "followers": { "type": "number" },
+      "following": { "type": "number" },
+      "images": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    },
+    "required": ["id", "display_name"],
+    "additionalProperties": false
+  }
+}

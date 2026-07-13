@@ -1,0 +1,42 @@
+{
+  "name": "Amazon Orders",
+  "version": "1.0.0",
+  "scope": "amazon.orders",
+  "dialect": "json",
+  "description": "Amazon order history including items, prices, dates, and delivery status",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "orders": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "orderId": { "type": "string" },
+            "orderDate": { "type": "string" },
+            "orderTotal": { "type": "string" },
+            "deliveryStatus": { "type": "string" },
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "url": { "type": "string" },
+                  "price": { "type": "string" }
+                },
+                "required": ["name"],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": ["orderId", "items"],
+          "additionalProperties": false
+        }
+      },
+      "total": { "type": "number" }
+    },
+    "required": ["orders", "total"],
+    "additionalProperties": false
+  }
+}

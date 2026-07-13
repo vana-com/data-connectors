@@ -1,0 +1,35 @@
+{
+  "name": "Uber Trip History",
+  "version": "1.0.0",
+  "scope": "uber.trips",
+  "dialect": "json",
+  "description": "Complete history of Uber rides including pickup/dropoff locations, dates, fares, and vehicle types",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "trips": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "status": { "type": "string" },
+            "requestTime": { "type": "string" },
+            "dropoffTime": { "type": "string" },
+            "pickupAddress": { "type": "string" },
+            "dropoffAddress": { "type": "string" },
+            "fare": { "type": "string" },
+            "currencyCode": { "type": "string" },
+            "vehicleType": { "type": "string" },
+            "city": { "type": "string" },
+            "isSurge": { "type": "boolean" }
+          },
+          "required": ["id"],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": ["trips"],
+    "additionalProperties": false
+  }
+}

@@ -1,0 +1,1287 @@
+{
+  "catalogSchema": {
+    "path": "schemas/scope-catalog.schema.json",
+    "releaseAsset": "scope-catalog.schema.json"
+  },
+  "distribution": {
+    "repository": "https://github.com/vana-com/data-connectors"
+  },
+  "catalogVersion": "1.0.0",
+  "generatedBy": "scripts/generate-scope-catalog.mjs",
+  "generatedFrom": {
+    "publishability": {
+      "path": "registry.json",
+      "manifestSelector": "connectors[].files.metadata"
+    },
+    "manifests": [
+      "connectors/amazon/amazon-playwright.json",
+      "connectors/anthropic/claude-export-playwright.json",
+      "connectors/apple/icloud-notes-playwright.json",
+      "connectors/doordash/doordash-playwright.json",
+      "connectors/github/github-playwright.json",
+      "connectors/google/youtube-playwright.json",
+      "connectors/heb/heb-playwright.json",
+      "connectors/linkedin/linkedin-playwright.json",
+      "connectors/meta/instagram-ads-playwright.json",
+      "connectors/meta/instagram-playwright.json",
+      "connectors/openai/chatgpt-playwright.json",
+      "connectors/oura/oura-playwright.json",
+      "connectors/shopify/shop-playwright.json",
+      "connectors/spotify/spotify-playwright.json",
+      "connectors/uber/uber-playwright.json",
+      "connectors/valve/steam-playwright.json",
+      "connectors/wholefoods/wholefoods-playwright.json"
+    ],
+    "webCapabilities": "scopes/web-capabilities.json"
+  },
+  "scopes": [
+    {
+      "sourceId": "amazon",
+      "scopeId": "amazon.orders",
+      "description": "Order history including items, prices, dates, and delivery status",
+      "schema": {
+        "path": "connectors/amazon/schemas/amazon.orders.json"
+      },
+      "maturity": "beta",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "amazon-playwright",
+              "status": "beta"
+            }
+          ]
+        },
+        "web": {
+          "status": "unsupported"
+        }
+      }
+    },
+    {
+      "sourceId": "amazon",
+      "scopeId": "amazon.profile",
+      "description": "Account name and Prime membership status",
+      "schema": {
+        "path": "connectors/amazon/schemas/amazon.profile.json"
+      },
+      "maturity": "beta",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "amazon-playwright",
+              "status": "beta"
+            }
+          ]
+        },
+        "web": {
+          "status": "unsupported"
+        }
+      }
+    },
+    {
+      "sourceId": "chatgpt",
+      "scopeId": "chatgpt.conversations",
+      "description": "All conversation history including messages with ChatGPT",
+      "schema": {
+        "path": "connectors/openai/schemas/chatgpt.conversations.json"
+      },
+      "maturity": "stable",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "chatgpt-playwright",
+              "status": "stable"
+            }
+          ]
+        },
+        "web": {
+          "status": "unsupported"
+        }
+      }
+    },
+    {
+      "sourceId": "chatgpt",
+      "scopeId": "chatgpt.memories",
+      "description": "Saved memories that ChatGPT uses to personalize responses",
+      "schema": {
+        "path": "connectors/openai/schemas/chatgpt.memories.json"
+      },
+      "maturity": "stable",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "chatgpt-playwright",
+              "status": "stable"
+            }
+          ]
+        },
+        "web": {
+          "status": "unsupported"
+        }
+      }
+    },
+    {
+      "sourceId": "claude",
+      "scopeId": "claude.conversations",
+      "description": "All Claude conversations with full message threads, from Anthropic's official data export.",
+      "schema": {
+        "path": "connectors/anthropic/schemas/claude.conversations.json"
+      },
+      "maturity": "experimental",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "claude-export-playwright",
+              "status": "experimental"
+            }
+          ]
+        },
+        "web": {
+          "status": "unsupported"
+        }
+      }
+    },
+    {
+      "sourceId": "claude",
+      "scopeId": "claude.projects",
+      "description": "Claude projects and their detail, from Anthropic's official data export.",
+      "schema": {
+        "path": "connectors/anthropic/schemas/claude.projects.json"
+      },
+      "maturity": "experimental",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "claude-export-playwright",
+              "status": "experimental"
+            }
+          ]
+        },
+        "web": {
+          "status": "unsupported"
+        }
+      }
+    },
+    {
+      "sourceId": "doordash",
+      "scopeId": "doordash.orders",
+      "description": "Complete order history with restaurant names, items ordered, dates, totals, and delivery status",
+      "schema": {
+        "path": "connectors/doordash/schemas/doordash.orders.json"
+      },
+      "maturity": "beta",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "doordash-playwright",
+              "status": "beta"
+            }
+          ]
+        },
+        "web": {
+          "status": "unsupported"
+        }
+      }
+    },
+    {
+      "sourceId": "github",
+      "scopeId": "github.contributions",
+      "description": "Daily contribution counts for the last 4 years (per-year scrape, not just rolling 12 months), monthly totals, per-year totals, and your top day",
+      "schema": {
+        "path": "connectors/github/schemas/github.contributions.json"
+      },
+      "maturity": "stable",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "github-playwright",
+              "status": "stable",
+              "limits": [
+                {
+                  "type": "timeWindow",
+                  "value": 4,
+                  "unit": "years",
+                  "description": "The Desktop connector collects the four most recent calendar years."
+                }
+              ]
+            }
+          ]
+        },
+        "web": {
+          "status": "unsupported"
+        }
+      }
+    },
+    {
+      "sourceId": "github",
+      "scopeId": "github.events",
+      "description": "Recent public activity (pushes, pull requests, issues, comments, branches, releases) across every repository you have touched, including organization-owned repos",
+      "schema": {
+        "path": "connectors/github/schemas/github.events.json"
+      },
+      "maturity": "stable",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "github-playwright",
+              "status": "stable",
+              "limits": [
+                {
+                  "type": "maxItems",
+                  "value": 300,
+                  "unit": "events",
+                  "description": "The Desktop connector returns at most 300 public events."
+                },
+                {
+                  "type": "timeWindow",
+                  "value": 90,
+                  "unit": "days",
+                  "description": "The GitHub public-events API covers at most the previous 90 days."
+                }
+              ]
+            }
+          ]
+        },
+        "web": {
+          "status": "unsupported"
+        }
+      }
+    },
+    {
+      "sourceId": "github",
+      "scopeId": "github.history",
+      "description": "Pull requests and issues you have authored across public repositories via the GitHub Search API, including title, body, dates, repository, labels, and state.",
+      "schema": {
+        "path": "connectors/github/schemas/github.history.json"
+      },
+      "maturity": "stable",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "github-playwright",
+              "status": "stable",
+              "limits": [
+                {
+                  "type": "maxItems",
+                  "value": 1000,
+                  "unit": "items per type",
+                  "description": "The GitHub Search API returns at most 1,000 pull requests and 1,000 issues per query."
+                }
+              ]
+            }
+          ]
+        },
+        "web": {
+          "status": "unsupported"
+        }
+      }
+    },
+    {
+      "sourceId": "github",
+      "scopeId": "github.profile",
+      "description": "Account profile information such as name, bio, follower counts, pinned repositories, organization memberships, and achievement badges",
+      "schema": {
+        "path": "connectors/github/schemas/github.profile.json"
+      },
+      "maturity": "stable",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "github-playwright",
+              "status": "stable"
+            }
+          ]
+        },
+        "web": {
+          "status": "supported"
+        }
+      }
+    },
+    {
+      "sourceId": "github",
+      "scopeId": "github.repositories",
+      "description": "Your repository list with metadata like language, stars, and update time",
+      "schema": {
+        "path": "connectors/github/schemas/github.repositories.json"
+      },
+      "maturity": "stable",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "github-playwright",
+              "status": "stable"
+            }
+          ]
+        },
+        "web": {
+          "status": "unsupported"
+        }
+      }
+    },
+    {
+      "sourceId": "github",
+      "scopeId": "github.starred",
+      "description": "Repositories you have starred on GitHub",
+      "schema": {
+        "path": "connectors/github/schemas/github.starred.json"
+      },
+      "maturity": "stable",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "github-playwright",
+              "status": "stable"
+            }
+          ]
+        },
+        "web": {
+          "status": "unsupported"
+        }
+      }
+    },
+    {
+      "sourceId": "heb",
+      "scopeId": "heb.nutrition",
+      "description": "Nutrition facts (calories, macros, sodium, fiber, vitamins) for each product ordered. Aligned to Schema.org NutritionInformation.",
+      "schema": {
+        "path": "connectors/heb/schemas/heb.nutrition.json"
+      },
+      "maturity": "experimental",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "heb-playwright",
+              "status": "experimental"
+            }
+          ]
+        },
+        "web": {
+          "status": "unsupported"
+        }
+      }
+    },
+    {
+      "sourceId": "heb",
+      "scopeId": "heb.orders",
+      "description": "Curbside and delivery orders with item names, quantities, prices, and order dates",
+      "schema": {
+        "path": "connectors/heb/schemas/heb.orders.json"
+      },
+      "maturity": "experimental",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "heb-playwright",
+              "status": "experimental"
+            }
+          ]
+        },
+        "web": {
+          "status": "unsupported"
+        }
+      }
+    },
+    {
+      "sourceId": "heb",
+      "scopeId": "heb.profile",
+      "description": "Your name, email, phone number, and saved delivery addresses",
+      "schema": {
+        "path": "connectors/heb/schemas/heb.profile.json"
+      },
+      "maturity": "experimental",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "heb-playwright",
+              "status": "experimental"
+            }
+          ]
+        },
+        "web": {
+          "status": "unsupported"
+        }
+      }
+    },
+    {
+      "sourceId": "icloud_notes",
+      "scopeId": "icloud_notes.folders",
+      "description": "Folder structure for organizing notes",
+      "schema": {
+        "path": "connectors/apple/schemas/icloud_notes.folders.json"
+      },
+      "maturity": "experimental",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "icloud-notes-playwright",
+              "status": "experimental"
+            }
+          ]
+        },
+        "web": {
+          "status": "unsupported"
+        }
+      }
+    },
+    {
+      "sourceId": "icloud_notes",
+      "scopeId": "icloud_notes.notes",
+      "description": "Note content, titles, created/modified timestamps, and folder assignment",
+      "schema": {
+        "path": "connectors/apple/schemas/icloud_notes.notes.json"
+      },
+      "maturity": "experimental",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "icloud-notes-playwright",
+              "status": "experimental"
+            }
+          ]
+        },
+        "web": {
+          "status": "unsupported"
+        }
+      }
+    },
+    {
+      "sourceId": "instagram",
+      "scopeId": "instagram.ads",
+      "description": "Advertisers the user has seen ads from and ad topic interests based on their Instagram activity",
+      "schema": {
+        "path": "connectors/meta/schemas/instagram.ads.json"
+      },
+      "maturity": "stable",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "instagram-playwright",
+              "status": "stable"
+            },
+            {
+              "id": "instagram-ads-playwright",
+              "status": "beta"
+            }
+          ]
+        },
+        "web": {
+          "status": "unsupported"
+        }
+      }
+    },
+    {
+      "sourceId": "instagram",
+      "scopeId": "instagram.following",
+      "description": "The list of Instagram accounts you follow",
+      "schema": {
+        "path": "connectors/meta/schemas/instagram.following.json"
+      },
+      "maturity": "stable",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "instagram-playwright",
+              "status": "stable"
+            }
+          ]
+        },
+        "web": {
+          "status": "unsupported"
+        }
+      }
+    },
+    {
+      "sourceId": "instagram",
+      "scopeId": "instagram.posts",
+      "description": "Published posts from your feed",
+      "schema": {
+        "path": "connectors/meta/schemas/instagram.posts.json"
+      },
+      "maturity": "stable",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "instagram-playwright",
+              "status": "stable"
+            }
+          ]
+        },
+        "web": {
+          "status": "supported",
+          "limits": [
+            {
+              "type": "maxItems",
+              "value": 150,
+              "unit": "posts",
+              "description": "The Web path returns at most the 150 most recent posts."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "sourceId": "instagram",
+      "scopeId": "instagram.profile",
+      "description": "Profile information including bio and follower counts",
+      "schema": {
+        "path": "connectors/meta/schemas/instagram.profile.json"
+      },
+      "maturity": "stable",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "instagram-playwright",
+              "status": "stable"
+            }
+          ]
+        },
+        "web": {
+          "status": "supported"
+        }
+      }
+    },
+    {
+      "sourceId": "linkedin",
+      "scopeId": "linkedin.connections",
+      "description": "Your LinkedIn connections with names, headlines, profile URLs, and date connected",
+      "schema": {
+        "path": "connectors/linkedin/schemas/linkedin.connections.json"
+      },
+      "maturity": "stable",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "linkedin-playwright",
+              "status": "stable"
+            }
+          ]
+        },
+        "web": {
+          "status": "blocked",
+          "blocker": {
+            "id": "linkedin-live-output",
+            "description": "LinkedIn Web scope capability is not classified without live end-to-end evidence.",
+            "requiredCapture": [
+              "A captured successful LinkedIn Data Pipe result showing the exact returned scope-key set.",
+              "The resulting Personal Server scope inventory for the same run and user after sync."
+            ]
+          }
+        }
+      }
+    },
+    {
+      "sourceId": "linkedin",
+      "scopeId": "linkedin.education",
+      "description": "Your education history including schools, degrees, years, and grades",
+      "schema": {
+        "path": "connectors/linkedin/schemas/linkedin.education.json"
+      },
+      "maturity": "stable",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "linkedin-playwright",
+              "status": "stable"
+            }
+          ]
+        },
+        "web": {
+          "status": "blocked",
+          "blocker": {
+            "id": "linkedin-live-output",
+            "description": "LinkedIn Web scope capability is not classified without live end-to-end evidence.",
+            "requiredCapture": [
+              "A captured successful LinkedIn Data Pipe result showing the exact returned scope-key set.",
+              "The resulting Personal Server scope inventory for the same run and user after sync."
+            ]
+          }
+        }
+      }
+    },
+    {
+      "sourceId": "linkedin",
+      "scopeId": "linkedin.experience",
+      "description": "Your work experience including job titles, companies, dates, locations, and descriptions",
+      "schema": {
+        "path": "connectors/linkedin/schemas/linkedin.experience.json"
+      },
+      "maturity": "stable",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "linkedin-playwright",
+              "status": "stable"
+            }
+          ]
+        },
+        "web": {
+          "status": "blocked",
+          "blocker": {
+            "id": "linkedin-live-output",
+            "description": "LinkedIn Web scope capability is not classified without live end-to-end evidence.",
+            "requiredCapture": [
+              "A captured successful LinkedIn Data Pipe result showing the exact returned scope-key set.",
+              "The resulting Personal Server scope inventory for the same run and user after sync."
+            ]
+          }
+        }
+      }
+    },
+    {
+      "sourceId": "linkedin",
+      "scopeId": "linkedin.languages",
+      "description": "Your languages and proficiency levels",
+      "schema": {
+        "path": "connectors/linkedin/schemas/linkedin.languages.json"
+      },
+      "maturity": "stable",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "linkedin-playwright",
+              "status": "stable"
+            }
+          ]
+        },
+        "web": {
+          "status": "blocked",
+          "blocker": {
+            "id": "linkedin-live-output",
+            "description": "LinkedIn Web scope capability is not classified without live end-to-end evidence.",
+            "requiredCapture": [
+              "A captured successful LinkedIn Data Pipe result showing the exact returned scope-key set.",
+              "The resulting Personal Server scope inventory for the same run and user after sync."
+            ]
+          }
+        }
+      }
+    },
+    {
+      "sourceId": "linkedin",
+      "scopeId": "linkedin.profile",
+      "description": "Your LinkedIn profile including name, headline, location, about, and profile picture",
+      "schema": {
+        "path": "connectors/linkedin/schemas/linkedin.profile.json"
+      },
+      "maturity": "stable",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "linkedin-playwright",
+              "status": "stable"
+            }
+          ]
+        },
+        "web": {
+          "status": "blocked",
+          "blocker": {
+            "id": "linkedin-live-output",
+            "description": "LinkedIn Web scope capability is not classified without live end-to-end evidence.",
+            "requiredCapture": [
+              "A captured successful LinkedIn Data Pipe result showing the exact returned scope-key set.",
+              "The resulting Personal Server scope inventory for the same run and user after sync."
+            ]
+          }
+        }
+      }
+    },
+    {
+      "sourceId": "linkedin",
+      "scopeId": "linkedin.skills",
+      "description": "Your skills and endorsement counts",
+      "schema": {
+        "path": "connectors/linkedin/schemas/linkedin.skills.json"
+      },
+      "maturity": "stable",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "linkedin-playwright",
+              "status": "stable"
+            }
+          ]
+        },
+        "web": {
+          "status": "blocked",
+          "blocker": {
+            "id": "linkedin-live-output",
+            "description": "LinkedIn Web scope capability is not classified without live end-to-end evidence.",
+            "requiredCapture": [
+              "A captured successful LinkedIn Data Pipe result showing the exact returned scope-key set.",
+              "The resulting Personal Server scope inventory for the same run and user after sync."
+            ]
+          }
+        }
+      }
+    },
+    {
+      "sourceId": "oura",
+      "scopeId": "oura.activity",
+      "description": "Daily activity scores, step counts, calorie burn, and activity level breakdowns",
+      "schema": {
+        "path": "connectors/oura/schemas/oura.activity.json"
+      },
+      "maturity": "stable",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "oura-playwright",
+              "status": "stable"
+            }
+          ]
+        },
+        "web": {
+          "status": "unsupported"
+        }
+      }
+    },
+    {
+      "sourceId": "oura",
+      "scopeId": "oura.readiness",
+      "description": "Daily readiness scores and contributing factors like HRV balance, resting heart rate, recovery, and body temperature",
+      "schema": {
+        "path": "connectors/oura/schemas/oura.readiness.json"
+      },
+      "maturity": "stable",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "oura-playwright",
+              "status": "stable"
+            }
+          ]
+        },
+        "web": {
+          "status": "unsupported"
+        }
+      }
+    },
+    {
+      "sourceId": "oura",
+      "scopeId": "oura.sleep",
+      "description": "Daily sleep scores with contributor breakdowns and detailed sleep period data including duration, stages, heart rate, and HRV",
+      "schema": {
+        "path": "connectors/oura/schemas/oura.sleep.json"
+      },
+      "maturity": "stable",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "oura-playwright",
+              "status": "stable"
+            }
+          ]
+        },
+        "web": {
+          "status": "unsupported"
+        }
+      }
+    },
+    {
+      "sourceId": "shop",
+      "scopeId": "shop.orders",
+      "description": "Complete order history from the Shop app including merchants, items, totals, and delivery status",
+      "schema": {
+        "path": "connectors/shopify/schemas/shop.orders.json"
+      },
+      "maturity": "beta",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "shop-playwright",
+              "status": "beta"
+            }
+          ]
+        },
+        "web": {
+          "status": "unsupported"
+        }
+      }
+    },
+    {
+      "sourceId": "spotify",
+      "scopeId": "spotify.playlists",
+      "description": "Playlists and their tracks",
+      "schema": {
+        "path": "connectors/spotify/schemas/spotify.playlists.json"
+      },
+      "maturity": "stable",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "spotify-playwright",
+              "status": "stable"
+            }
+          ]
+        },
+        "web": {
+          "status": "unsupported"
+        }
+      }
+    },
+    {
+      "sourceId": "spotify",
+      "scopeId": "spotify.profile",
+      "description": "Profile information",
+      "schema": {
+        "path": "connectors/spotify/schemas/spotify.profile.json"
+      },
+      "maturity": "stable",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "spotify-playwright",
+              "status": "stable"
+            }
+          ]
+        },
+        "web": {
+          "status": "supported"
+        }
+      }
+    },
+    {
+      "sourceId": "spotify",
+      "scopeId": "spotify.savedTracks",
+      "description": "Saved/liked tracks in your library",
+      "schema": {
+        "path": "connectors/spotify/schemas/spotify.savedTracks.json"
+      },
+      "maturity": "stable",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "spotify-playwright",
+              "status": "stable"
+            }
+          ]
+        },
+        "web": {
+          "status": "unsupported"
+        }
+      }
+    },
+    {
+      "sourceId": "steam",
+      "scopeId": "steam.friends",
+      "description": "Friend list with persona names, avatars, and friendship dates",
+      "schema": {
+        "path": "connectors/valve/schemas/steam.friends.json"
+      },
+      "maturity": "experimental",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "steam-playwright",
+              "status": "experimental"
+            }
+          ]
+        },
+        "web": {
+          "status": "unsupported"
+        }
+      }
+    },
+    {
+      "sourceId": "steam",
+      "scopeId": "steam.games",
+      "description": "Owned games with playtime statistics, plus recently played games",
+      "schema": {
+        "path": "connectors/valve/schemas/steam.games.json"
+      },
+      "maturity": "experimental",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "steam-playwright",
+              "status": "experimental"
+            }
+          ]
+        },
+        "web": {
+          "status": "unsupported"
+        }
+      }
+    },
+    {
+      "sourceId": "steam",
+      "scopeId": "steam.profile",
+      "description": "Steam profile including persona name, avatar, level, country, and account age",
+      "schema": {
+        "path": "connectors/valve/schemas/steam.profile.json"
+      },
+      "maturity": "experimental",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "steam-playwright",
+              "status": "experimental"
+            }
+          ]
+        },
+        "web": {
+          "status": "unsupported"
+        }
+      }
+    },
+    {
+      "sourceId": "uber",
+      "scopeId": "uber.receipts",
+      "description": "Fare breakdowns and receipt details for each trip",
+      "schema": {
+        "path": "connectors/uber/schemas/uber.receipts.json"
+      },
+      "maturity": "beta",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "uber-playwright",
+              "status": "beta"
+            }
+          ]
+        },
+        "web": {
+          "status": "unsupported"
+        }
+      }
+    },
+    {
+      "sourceId": "uber",
+      "scopeId": "uber.trips",
+      "description": "Complete history of your Uber rides including pickup/dropoff locations, dates, and driver info",
+      "schema": {
+        "path": "connectors/uber/schemas/uber.trips.json"
+      },
+      "maturity": "beta",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "uber-playwright",
+              "status": "beta"
+            }
+          ]
+        },
+        "web": {
+          "status": "unsupported"
+        }
+      }
+    },
+    {
+      "sourceId": "wholefoods",
+      "scopeId": "wholefoods.nutrition",
+      "description": "Nutrition facts (calories, macros, sodium, fiber, vitamins) for each product ordered. Aligned to Schema.org NutritionInformation.",
+      "schema": {
+        "path": "connectors/wholefoods/schemas/wholefoods.nutrition.json"
+      },
+      "maturity": "experimental",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "wholefoods-playwright",
+              "status": "experimental"
+            }
+          ]
+        },
+        "web": {
+          "status": "unsupported"
+        }
+      }
+    },
+    {
+      "sourceId": "wholefoods",
+      "scopeId": "wholefoods.orders",
+      "description": "Whole Foods delivery and pickup orders with item names, quantities, prices, and order dates",
+      "schema": {
+        "path": "connectors/wholefoods/schemas/wholefoods.orders.json"
+      },
+      "maturity": "experimental",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "wholefoods-playwright",
+              "status": "experimental"
+            }
+          ]
+        },
+        "web": {
+          "status": "unsupported"
+        }
+      }
+    },
+    {
+      "sourceId": "wholefoods",
+      "scopeId": "wholefoods.profile",
+      "description": "Your Amazon account name and email associated with Whole Foods orders",
+      "schema": {
+        "path": "connectors/wholefoods/schemas/wholefoods.profile.json"
+      },
+      "maturity": "experimental",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "wholefoods-playwright",
+              "status": "experimental"
+            }
+          ]
+        },
+        "web": {
+          "status": "unsupported"
+        }
+      }
+    },
+    {
+      "sourceId": "youtube",
+      "scopeId": "youtube.history",
+      "description": "Raw watch history entries for the top 50 most recent items",
+      "schema": {
+        "path": "connectors/google/schemas/youtube.history.json"
+      },
+      "maturity": "beta",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "youtube-playwright",
+              "status": "beta",
+              "limits": [
+                {
+                  "type": "maxItems",
+                  "value": 50,
+                  "unit": "items",
+                  "description": "The Desktop connector returns at most the 50 most recent watch history items."
+                }
+              ]
+            }
+          ]
+        },
+        "web": {
+          "status": "unsupported"
+        }
+      }
+    },
+    {
+      "sourceId": "youtube",
+      "scopeId": "youtube.likes",
+      "description": "Videos you have liked",
+      "schema": {
+        "path": "connectors/google/schemas/youtube.likes.json"
+      },
+      "maturity": "beta",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "youtube-playwright",
+              "status": "beta"
+            }
+          ]
+        },
+        "web": {
+          "status": "unsupported"
+        }
+      }
+    },
+    {
+      "sourceId": "youtube",
+      "scopeId": "youtube.playlistItems",
+      "description": "Videos inside your playlists, including titles and URLs",
+      "schema": {
+        "path": "connectors/google/schemas/youtube.playlistItems.json"
+      },
+      "maturity": "beta",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "youtube-playwright",
+              "status": "beta"
+            }
+          ]
+        },
+        "web": {
+          "status": "unsupported"
+        }
+      }
+    },
+    {
+      "sourceId": "youtube",
+      "scopeId": "youtube.playlists",
+      "description": "Playlists visible in your YouTube Library",
+      "schema": {
+        "path": "connectors/google/schemas/youtube.playlists.json"
+      },
+      "maturity": "beta",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "youtube-playwright",
+              "status": "beta"
+            }
+          ]
+        },
+        "web": {
+          "status": "unsupported"
+        }
+      }
+    },
+    {
+      "sourceId": "youtube",
+      "scopeId": "youtube.profile",
+      "description": "Email, channel URL, handle, and joined date (plus optional channel fields like title, avatar, and stats)",
+      "schema": {
+        "path": "connectors/google/schemas/youtube.profile.json"
+      },
+      "maturity": "beta",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "youtube-playwright",
+              "status": "beta"
+            }
+          ]
+        },
+        "web": {
+          "status": "supported"
+        }
+      }
+    },
+    {
+      "sourceId": "youtube",
+      "scopeId": "youtube.subscriptions",
+      "description": "Channels you are subscribed to",
+      "schema": {
+        "path": "connectors/google/schemas/youtube.subscriptions.json"
+      },
+      "maturity": "beta",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "youtube-playwright",
+              "status": "beta"
+            }
+          ]
+        },
+        "web": {
+          "status": "unsupported"
+        }
+      }
+    },
+    {
+      "sourceId": "youtube",
+      "scopeId": "youtube.watchLater",
+      "description": "Videos saved to Watch Later",
+      "schema": {
+        "path": "connectors/google/schemas/youtube.watchLater.json"
+      },
+      "maturity": "beta",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "youtube-playwright",
+              "status": "beta"
+            }
+          ]
+        },
+        "web": {
+          "status": "unsupported"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "name": "Oura Readiness",
+  "version": "1.0.0",
+  "scope": "oura.readiness",
+  "dialect": "json",
+  "description": "Daily readiness scores from Oura Ring, including overall score and contributing factors like HRV balance, resting heart rate, recovery index, and body temperature.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "days": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "day": { "type": "string", "format": "date", "description": "Date in YYYY-MM-DD format" },
+            "score": { "type": ["integer", "null"], "minimum": 0, "maximum": 100, "description": "Overall readiness score (0-100)" },
+            "timestamp": { "type": "string", "format": "date-time" },
+            "temperatureDeviation": { "type": ["number", "null"], "description": "Body temperature deviation from baseline in degrees Celsius" },
+            "temperatureTrendDeviation": { "type": ["number", "null"], "description": "Temperature trend deviation from baseline" },
+            "contributors": {
+              "type": "object",
+              "properties": {
+                "activity_balance": { "type": ["integer", "null"], "description": "Activity balance contributor score (0-100)" },
+                "body_temperature": { "type": ["integer", "null"], "description": "Body temperature contributor score (0-100)" },
+                "hrv_balance": { "type": ["integer", "null"], "description": "HRV balance contributor score (0-100)" },
+                "previous_day_activity": { "type": ["integer", "null"], "description": "Previous day activity contributor score (0-100)" },
+                "previous_night": { "type": ["integer", "null"], "description": "Previous night sleep contributor score (0-100)" },
+                "recovery_index": { "type": ["integer", "null"], "description": "Recovery index contributor score (0-100)" },
+                "resting_heart_rate": { "type": ["integer", "null"], "description": "Resting heart rate contributor score (0-100)" },
+                "sleep_balance": { "type": ["integer", "null"], "description": "Sleep balance contributor score (0-100)" }
+              },
+              "additionalProperties": true
+            }
+          },
+          "required": ["day", "score"]
+        }
+      }
+    },
+    "required": ["days"],
+    "additionalProperties": false
+  }
+}

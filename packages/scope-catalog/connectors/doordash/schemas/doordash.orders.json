@@ -1,0 +1,75 @@
+{
+  "name": "DoorDash Order History",
+  "version": "1.0.0",
+  "scope": "doordash.orders",
+  "dialect": "json",
+  "description": "DoorDash order history including restaurant names, items ordered with prices, dates, totals, delivery addresses, and delivery status",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "orders": {
+        "type": "array",
+        "description": "List of DoorDash orders",
+        "items": {
+          "type": "object",
+          "properties": {
+            "orderId": {
+              "type": "string",
+              "description": "Unique identifier for the order (UUID)"
+            },
+            "restaurant": {
+              "type": "string",
+              "description": "Name of the restaurant or store"
+            },
+            "date": {
+              "type": "string",
+              "format": "date-time",
+              "description": "When the order was placed (ISO 8601)"
+            },
+            "total": {
+              "type": "string",
+              "description": "Total amount charged for the order"
+            },
+            "itemCount": {
+              "type": "string",
+              "description": "Number of items in the order"
+            },
+            "items": {
+              "type": "array",
+              "description": "Individual items in the order",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "Name of the item"
+                  },
+                  "quantity": {
+                    "type": "number",
+                    "description": "Quantity ordered"
+                  },
+                  "price": {
+                    "type": "string",
+                    "description": "Price per item"
+                  }
+                },
+                "additionalProperties": true
+              }
+            },
+            "status": {
+              "type": "string",
+              "description": "Delivery status (e.g., Delivered, Cancelled, Refunded)"
+            },
+            "deliveryAddress": {
+              "type": "string",
+              "description": "Delivery address for the order"
+            }
+          },
+          "additionalProperties": true
+        }
+      }
+    },
+    "required": ["orders"],
+    "additionalProperties": true
+  }
+}

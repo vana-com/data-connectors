@@ -1,0 +1,42 @@
+{
+  "name": "Steam Games",
+  "scope": "steam.games",
+  "description": "Owned games with playtime statistics and recently played games",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "owned": {
+        "type": "array",
+        "description": "All games owned by the user, sorted by playtime descending",
+        "items": {
+          "type": "object",
+          "properties": {
+            "appId": { "type": "integer", "description": "Steam application ID" },
+            "name": { "type": "string", "description": "Game title" },
+            "playtimeMinutes": { "type": "integer", "description": "Total playtime in minutes" },
+            "playtimeHours": { "type": "number", "description": "Total playtime in hours (rounded to 1 decimal)" },
+            "playtimeTwoWeeksMinutes": { "type": "integer", "description": "Playtime in the last two weeks in minutes" },
+            "iconUrl": { "type": ["string", "null"], "format": "uri", "description": "URL to the game's icon image" },
+            "lastPlayed": { "type": ["string", "null"], "format": "date-time", "description": "When the game was last played" }
+          },
+          "required": ["appId", "name", "playtimeMinutes"]
+        }
+      },
+      "recentlyPlayed": {
+        "type": "array",
+        "description": "Games played in the last two weeks",
+        "items": {
+          "type": "object",
+          "properties": {
+            "appId": { "type": "integer", "description": "Steam application ID" },
+            "name": { "type": "string", "description": "Game title" },
+            "playtimeTwoWeeksMinutes": { "type": "integer", "description": "Playtime in last two weeks in minutes" },
+            "playtimeForeverMinutes": { "type": "integer", "description": "Total playtime in minutes" }
+          },
+          "required": ["appId", "name"]
+        }
+      }
+    },
+    "required": ["owned", "recentlyPlayed"]
+  }
+}
