@@ -221,6 +221,7 @@ const extractVisibleMessages = async () => {
             const snippetNode = row.querySelector('.y2') ||
               row.querySelector('[data-snippet]');
             const dateNode = row.querySelector(
+              'td.xW [title], td.xW time, td.xW span, ' +
               'td:last-of-type [title], td:last-of-type time, td:last-of-type span'
             );
 
