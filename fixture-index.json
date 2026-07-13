@@ -2,7 +2,7 @@
   "$schema": "./schemas/fixture-index.schema.json",
   "indexVersion": "1.0",
   "sourceRepo": "https://github.com/vana-com/data-connectors",
-  "generatedAt": "2026-04-13T00:00:00Z",
+  "generatedAt": "2026-07-13T00:00:00Z",
   "fixtures": [
     {
       "id": "instagram-playwright.instagram.profile.empty",

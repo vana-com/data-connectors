@@ -436,9 +436,43 @@ async function main() {
   const expectedArtifactPaths = new Set();
 
   for (const entry of registry.connectors) {
-    const metadata = readJson(
-      join(repoRoot, "connectors", entry.files.metadata),
+    const metadataPath = join(repoRoot, "connectors", entry.files.metadata);
+    const scriptPath = join(repoRoot, "connectors", entry.files.script);
+    const metadata = readJson(metadataPath);
+    const manifestBuffer = readFileSync(metadataPath);
+    const scriptBuffer = readFileSync(scriptPath);
+    const previousVersions = existingIndex?.connectors?.[entry.id] ?? [];
+    const existingVersion = previousVersions.find(
+      (version) => version.version === entry.version,
     );
+
+    if (existingVersion) {
+      if (
+        existingVersion.manifestSha256 !== sha256Buffer(manifestBuffer) ||
+        existingVersion.scriptSha256 !== sha256Buffer(scriptBuffer)
+      ) {
+        throw new Error(
+          `${entry.id}@${entry.version} source changed without a version bump`,
+        );
+      }
+      if (!existingVersion.artifactPath) {
+        throw new Error(`${entry.id}@${entry.version} is missing artifactPath`);
+      }
+      const existingArtifactPath = join(repoRoot, existingVersion.artifactPath);
+      if (!existsSync(existingArtifactPath)) {
+        throw new Error(`Missing artifact: ${existingVersion.artifactPath}`);
+      }
+      if (
+        existingVersion.artifactSha256 !==
+        sha256Buffer(readFileSync(existingArtifactPath))
+      ) {
+        throw new Error(`${entry.id}@${entry.version} immutable artifact drifted`);
+      }
+      expectedArtifactPaths.add(existingVersion.artifactPath);
+      nextIndex.connectors[entry.id] = previousVersions;
+      continue;
+    }
+
     const bundle = createArtifactBundle(entry, metadata);
     const artifactDir = join(artifactsDir, entry.id);
     mkdirSync(artifactDir, { recursive: true });
@@ -462,8 +496,6 @@ async function main() {
       ".",
     ]);
 
-    const manifestBuffer = readFileSync(bundle.metadataSource);
-    const scriptBuffer = readFileSync(bundle.scriptSource);
     const artifactBuffer = readFileSync(tempArtifactPath);
 
     const packaged = {
@@ -532,7 +564,6 @@ async function main() {
     expectedArtifactPaths.add(packaged.artifactPath);
     rmSync(dirname(bundle.bundleDir), { recursive: true, force: true });
 
-    const previousVersions = existingIndex?.connectors?.[entry.id] ?? [];
     const retained = [];
     for (const version of previousVersions) {
       if (version.version === entry.version) {
