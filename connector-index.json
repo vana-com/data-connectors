@@ -48,13 +48,13 @@
         "publishedAt": "2026-04-13T00:00:00Z",
         "sourceTag": "fix/retained-artifact-signatures-clean",
         "sourceCommit": "9a83f771fc2a212f1ce2e7933c301fef9ab082b2",
-        "releaseId": "connectors-9a83f771fc2a",
+        "releaseId": "github-3f944c6683954cb436bbfabd3c82dca80d267a9b",
         "pageApiVersion": 1,
         "manifestSha256": "sha256:be7140f442a11a4475f1778e8e32e93d3a633d4ad515ed925bf7ecca461d793d",
         "scriptSha256": "sha256:72518dd765ff2103a0ad7dd184a9efcfac359764fca1613714400e661b2fe73a",
         "artifactSha256": "sha256:39cf00bdcb16124d9d5f0f37e77035076b62361a5cd8dea4e9eadd4d97ff8dcc",
         "artifactPath": "artifacts/chatgpt-playwright/chatgpt-playwright-2.0.0.tgz",
-        "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/9a83f771fc2a212f1ce2e7933c301fef9ab082b2/artifacts/chatgpt-playwright/chatgpt-playwright-2.0.0.tgz",
+        "artifactUrl": "https://github.com/vana-com/data-connectors/releases/download/connectors-3f944c668395/chatgpt-playwright-2.0.0.tgz",
         "scopes": [
           "chatgpt.memories",
           "chatgpt.conversations"
@@ -68,6 +68,11 @@
           ],
           "iconKey": "chatgpt",
           "defaultScope": "chatgpt.conversations"
+        },
+        "artifactSignature": {
+          "type": "sigstoreBundle",
+          "bundlePath": "chatgpt-playwright-2.0.0.tgz.sigstore.json",
+          "bundleUrl": "https://github.com/vana-com/data-connectors/releases/download/connectors-3f944c668395/chatgpt-playwright-2.0.0.tgz.sigstore.json"
         }
       },
       {
@@ -183,7 +188,7 @@
         "scriptSha256": "sha256:7f221ddf698383f1fbceb6bd8cb97f457fc0a4143b4c13c5135a11b8ef230516",
         "artifactSha256": "sha256:9d98daed4c11795320b5be94bd4fee24080513253db423d0a0800c3cd6472fcd",
         "artifactPath": "artifacts/github-playwright/github-playwright-1.1.4.tgz",
-        "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/1097ceddc8bff1c60e29ed60cd8af9f65c594646/artifacts/github-playwright/github-playwright-1.1.4.tgz",
+        "artifactUrl": "https://github.com/vana-com/data-connectors/releases/download/connectors-3f944c668395/github-playwright-1.1.4.tgz",
         "scopes": [
           "github.profile",
           "github.repositories",
@@ -195,7 +200,13 @@
           "brandDomain": "github.com",
           "iconKey": "github",
           "defaultScope": "github.profile"
-        }
+        },
+        "artifactSignature": {
+          "type": "sigstoreBundle",
+          "bundlePath": "github-playwright-1.1.4.tgz.sigstore.json",
+          "bundleUrl": "https://github.com/vana-com/data-connectors/releases/download/connectors-3f944c668395/github-playwright-1.1.4.tgz.sigstore.json"
+        },
+        "releaseId": "github-3f944c6683954cb436bbfabd3c82dca80d267a9b"
       },
       {
         "connectorId": "github-playwright",
@@ -209,56 +220,24 @@
           "metadata": "github/github-playwright.json"
         },
         "publishedAt": "2026-04-13T00:00:00Z",
-        "sourceTag": "fix/retained-artifact-signatures-clean",
-        "sourceCommit": "9a83f771fc2a212f1ce2e7933c301fef9ab082b2",
-        "releaseId": "connectors-9a83f771fc2a",
+        "sourceTag": "main",
+        "sourceCommit": "3f944c6683954cb436bbfabd3c82dca80d267a9b",
+        "releaseId": "github-3f944c6683954cb436bbfabd3c82dca80d267a9b",
         "pageApiVersion": 1,
         "manifestSha256": "sha256:bac5c9a4d617c12e56d0056f6d55db2c652a263690008785ceda31f28e1cfd48",
         "scriptSha256": "sha256:486d4d0642132105877ab42a3807b59601619c2bb8aa9a60afdfd9cf6da58448",
-        "artifactSha256": "sha256:98f1592f09bb18ac2cac7f5bcbcdd5d9b193e985f669df96d6d95d751bca0dea",
+        "artifactSha256": "sha256:123b09546ca37636847b202f8329b319969b43d8318903a025924be014e11e56",
         "artifactPath": "artifacts/github-playwright/github-playwright-1.2.0.tgz",
-        "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/9a83f771fc2a212f1ce2e7933c301fef9ab082b2/artifacts/github-playwright/github-playwright-1.2.0.tgz",
+        "artifactUrl": "https://github.com/vana-com/data-connectors/releases/download/connectors-3f944c668395/github-playwright-1.2.0.tgz",
+        "artifactSignature": {
+          "type": "sigstoreBundle",
+          "bundlePath": "github-playwright-1.2.0.tgz.sigstore.json",
+          "bundleUrl": "https://github.com/vana-com/data-connectors/releases/download/connectors-3f944c668395/github-playwright-1.2.0.tgz.sigstore.json"
+        },
         "scopes": [
           "github.profile",
           "github.repositories",
           "github.starred"
-        ],
-        "consumerMetadata": {
-          "sourceId": "github",
-          "displayName": "GitHub",
-          "brandDomain": "github.com",
-          "iconKey": "github",
-          "defaultScope": "github.profile"
-        }
-      },
-      {
-        "connectorId": "github-playwright",
-        "company": "github",
-        "version": "1.4.0",
-        "name": "GitHub",
-        "status": "stable",
-        "description": "Exports your GitHub profile, repositories, starred repositories, public activity events, and contribution graph.",
-        "sourceFiles": {
-          "script": "github/github-playwright.js",
-          "metadata": "github/github-playwright.json"
-        },
-        "publishedAt": "2026-04-13T00:00:00Z",
-        "sourceTag": "github-events-contributions",
-        "sourceCommit": "27585aab07b35521c961de8d7cb5ccffe81af533",
-        "releaseId": "connectors-27585aab07b3",
-        "pageApiVersion": 1,
-        "manifestSha256": "sha256:f571faa1a75b6d7fec6ae2bcc5789febd24745b4354e6e7a45198a86a21cd18f",
-        "scriptSha256": "sha256:61eb4be00e1d267075cd78d7e14648615c62aa7cebffeae73ab4135acfe58b2f",
-        "artifactSha256": "sha256:589e2fb78152aa7aa7a2a1a35c7784744c1c8b1c1cbfc08ea0c9677534d59db0",
-        "artifactPath": "artifacts/github-playwright/github-playwright-1.4.0.tgz",
-        "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/27585aab07b35521c961de8d7cb5ccffe81af533/artifacts/github-playwright/github-playwright-1.4.0.tgz",
-        "scopes": [
-          "github.profile",
-          "github.repositories",
-          "github.starred",
-          "github.events",
-          "github.contributions",
-          "github.history"
         ],
         "consumerMetadata": {
           "sourceId": "github",
@@ -361,7 +340,7 @@
         "scriptSha256": "sha256:7d7bbf28ff1ee455cbdf89ac35d56dbff3799da691d72b53fa94f149420cd002",
         "artifactSha256": "sha256:6866aa71a85fa087240cd9c21d87249ed071d5a33a602ef0852cc7fa21836d08",
         "artifactPath": "artifacts/icloud-notes-playwright/icloud-notes-playwright-0.1.0.tgz",
-        "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/1097ceddc8bff1c60e29ed60cd8af9f65c594646/artifacts/icloud-notes-playwright/icloud-notes-playwright-0.1.0.tgz",
+        "artifactUrl": "https://github.com/vana-com/data-connectors/releases/download/connectors-3f944c668395/icloud-notes-playwright-0.1.0.tgz",
         "scopes": [
           "icloud_notes.notes",
           "icloud_notes.folders"
@@ -372,7 +351,13 @@
           "brandDomain": "icloud.com",
           "iconKey": "icloud_notes",
           "defaultScope": "icloud_notes.notes"
-        }
+        },
+        "artifactSignature": {
+          "type": "sigstoreBundle",
+          "bundlePath": "icloud-notes-playwright-0.1.0.tgz.sigstore.json",
+          "bundleUrl": "https://github.com/vana-com/data-connectors/releases/download/connectors-3f944c668395/icloud-notes-playwright-0.1.0.tgz.sigstore.json"
+        },
+        "releaseId": "github-3f944c6683954cb436bbfabd3c82dca80d267a9b"
       },
       {
         "connectorId": "icloud-notes-playwright",
@@ -421,15 +406,20 @@
           "metadata": "meta/instagram-ads-playwright.json"
         },
         "publishedAt": "2026-04-13T00:00:00Z",
-        "sourceTag": "github-events-contributions",
-        "sourceCommit": "27585aab07b35521c961de8d7cb5ccffe81af533",
-        "releaseId": "connectors-27585aab07b3",
+        "sourceTag": "main",
+        "sourceCommit": "3f944c6683954cb436bbfabd3c82dca80d267a9b",
+        "releaseId": "github-3f944c6683954cb436bbfabd3c82dca80d267a9b",
         "pageApiVersion": 1,
         "manifestSha256": "sha256:7403ddd375b61c5b0f5d078bdc90207e85fcf476542bba85b39c49fe3e9c51b2",
         "scriptSha256": "sha256:ef759279f73e52a05b063cf8e6a6bceb63409039f35f529b342bc1af004c972d",
-        "artifactSha256": "sha256:11a4ea74d5c4bceb56df872f6cf64691973992ad569108ff5b2462c46aefb9b3",
+        "artifactSha256": "sha256:fbba8ad8cfbe5ff3ecd8134891afac8008a9b9d78f559d6b7f13e8112d43f78f",
         "artifactPath": "artifacts/instagram-ads-playwright/instagram-ads-playwright-1.0.0.tgz",
-        "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/27585aab07b35521c961de8d7cb5ccffe81af533/artifacts/instagram-ads-playwright/instagram-ads-playwright-1.0.0.tgz",
+        "artifactUrl": "https://github.com/vana-com/data-connectors/releases/download/connectors-3f944c668395/instagram-ads-playwright-1.0.0.tgz",
+        "artifactSignature": {
+          "type": "sigstoreBundle",
+          "bundlePath": "instagram-ads-playwright-1.0.0.tgz.sigstore.json",
+          "bundleUrl": "https://github.com/vana-com/data-connectors/releases/download/connectors-3f944c668395/instagram-ads-playwright-1.0.0.tgz.sigstore.json"
+        },
         "scopes": [
           "instagram.ads"
         ],
@@ -493,7 +483,7 @@
         "scriptSha256": "sha256:b22a21d76e08bb78acd873cacf25afb6cc5c501820649214b48374509bb3e903",
         "artifactSha256": "sha256:cb595642f4148c2a68109378a88c3a14ebf0ff2f8ce44f1340f4d4704b6d3fe0",
         "artifactPath": "artifacts/instagram-playwright/instagram-playwright-1.1.0.tgz",
-        "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/1097ceddc8bff1c60e29ed60cd8af9f65c594646/artifacts/instagram-playwright/instagram-playwright-1.1.0.tgz",
+        "artifactUrl": "https://github.com/vana-com/data-connectors/releases/download/connectors-3f944c668395/instagram-playwright-1.1.0.tgz",
         "scopes": [
           "instagram.profile",
           "instagram.posts",
@@ -509,7 +499,13 @@
           ],
           "iconKey": "instagram",
           "defaultScope": "instagram.posts"
-        }
+        },
+        "artifactSignature": {
+          "type": "sigstoreBundle",
+          "bundlePath": "instagram-playwright-1.1.0.tgz.sigstore.json",
+          "bundleUrl": "https://github.com/vana-com/data-connectors/releases/download/connectors-3f944c668395/instagram-playwright-1.1.0.tgz.sigstore.json"
+        },
+        "releaseId": "github-3f944c6683954cb436bbfabd3c82dca80d267a9b"
       },
       {
         "connectorId": "instagram-playwright",
@@ -523,15 +519,20 @@
           "metadata": "meta/instagram-playwright.json"
         },
         "publishedAt": "2026-04-13T00:00:00Z",
-        "sourceTag": "github-events-contributions",
-        "sourceCommit": "27585aab07b35521c961de8d7cb5ccffe81af533",
-        "releaseId": "connectors-27585aab07b3",
+        "sourceTag": "main",
+        "sourceCommit": "3f944c6683954cb436bbfabd3c82dca80d267a9b",
+        "releaseId": "github-3f944c6683954cb436bbfabd3c82dca80d267a9b",
         "pageApiVersion": 1,
         "manifestSha256": "sha256:d837e66b63c1a188bf0a60e92b5fd9dcd9cd4672133d93dd02c06c16bc2bfb95",
         "scriptSha256": "sha256:909618f8c07b38608e3de152724c81853c21540f797f0afcb84810513a342224",
-        "artifactSha256": "sha256:f6e61df2d1cd29d8e929584133f57eaff4e54df18db53717bd32f0894092a58c",
+        "artifactSha256": "sha256:c2d0650647d10bd3f33a8b470b03472eb346bd08da4ab285b2f3adbd1951d8a4",
         "artifactPath": "artifacts/instagram-playwright/instagram-playwright-2.1.0.tgz",
-        "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/27585aab07b35521c961de8d7cb5ccffe81af533/artifacts/instagram-playwright/instagram-playwright-2.1.0.tgz",
+        "artifactUrl": "https://github.com/vana-com/data-connectors/releases/download/connectors-3f944c668395/instagram-playwright-2.1.0.tgz",
+        "artifactSignature": {
+          "type": "sigstoreBundle",
+          "bundlePath": "instagram-playwright-2.1.0.tgz.sigstore.json",
+          "bundleUrl": "https://github.com/vana-com/data-connectors/releases/download/connectors-3f944c668395/instagram-playwright-2.1.0.tgz.sigstore.json"
+        },
         "scopes": [
           "instagram.profile",
           "instagram.posts",
@@ -646,7 +647,7 @@
         "scriptSha256": "sha256:b5dd43f3381b8cc51d5cd7e48b727d6f18fa26c06577f530d54020960ff5c43f",
         "artifactSha256": "sha256:a3363983002e99d166cd53bc2640361ddea32551dac3c4da2324b5fb12435b35",
         "artifactPath": "artifacts/oura-playwright/oura-playwright-1.0.1.tgz",
-        "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/1097ceddc8bff1c60e29ed60cd8af9f65c594646/artifacts/oura-playwright/oura-playwright-1.0.1.tgz",
+        "artifactUrl": "https://github.com/vana-com/data-connectors/releases/download/connectors-3f944c668395/oura-playwright-1.0.1.tgz",
         "scopes": [
           "oura.readiness",
           "oura.sleep",
@@ -661,7 +662,13 @@
           ],
           "iconKey": "oura",
           "defaultScope": "oura.readiness"
-        }
+        },
+        "artifactSignature": {
+          "type": "sigstoreBundle",
+          "bundlePath": "oura-playwright-1.0.1.tgz.sigstore.json",
+          "bundleUrl": "https://github.com/vana-com/data-connectors/releases/download/connectors-3f944c668395/oura-playwright-1.0.1.tgz.sigstore.json"
+        },
+        "releaseId": "github-3f944c6683954cb436bbfabd3c82dca80d267a9b"
       },
       {
         "connectorId": "oura-playwright",
@@ -885,15 +892,20 @@
           "metadata": "google/youtube-playwright.json"
         },
         "publishedAt": "2026-04-13T00:00:00Z",
-        "sourceTag": "github-events-contributions",
-        "sourceCommit": "27585aab07b35521c961de8d7cb5ccffe81af533",
-        "releaseId": "connectors-27585aab07b3",
+        "sourceTag": "main",
+        "sourceCommit": "3f944c6683954cb436bbfabd3c82dca80d267a9b",
+        "releaseId": "github-3f944c6683954cb436bbfabd3c82dca80d267a9b",
         "pageApiVersion": 1,
         "manifestSha256": "sha256:8af6a9623851d2f0db9f86cdce50a3e60f2fee5387c5922f11c064043298ec6f",
         "scriptSha256": "sha256:a0c43d4c931a5893e3b2e29f708350a2d7e4d22898ad820ac410c8ddf7558b9a",
-        "artifactSha256": "sha256:d58c92c540d2748c287bd82dac3a0caa8af66e22ab2e3e80bf7fbdf2908d6edc",
+        "artifactSha256": "sha256:08e3c3abc7fa3322ba3132b0a2a581d48e35ac3c7cffa58b2dc4517526e5fa8d",
         "artifactPath": "artifacts/youtube-playwright/youtube-playwright-1.0.0.tgz",
-        "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/27585aab07b35521c961de8d7cb5ccffe81af533/artifacts/youtube-playwright/youtube-playwright-1.0.0.tgz",
+        "artifactUrl": "https://github.com/vana-com/data-connectors/releases/download/connectors-3f944c668395/youtube-playwright-1.0.0.tgz",
+        "artifactSignature": {
+          "type": "sigstoreBundle",
+          "bundlePath": "youtube-playwright-1.0.0.tgz.sigstore.json",
+          "bundleUrl": "https://github.com/vana-com/data-connectors/releases/download/connectors-3f944c668395/youtube-playwright-1.0.0.tgz.sigstore.json"
+        },
         "scopes": [
           "youtube.profile",
           "youtube.subscriptions",

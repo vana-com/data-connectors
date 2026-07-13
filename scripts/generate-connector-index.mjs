@@ -17,7 +17,10 @@ import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { assertBundledScopeSchemasMatch } from "./connector-artifact-contract.mjs";
+import {
+  assertBundledScopeSchemasMatch,
+  assertConnectorIndexSigned,
+} from "./connector-artifact-contract.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(__dirname, "..");
@@ -507,9 +510,27 @@ async function main() {
       const preservedVersion = shouldUseReleaseAssets
         ? refreshReleaseDistributionMetadata(existingVersion, releaseMetadata)
         : existingVersion;
-      nextIndex.connectors[entry.id] = previousVersions.map((version) =>
-        version.version === entry.version ? preservedVersion : version,
-      );
+      // Retained (superseded) versions must flow through
+      // materializeRetainedArtifact on every release-assets publish, not only
+      // on the publish that bumps the connector: the committed index carries
+      // no artifactSignature, so a verbatim carry ships entries the installer
+      // cannot verify (the 2026-07-13 index outage).
+      const carriedVersions = [];
+      for (const version of previousVersions) {
+        if (version.version === entry.version) {
+          carriedVersions.push(preservedVersion);
+          continue;
+        }
+        carriedVersions.push(
+          await materializeRetainedArtifact({
+            entry: version,
+            releaseMetadata,
+            expectedArtifactPaths,
+            checkMode,
+          }),
+        );
+      }
+      nextIndex.connectors[entry.id] = carriedVersions;
       continue;
     }
 
@@ -622,6 +643,12 @@ async function main() {
   }
 
   const normalizedIndex = sortIndex(nextIndex);
+  // Publishing an entry without artifactSignature bricks every consumer's
+  // install (the installer hard-fails on missing Sigstore metadata), so fail
+  // the publish here instead of shipping a broken index.
+  if (shouldEmitSignatureMetadata) {
+    assertConnectorIndexSigned(normalizedIndex);
+  }
   const nextText = `${JSON.stringify(normalizedIndex, null, 2)}\n`;
   const beforeText = existsSync(indexPath)
     ? readFileSync(indexPath, "utf8")
