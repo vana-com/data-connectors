@@ -273,4 +273,23 @@ test("the checked-in catalog contains every published scope exactly once", () =>
       .fulfillment.desktop.connectors[0].limits[0].value,
     50,
   );
+  assert.deepEqual(
+    catalog.scopes
+      .find(({ scopeId }) => scopeId === "github.events")
+      .fulfillment.desktop.connectors[0].limits.map(({ type, value, unit }) => ({
+        type,
+        value,
+        unit,
+      })),
+    [
+      { type: "maxItems", value: 300, unit: "events" },
+      { type: "timeWindow", value: 90, unit: "days" },
+    ],
+  );
+  assert.equal(
+    catalog.scopes
+      .find(({ scopeId }) => scopeId === "github.history")
+      .fulfillment.desktop.connectors[0].limits[0].value,
+    1000,
+  );
 });

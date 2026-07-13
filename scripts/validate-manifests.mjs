@@ -108,8 +108,8 @@ function validateScopes(scopes, sourceId, manifestVersion, errors, path) {
               errors.push(`${prefix} must be an object`);
               continue;
             }
-            if (limit.type !== "maxItems") {
-              errors.push(`${prefix}.type must be "maxItems"`);
+            if (!["maxItems", "timeWindow"].includes(limit.type)) {
+              errors.push(`${prefix}.type must be "maxItems" or "timeWindow"`);
             }
             if (!Number.isInteger(limit.value) || limit.value < 1) {
               errors.push(`${prefix}.value must be a positive integer`);

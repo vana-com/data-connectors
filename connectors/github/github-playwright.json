@@ -1,5 +1,5 @@
 {
-  "manifest_version": "1.0",
+  "manifest_version": "1.1",
   "connector_id": "github-playwright",
   "source_id": "github",
   "version": "1.4.0",
@@ -30,7 +30,21 @@
     {
       "scope": "github.events",
       "label": "Your recent activity",
-      "description": "Recent public activity (pushes, pull requests, issues, comments, branches, releases) across every repository you have touched, including organization-owned repos"
+      "description": "Recent public activity (pushes, pull requests, issues, comments, branches, releases) across every repository you have touched, including organization-owned repos",
+      "limits": [
+        {
+          "type": "maxItems",
+          "value": 300,
+          "unit": "events",
+          "description": "The Desktop connector returns at most 300 public events."
+        },
+        {
+          "type": "timeWindow",
+          "value": 90,
+          "unit": "days",
+          "description": "The GitHub public-events API covers at most the previous 90 days."
+        }
+      ]
     },
     {
       "scope": "github.contributions",
@@ -40,7 +54,15 @@
     {
       "scope": "github.history",
       "label": "Your authored PRs and issues",
-      "description": "Full lifetime of pull requests and issues you have authored across every public repository (via the GitHub Search API). Includes title, body, dates, repository, labels, and state."
+      "description": "Pull requests and issues you have authored across public repositories via the GitHub Search API, including title, body, dates, repository, labels, and state.",
+      "limits": [
+        {
+          "type": "maxItems",
+          "value": 1000,
+          "unit": "items per type",
+          "description": "The GitHub Search API returns at most 1,000 pull requests and 1,000 issues per query."
+        }
+      ]
     }
   ],
   "id": "github-playwright",

@@ -233,7 +233,21 @@
           "connectors": [
             {
               "id": "github-playwright",
-              "status": "stable"
+              "status": "stable",
+              "limits": [
+                {
+                  "type": "maxItems",
+                  "value": 300,
+                  "unit": "events",
+                  "description": "The Desktop connector returns at most 300 public events."
+                },
+                {
+                  "type": "timeWindow",
+                  "value": 90,
+                  "unit": "days",
+                  "description": "The GitHub public-events API covers at most the previous 90 days."
+                }
+              ]
             }
           ]
         },
@@ -245,7 +259,7 @@
     {
       "sourceId": "github",
       "scopeId": "github.history",
-      "description": "Full lifetime of pull requests and issues you have authored across every public repository (via the GitHub Search API). Includes title, body, dates, repository, labels, and state.",
+      "description": "Pull requests and issues you have authored across public repositories via the GitHub Search API, including title, body, dates, repository, labels, and state.",
       "schema": {
         "path": "connectors/github/schemas/github.history.json"
       },
@@ -256,7 +270,15 @@
           "connectors": [
             {
               "id": "github-playwright",
-              "status": "stable"
+              "status": "stable",
+              "limits": [
+                {
+                  "type": "maxItems",
+                  "value": 1000,
+                  "unit": "items per type",
+                  "description": "The GitHub Search API returns at most 1,000 pull requests and 1,000 issues per query."
+                }
+              ]
             }
           ]
         },
