@@ -12,6 +12,8 @@ Each connector has a status indicating its maturity level:
 
 ## Connectors
 
+This table is an overview, not the public contract. [`scope-catalog.json`](scope-catalog.json) is the authoritative machine-readable contract for sources and scopes. [`SCOPES.md`](SCOPES.md) is its generated human-readable view.
+
 | Platform | Company | Status | Scopes |
 |----------|---------|--------|--------|
 | ChatGPT | OpenAI | Stable | chatgpt.conversations, chatgpt.memories |
@@ -32,7 +34,9 @@ Each connector has a status indicating its maturity level:
 
 ## Context Gateway
 
-Open Data Labs also provides the ability to access data from sources via web API. The list of available sources via their service, [Context Gateway](https://dev.opendatalabs.com/docs/data-sources), are below:
+Open Data Labs exposes source data through the [Context Gateway API](https://dev.opendatalabs.com/docs/data-sources). The table below lists its permissions by source.
+
+These `read:*` values are Context Gateway permissions, not canonical scope IDs. Use [`scope-catalog.json`](scope-catalog.json) to find canonical source and scope IDs, payload schemas, collection paths, limits, and maturity.
 
 | Source       | Status      | Scopes                                          |
 | ------------ | ----------- | ----------------------------------------------- |
