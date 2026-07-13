@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - "connector-index.json"
+      - "connectors/**"
       - "registry.json"
       - "artifacts/**"
       - "packages/connector-installer-core/**"
@@ -60,8 +61,11 @@ jobs:
           CONNECTOR_ENABLE_SIGSTORE_METADATA: "1"
         run: node scripts/generate-connector-index.mjs
 
-      - name: Check source/scope catalog
-        run: node scripts/generate-scope-catalog.mjs --check
+      - name: Generate source/scope catalog for immutable release
+        env:
+          SCOPE_CATALOG_SOURCE_COMMIT: ${{ steps.meta.outputs.source_commit }}
+          SCOPE_CATALOG_RELEASE_TAG: ${{ steps.meta.outputs.immutable_release_tag }}
+        run: node scripts/generate-scope-catalog.mjs
 
       - name: Sign connector release subjects
         run: npm run release:sign

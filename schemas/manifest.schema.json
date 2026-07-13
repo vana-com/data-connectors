@@ -97,6 +97,21 @@
               "description": {
                 "type": "string"
               },
+              "limits": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "required": ["type", "value", "unit", "description"],
+                  "properties": {
+                    "type": { "const": "maxItems" },
+                    "value": { "type": "integer", "minimum": 1 },
+                    "unit": { "type": "string", "minLength": 1 },
+                    "description": { "type": "string", "minLength": 1 }
+                  },
+                  "additionalProperties": false
+                }
+              },
               "schema": {
                 "type": "string",
                 "description": "Optional external cross-reference schema URI (e.g. https://schema.org/NutritionInformation). Distinct from the JSON Schema the scope payload validates against."

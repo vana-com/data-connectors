@@ -72,23 +72,54 @@ function findManifests(dir) {
   return out;
 }
 
-function validateScopes(scopes, sourceId, errors, path) {
+function validateScopes(scopes, sourceId, manifestVersion, errors, path) {
   if (!Array.isArray(scopes) || scopes.length === 0) {
     errors.push(`${path}: scopes must be a non-empty array`);
     return;
   }
+  const seenScopeIds = new Set();
   for (const [idx, entry] of scopes.entries()) {
     let scopeId;
     if (typeof entry === "string") {
       scopeId = entry;
     } else if (entry && typeof entry === "object" && "scope" in entry) {
       scopeId = entry.scope;
-      const allowed = new Set(["scope", "label", "description", "schema"]);
+      const allowed = new Set(["scope", "label", "description", "schema", "limits"]);
       for (const k of Object.keys(entry)) {
         if (!allowed.has(k)) {
           errors.push(
-            `${path}: scopes[${idx}] has disallowed field "${k}" (allowed: scope, label, description)`,
+            `${path}: scopes[${idx}] has disallowed field "${k}" (allowed: ${[...allowed].join(", ")})`,
           );
+        }
+      }
+      if (entry.limits !== undefined) {
+        const [major, minor] = String(manifestVersion).split(".").map(Number);
+        if (!(major > 1 || (major === 1 && minor >= 1))) {
+          errors.push(
+            `${path}: scopes[${idx}].limits requires manifest_version 1.1 or later`,
+          );
+        }
+        if (!Array.isArray(entry.limits) || entry.limits.length === 0) {
+          errors.push(`${path}: scopes[${idx}].limits must be a non-empty array`);
+        } else {
+          for (const [limitIndex, limit] of entry.limits.entries()) {
+            const prefix = `${path}: scopes[${idx}].limits[${limitIndex}]`;
+            if (!limit || typeof limit !== "object") {
+              errors.push(`${prefix} must be an object`);
+              continue;
+            }
+            if (limit.type !== "maxItems") {
+              errors.push(`${prefix}.type must be "maxItems"`);
+            }
+            if (!Number.isInteger(limit.value) || limit.value < 1) {
+              errors.push(`${prefix}.value must be a positive integer`);
+            }
+            for (const field of ["unit", "description"]) {
+              if (typeof limit[field] !== "string" || limit[field].trim() === "") {
+                errors.push(`${prefix}.${field} must be a non-empty string`);
+              }
+            }
+          }
         }
       }
     } else {
@@ -109,6 +140,10 @@ function validateScopes(scopes, sourceId, errors, path) {
         `${path}: scope "${scopeId}" does not use the manifest's source_id "${sourceId}" as its prefix`,
       );
     }
+    if (seenScopeIds.has(scopeId)) {
+      errors.push(`${path}: duplicate scope "${scopeId}"`);
+    }
+    seenScopeIds.add(scopeId);
   }
 }
 
@@ -390,7 +425,13 @@ function validateManifest(filePath, manifest, seenIds) {
 
   // scopes canonical
   if (manifest.source_id) {
-    validateScopes(manifest.scopes, manifest.source_id, errors, rel);
+    validateScopes(
+      manifest.scopes,
+      manifest.source_id,
+      manifest.manifest_version,
+      errors,
+      rel,
+    );
   }
 
   validateConnectorSchemas(filePath, manifest, errors, rel);

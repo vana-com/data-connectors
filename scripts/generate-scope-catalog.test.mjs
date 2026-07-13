@@ -36,12 +36,21 @@ function makeFixture() {
     ],
   });
   writeJson(join(root, "connectors", "alpha", "alpha-playwright.json"), {
+    manifest_version: "1.1",
     connector_id: "alpha-playwright",
     source_id: "alpha",
     scopes: [
       {
         scope: "alpha.profile",
         description: "The published Alpha profile.",
+        limits: [
+          {
+            type: "maxItems",
+            value: 25,
+            unit: "items",
+            description: "The Desktop connector returns at most 25 items.",
+          },
+        ],
       },
     ],
   });
@@ -52,6 +61,7 @@ function makeFixture() {
     type: "object",
   });
   writeJson(join(root, "connectors", "ignored", "ignored-playwright.json"), {
+    manifest_version: "1.0",
     connector_id: "ignored-playwright",
     source_id: "ignored",
     scopes: [{ scope: "ignored.profile", description: "Not published." }],
@@ -78,6 +88,23 @@ test("generated files are clean and exclude unregistered manifests", () => {
 
   const catalog = JSON.parse(readFileSync(join(root, "scope-catalog.json")));
   assert.deepEqual(catalog.scopes.map(({ scopeId }) => scopeId), ["alpha.profile"]);
+  assert.equal(catalog.scopes[0].description, "The published Alpha profile.");
+  assert.deepEqual(catalog.scopes[0].fulfillment.desktop.connectors[0].limits, [
+    {
+      type: "maxItems",
+      value: 25,
+      unit: "items",
+      description: "The Desktop connector returns at most 25 items.",
+    },
+  ]);
+  assert.deepEqual(catalog.generatedFrom, {
+    publishability: {
+      path: "registry.json",
+      manifestSelector: "connectors[].files.metadata",
+    },
+    manifests: ["connectors/alpha/alpha-playwright.json"],
+    webCapabilities: "scopes/web-capabilities.json",
+  });
 });
 
 test("missing Web capability entries fail exact-set validation", () => {
@@ -130,9 +157,10 @@ test("conflicting registered schema evidence fails", () => {
   });
   writeJson(registryPath, registry);
   writeJson(join(root, "connectors", "alpha-alt", "alpha-alt-playwright.json"), {
+    manifest_version: "1.0",
     connector_id: "alpha-alt-playwright",
     source_id: "alpha",
-    scopes: [{ scope: "alpha.profile", description: "Conflicting Alpha profile." }],
+    scopes: [{ scope: "alpha.profile", description: "The published Alpha profile." }],
   });
   writeJson(
     join(root, "connectors", "alpha-alt", "schemas", "alpha.profile.json"),
@@ -148,6 +176,73 @@ test("conflicting registered schema evidence fails", () => {
     () => generateScopeCatalog({ repoRoot: root }),
     /alpha\.profile has conflicting schema paths/,
   );
+});
+
+test("conflicting registered manifest descriptions fail", () => {
+  const root = makeFixture();
+  const registryPath = join(root, "registry.json");
+  const registry = JSON.parse(readFileSync(registryPath));
+  registry.connectors.push({
+    id: "alpha-alt-playwright",
+    status: "beta",
+    files: { metadata: "alpha/alpha-alt-playwright.json" },
+  });
+  writeJson(registryPath, registry);
+  writeJson(join(root, "connectors", "alpha", "alpha-alt-playwright.json"), {
+    manifest_version: "1.0",
+    connector_id: "alpha-alt-playwright",
+    source_id: "alpha",
+    scopes: [{ scope: "alpha.profile", description: "A conflicting description." }],
+  });
+
+  assert.throws(
+    () => generateScopeCatalog({ repoRoot: root }),
+    /alpha\.profile has conflicting manifest descriptions/,
+  );
+});
+
+test("duplicate scope IDs within one published manifest fail", () => {
+  const root = makeFixture();
+  const manifestPath = join(root, "connectors", "alpha", "alpha-playwright.json");
+  const manifest = JSON.parse(readFileSync(manifestPath));
+  manifest.scopes.push({
+    scope: "alpha.profile",
+    description: "The published Alpha profile.",
+  });
+  writeJson(manifestPath, manifest);
+
+  assert.throws(
+    () => generateScopeCatalog({ repoRoot: root }),
+    /alpha-playwright\.json declares duplicate scope alpha\.profile/,
+  );
+});
+
+test("release generation embeds immutable payload-schema URLs", () => {
+  const root = makeFixture();
+  const sourceCommit = "b".repeat(40);
+  const releaseTag = `connectors-${sourceCommit.slice(0, 12)}`;
+  generateScopeCatalog({ repoRoot: root, sourceCommit, releaseTag });
+
+  const catalog = JSON.parse(readFileSync(join(root, "scope-catalog.json")));
+  assert.deepEqual(catalog.distribution, {
+    repository: "https://github.com/vana-com/data-connectors",
+    sourceCommit,
+    releaseTag,
+  });
+  assert.equal(
+    catalog.scopes[0].schema.url,
+    `https://raw.githubusercontent.com/vana-com/data-connectors/${sourceCommit}/connectors/alpha/schemas/alpha.profile.json`,
+  );
+});
+
+test("release workflow runs for connector changes", () => {
+  const workflow = readFileSync(
+    join(repoRoot, ".github", "workflows", "publish-connector-release-index.yml"),
+    "utf8",
+  );
+  assert.match(workflow, /- "connectors\/\*\*"/);
+  assert.match(workflow, /SCOPE_CATALOG_SOURCE_COMMIT/);
+  assert.match(workflow, /SCOPE_CATALOG_RELEASE_TAG/);
 });
 
 test("the checked-in catalog contains every published scope exactly once", () => {
@@ -168,4 +263,14 @@ test("the checked-in catalog contains every published scope exactly once", () =>
   const actual = catalog.scopes.map(({ scopeId }) => scopeId);
   assert.equal(new Set(actual).size, actual.length);
   assert.deepEqual(new Set(actual), expected);
+  assert.match(
+    catalog.scopes.find(({ scopeId }) => scopeId === "github.contributions").description,
+    /last 4 years/,
+  );
+  assert.equal(
+    catalog.scopes
+      .find(({ scopeId }) => scopeId === "youtube.history")
+      .fulfillment.desktop.connectors[0].limits[0].value,
+    50,
+  );
 });

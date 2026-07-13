@@ -3,18 +3,42 @@
     "path": "schemas/scope-catalog.schema.json",
     "releaseAsset": "scope-catalog.schema.json"
   },
+  "distribution": {
+    "repository": "https://github.com/vana-com/data-connectors"
+  },
   "catalogVersion": "1.0.0",
   "generatedBy": "scripts/generate-scope-catalog.mjs",
-  "generatedFrom": [
-    "registry.json",
-    "connectors/**/*-playwright.json",
-    "scopes/web-capabilities.json"
-  ],
+  "generatedFrom": {
+    "publishability": {
+      "path": "registry.json",
+      "manifestSelector": "connectors[].files.metadata"
+    },
+    "manifests": [
+      "connectors/amazon/amazon-playwright.json",
+      "connectors/anthropic/claude-export-playwright.json",
+      "connectors/apple/icloud-notes-playwright.json",
+      "connectors/doordash/doordash-playwright.json",
+      "connectors/github/github-playwright.json",
+      "connectors/google/youtube-playwright.json",
+      "connectors/heb/heb-playwright.json",
+      "connectors/linkedin/linkedin-playwright.json",
+      "connectors/meta/instagram-ads-playwright.json",
+      "connectors/meta/instagram-playwright.json",
+      "connectors/openai/chatgpt-playwright.json",
+      "connectors/oura/oura-playwright.json",
+      "connectors/shopify/shop-playwright.json",
+      "connectors/spotify/spotify-playwright.json",
+      "connectors/uber/uber-playwright.json",
+      "connectors/valve/steam-playwright.json",
+      "connectors/wholefoods/wholefoods-playwright.json"
+    ],
+    "webCapabilities": "scopes/web-capabilities.json"
+  },
   "scopes": [
     {
       "sourceId": "amazon",
       "scopeId": "amazon.orders",
-      "description": "Amazon order history including items, prices, dates, and delivery status",
+      "description": "Order history including items, prices, dates, and delivery status",
       "schema": {
         "path": "connectors/amazon/schemas/amazon.orders.json"
       },
@@ -37,7 +61,7 @@
     {
       "sourceId": "amazon",
       "scopeId": "amazon.profile",
-      "description": "Amazon account profile information including name and Prime membership status",
+      "description": "Account name and Prime membership status",
       "schema": {
         "path": "connectors/amazon/schemas/amazon.profile.json"
       },
@@ -60,7 +84,7 @@
     {
       "sourceId": "chatgpt",
       "scopeId": "chatgpt.conversations",
-      "description": "Conversation history from ChatGPT including full message threads with user and assistant messages",
+      "description": "All conversation history including messages with ChatGPT",
       "schema": {
         "path": "connectors/openai/schemas/chatgpt.conversations.json"
       },
@@ -83,7 +107,7 @@
     {
       "sourceId": "chatgpt",
       "scopeId": "chatgpt.memories",
-      "description": "Saved memories from ChatGPT including user preferences and context the model remembers",
+      "description": "Saved memories that ChatGPT uses to personalize responses",
       "schema": {
         "path": "connectors/openai/schemas/chatgpt.memories.json"
       },
@@ -106,7 +130,7 @@
     {
       "sourceId": "claude",
       "scopeId": "claude.conversations",
-      "description": "Claude conversations including chat ids, titles, URLs, and full thread messages when the authenticated conversation API is available.",
+      "description": "All Claude conversations with full message threads, from Anthropic's official data export.",
       "schema": {
         "path": "connectors/anthropic/schemas/claude.conversations.json"
       },
@@ -129,7 +153,7 @@
     {
       "sourceId": "claude",
       "scopeId": "claude.projects",
-      "description": "Claude projects including project ids, titles, labels, relative URLs, and project detail when the authenticated project API is available.",
+      "description": "Claude projects and their detail, from Anthropic's official data export.",
       "schema": {
         "path": "connectors/anthropic/schemas/claude.projects.json"
       },
@@ -152,7 +176,7 @@
     {
       "sourceId": "doordash",
       "scopeId": "doordash.orders",
-      "description": "DoorDash order history including restaurant names, items ordered with prices, dates, totals, delivery addresses, and delivery status",
+      "description": "Complete order history with restaurant names, items ordered, dates, totals, and delivery status",
       "schema": {
         "path": "connectors/doordash/schemas/doordash.orders.json"
       },
@@ -175,7 +199,7 @@
     {
       "sourceId": "github",
       "scopeId": "github.contributions",
-      "description": "GitHub contribution graph (daily commit counts for the last year) plus aggregate streak and month totals.",
+      "description": "Daily contribution counts for the last 4 years (per-year scrape, not just rolling 12 months), monthly totals, per-year totals, and your top day",
       "schema": {
         "path": "connectors/github/schemas/github.contributions.json"
       },
@@ -198,7 +222,7 @@
     {
       "sourceId": "github",
       "scopeId": "github.events",
-      "description": "Recent public activity (pushes, pull requests, issues, comments, branches, releases, stars, forks) across every repository the user has touched — including organization-owned repos invisible to github.repositories.",
+      "description": "Recent public activity (pushes, pull requests, issues, comments, branches, releases) across every repository you have touched, including organization-owned repos",
       "schema": {
         "path": "connectors/github/schemas/github.events.json"
       },
@@ -221,7 +245,7 @@
     {
       "sourceId": "github",
       "scopeId": "github.history",
-      "description": "Full lifetime of pull requests and issues authored by the user, fetched via the GitHub Search API. Covers any repository the user has authored in (including organizations and forks) — far broader than the 90-day Events window. Up to 1000 items per type per query.",
+      "description": "Full lifetime of pull requests and issues you have authored across every public repository (via the GitHub Search API). Includes title, body, dates, repository, labels, and state.",
       "schema": {
         "path": "connectors/github/schemas/github.history.json"
       },
@@ -244,7 +268,7 @@
     {
       "sourceId": "github",
       "scopeId": "github.profile",
-      "description": "GitHub user profile information, including pinned repositories, organization memberships, and achievement badges",
+      "description": "Account profile information such as name, bio, follower counts, pinned repositories, organization memberships, and achievement badges",
       "schema": {
         "path": "connectors/github/schemas/github.profile.json"
       },
@@ -267,7 +291,7 @@
     {
       "sourceId": "github",
       "scopeId": "github.repositories",
-      "description": "GitHub repositories visible in the user's repositories tab",
+      "description": "Your repository list with metadata like language, stars, and update time",
       "schema": {
         "path": "connectors/github/schemas/github.repositories.json"
       },
@@ -290,7 +314,7 @@
     {
       "sourceId": "github",
       "scopeId": "github.starred",
-      "description": "GitHub repositories starred by the user",
+      "description": "Repositories you have starred on GitHub",
       "schema": {
         "path": "connectors/github/schemas/github.starred.json"
       },
@@ -313,7 +337,7 @@
     {
       "sourceId": "heb",
       "scopeId": "heb.nutrition",
-      "description": "Nutrition facts per product ordered from H-E-B, including macros, micronutrients, ingredients, and allergens",
+      "description": "Nutrition facts (calories, macros, sodium, fiber, vitamins) for each product ordered. Aligned to Schema.org NutritionInformation.",
       "schema": {
         "path": "connectors/heb/schemas/heb.nutrition.json"
       },
@@ -336,7 +360,7 @@
     {
       "sourceId": "heb",
       "scopeId": "heb.orders",
-      "description": "H-E-B curbside and delivery order history with item details",
+      "description": "Curbside and delivery orders with item names, quantities, prices, and order dates",
       "schema": {
         "path": "connectors/heb/schemas/heb.orders.json"
       },
@@ -359,7 +383,7 @@
     {
       "sourceId": "heb",
       "scopeId": "heb.profile",
-      "description": "H-E-B account profile including name, email, phone, and delivery addresses",
+      "description": "Your name, email, phone number, and saved delivery addresses",
       "schema": {
         "path": "connectors/heb/schemas/heb.profile.json"
       },
@@ -382,7 +406,7 @@
     {
       "sourceId": "icloud_notes",
       "scopeId": "icloud_notes.folders",
-      "description": "Folder structure used to organize iCloud Notes. Field shape reflects the data the CG-in-prod iCloud Notes script emits: one object per folder with its CloudKit recordName and display title.",
+      "description": "Folder structure for organizing notes",
       "schema": {
         "path": "connectors/apple/schemas/icloud_notes.folders.json"
       },
@@ -405,7 +429,7 @@
     {
       "sourceId": "icloud_notes",
       "scopeId": "icloud_notes.notes",
-      "description": "Notes exported from iCloud. Field shape reflects the data the CG-in-prod iCloud Notes script emits: one object per note with recordName, title, snippet, folder, pin state, created/modified dates, attachment flag, and extracted text content.",
+      "description": "Note content, titles, created/modified timestamps, and folder assignment",
       "schema": {
         "path": "connectors/apple/schemas/icloud_notes.notes.json"
       },
@@ -455,7 +479,7 @@
     {
       "sourceId": "instagram",
       "scopeId": "instagram.following",
-      "description": "The list of Instagram accounts the user follows, as returned by the Instagram friendships/following endpoint.",
+      "description": "The list of Instagram accounts you follow",
       "schema": {
         "path": "connectors/meta/schemas/instagram.following.json"
       },
@@ -478,7 +502,7 @@
     {
       "sourceId": "instagram",
       "scopeId": "instagram.posts",
-      "description": "User's Instagram posts including images, captions, and like engagement data",
+      "description": "Published posts from your feed",
       "schema": {
         "path": "connectors/meta/schemas/instagram.posts.json"
       },
@@ -509,7 +533,7 @@
     {
       "sourceId": "instagram",
       "scopeId": "instagram.profile",
-      "description": "Basic Instagram profile information including username, bio, and follower counts",
+      "description": "Profile information including bio and follower counts",
       "schema": {
         "path": "connectors/meta/schemas/instagram.profile.json"
       },
@@ -532,7 +556,7 @@
     {
       "sourceId": "linkedin",
       "scopeId": "linkedin.connections",
-      "description": "LinkedIn connections with names, headlines, profile URLs, and date connected",
+      "description": "Your LinkedIn connections with names, headlines, profile URLs, and date connected",
       "schema": {
         "path": "connectors/linkedin/schemas/linkedin.connections.json"
       },
@@ -563,7 +587,7 @@
     {
       "sourceId": "linkedin",
       "scopeId": "linkedin.education",
-      "description": "LinkedIn education history including schools, degrees, years, grades, and logos",
+      "description": "Your education history including schools, degrees, years, and grades",
       "schema": {
         "path": "connectors/linkedin/schemas/linkedin.education.json"
       },
@@ -594,7 +618,7 @@
     {
       "sourceId": "linkedin",
       "scopeId": "linkedin.experience",
-      "description": "LinkedIn work experience including job titles, companies, dates, locations, and descriptions",
+      "description": "Your work experience including job titles, companies, dates, locations, and descriptions",
       "schema": {
         "path": "connectors/linkedin/schemas/linkedin.experience.json"
       },
@@ -625,7 +649,7 @@
     {
       "sourceId": "linkedin",
       "scopeId": "linkedin.languages",
-      "description": "LinkedIn languages with proficiency levels",
+      "description": "Your languages and proficiency levels",
       "schema": {
         "path": "connectors/linkedin/schemas/linkedin.languages.json"
       },
@@ -656,7 +680,7 @@
     {
       "sourceId": "linkedin",
       "scopeId": "linkedin.profile",
-      "description": "LinkedIn profile including name, headline, location, about, connections count, and profile picture",
+      "description": "Your LinkedIn profile including name, headline, location, about, and profile picture",
       "schema": {
         "path": "connectors/linkedin/schemas/linkedin.profile.json"
       },
@@ -687,7 +711,7 @@
     {
       "sourceId": "linkedin",
       "scopeId": "linkedin.skills",
-      "description": "LinkedIn skills with endorsement counts",
+      "description": "Your skills and endorsement counts",
       "schema": {
         "path": "connectors/linkedin/schemas/linkedin.skills.json"
       },
@@ -718,7 +742,7 @@
     {
       "sourceId": "oura",
       "scopeId": "oura.activity",
-      "description": "Daily activity data from Oura Ring including activity scores, step counts, calorie expenditure, and time spent at different activity levels.",
+      "description": "Daily activity scores, step counts, calorie burn, and activity level breakdowns",
       "schema": {
         "path": "connectors/oura/schemas/oura.activity.json"
       },
@@ -741,7 +765,7 @@
     {
       "sourceId": "oura",
       "scopeId": "oura.readiness",
-      "description": "Daily readiness scores from Oura Ring, including overall score and contributing factors like HRV balance, resting heart rate, recovery index, and body temperature.",
+      "description": "Daily readiness scores and contributing factors like HRV balance, resting heart rate, recovery, and body temperature",
       "schema": {
         "path": "connectors/oura/schemas/oura.readiness.json"
       },
@@ -764,7 +788,7 @@
     {
       "sourceId": "oura",
       "scopeId": "oura.sleep",
-      "description": "Sleep data from Oura Ring including daily sleep scores with contributor breakdowns and detailed sleep period data with durations, stages, heart rate, and HRV.",
+      "description": "Daily sleep scores with contributor breakdowns and detailed sleep period data including duration, stages, heart rate, and HRV",
       "schema": {
         "path": "connectors/oura/schemas/oura.sleep.json"
       },
@@ -787,7 +811,7 @@
     {
       "sourceId": "shop",
       "scopeId": "shop.orders",
-      "description": "Order history from the Shop app (Shopify) including merchant names, item counts, totals, and delivery status",
+      "description": "Complete order history from the Shop app including merchants, items, totals, and delivery status",
       "schema": {
         "path": "connectors/shopify/schemas/shop.orders.json"
       },
@@ -810,7 +834,7 @@
     {
       "sourceId": "spotify",
       "scopeId": "spotify.playlists",
-      "description": "User's Spotify playlists including track listings with artist and album details",
+      "description": "Playlists and their tracks",
       "schema": {
         "path": "connectors/spotify/schemas/spotify.playlists.json"
       },
@@ -833,7 +857,7 @@
     {
       "sourceId": "spotify",
       "scopeId": "spotify.profile",
-      "description": "Basic Spotify profile information including display name, followers, and following counts",
+      "description": "Profile information",
       "schema": {
         "path": "connectors/spotify/schemas/spotify.profile.json"
       },
@@ -856,7 +880,7 @@
     {
       "sourceId": "spotify",
       "scopeId": "spotify.savedTracks",
-      "description": "User's saved (liked) tracks from Spotify including artist, album, and track details",
+      "description": "Saved/liked tracks in your library",
       "schema": {
         "path": "connectors/spotify/schemas/spotify.savedTracks.json"
       },
@@ -879,7 +903,7 @@
     {
       "sourceId": "steam",
       "scopeId": "steam.friends",
-      "description": "Steam friend list with persona names, avatars, and friendship dates",
+      "description": "Friend list with persona names, avatars, and friendship dates",
       "schema": {
         "path": "connectors/valve/schemas/steam.friends.json"
       },
@@ -902,7 +926,7 @@
     {
       "sourceId": "steam",
       "scopeId": "steam.games",
-      "description": "Owned games with playtime statistics and recently played games",
+      "description": "Owned games with playtime statistics, plus recently played games",
       "schema": {
         "path": "connectors/valve/schemas/steam.games.json"
       },
@@ -925,7 +949,7 @@
     {
       "sourceId": "steam",
       "scopeId": "steam.profile",
-      "description": "Steam user profile including persona name, avatar, level, location, and account metadata",
+      "description": "Steam profile including persona name, avatar, level, country, and account age",
       "schema": {
         "path": "connectors/valve/schemas/steam.profile.json"
       },
@@ -948,7 +972,7 @@
     {
       "sourceId": "uber",
       "scopeId": "uber.receipts",
-      "description": "Detailed fare breakdowns and receipt information for each Uber trip",
+      "description": "Fare breakdowns and receipt details for each trip",
       "schema": {
         "path": "connectors/uber/schemas/uber.receipts.json"
       },
@@ -971,7 +995,7 @@
     {
       "sourceId": "uber",
       "scopeId": "uber.trips",
-      "description": "Complete history of Uber rides including pickup/dropoff locations, dates, fares, and vehicle types",
+      "description": "Complete history of your Uber rides including pickup/dropoff locations, dates, and driver info",
       "schema": {
         "path": "connectors/uber/schemas/uber.trips.json"
       },
@@ -994,7 +1018,7 @@
     {
       "sourceId": "wholefoods",
       "scopeId": "wholefoods.nutrition",
-      "description": "Nutrition facts per unique product ordered from Whole Foods Market, aligned to Schema.org NutritionInformation",
+      "description": "Nutrition facts (calories, macros, sodium, fiber, vitamins) for each product ordered. Aligned to Schema.org NutritionInformation.",
       "schema": {
         "path": "connectors/wholefoods/schemas/wholefoods.nutrition.json"
       },
@@ -1017,7 +1041,7 @@
     {
       "sourceId": "wholefoods",
       "scopeId": "wholefoods.orders",
-      "description": "Whole Foods Market delivery and pickup order history with item details",
+      "description": "Whole Foods delivery and pickup orders with item names, quantities, prices, and order dates",
       "schema": {
         "path": "connectors/wholefoods/schemas/wholefoods.orders.json"
       },
@@ -1040,7 +1064,7 @@
     {
       "sourceId": "wholefoods",
       "scopeId": "wholefoods.profile",
-      "description": "Amazon account information associated with Whole Foods Market orders",
+      "description": "Your Amazon account name and email associated with Whole Foods orders",
       "schema": {
         "path": "connectors/wholefoods/schemas/wholefoods.profile.json"
       },
@@ -1063,7 +1087,7 @@
     {
       "sourceId": "youtube",
       "scopeId": "youtube.history",
-      "description": "Most recent watch history entries (top 50) collected from the YouTube History page.",
+      "description": "Raw watch history entries for the top 50 most recent items",
       "schema": {
         "path": "connectors/google/schemas/youtube.history.json"
       },
@@ -1074,7 +1098,15 @@
           "connectors": [
             {
               "id": "youtube-playwright",
-              "status": "beta"
+              "status": "beta",
+              "limits": [
+                {
+                  "type": "maxItems",
+                  "value": 50,
+                  "unit": "items",
+                  "description": "The Desktop connector returns at most the 50 most recent watch history items."
+                }
+              ]
             }
           ]
         },
@@ -1086,7 +1118,7 @@
     {
       "sourceId": "youtube",
       "scopeId": "youtube.likes",
-      "description": "Videos liked by the user (Liked videos).",
+      "description": "Videos you have liked",
       "schema": {
         "path": "connectors/google/schemas/youtube.likes.json"
       },
@@ -1109,7 +1141,7 @@
     {
       "sourceId": "youtube",
       "scopeId": "youtube.playlistItems",
-      "description": "Videos inside user playlists, including video titles and URLs.",
+      "description": "Videos inside your playlists, including titles and URLs",
       "schema": {
         "path": "connectors/google/schemas/youtube.playlistItems.json"
       },
@@ -1132,7 +1164,7 @@
     {
       "sourceId": "youtube",
       "scopeId": "youtube.playlists",
-      "description": "User-created playlists (excludes Liked Videos and Watch Later).",
+      "description": "Playlists visible in your YouTube Library",
       "schema": {
         "path": "connectors/google/schemas/youtube.playlists.json"
       },
@@ -1155,7 +1187,7 @@
     {
       "sourceId": "youtube",
       "scopeId": "youtube.profile",
-      "description": "Basic YouTube profile information including email, channel URL, handle, and joined date.",
+      "description": "Email, channel URL, handle, and joined date (plus optional channel fields like title, avatar, and stats)",
       "schema": {
         "path": "connectors/google/schemas/youtube.profile.json"
       },
@@ -1178,7 +1210,7 @@
     {
       "sourceId": "youtube",
       "scopeId": "youtube.subscriptions",
-      "description": "Channels the user is subscribed to.",
+      "description": "Channels you are subscribed to",
       "schema": {
         "path": "connectors/google/schemas/youtube.subscriptions.json"
       },
@@ -1201,7 +1233,7 @@
     {
       "sourceId": "youtube",
       "scopeId": "youtube.watchLater",
-      "description": "Videos saved to Watch Later.",
+      "description": "Videos saved to Watch Later",
       "schema": {
         "path": "connectors/google/schemas/youtube.watchLater.json"
       },

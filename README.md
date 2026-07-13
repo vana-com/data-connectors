@@ -112,8 +112,9 @@ create-connector.sh                # Quick autonomous scaffold script
 - Pin `scope-catalog.json` from an immutable GitHub release named
   `connectors-<commit12>`, for example
   `https://github.com/vana-com/data-connectors/releases/download/connectors-<commit12>/scope-catalog.json`.
-  The release tag resolves the full source commit; resolve each catalog
-  `schema.path` against that commit. A raw `main` URL is not a version pin.
+  Release catalogs embed the full source commit and an immutable `schema.url`
+  for every payload schema. Checked-in catalogs retain `schema.path` for local
+  repository use. A raw `main` URL is not a version pin.
 - `scope-catalog.json.sigstore.json` is the catalog's detached Sigstore bundle.
 - The same immutable release includes `scope-catalog.schema.json` and its
   detached Sigstore bundle. The catalog's `catalogSchema` object names both the

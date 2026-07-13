@@ -8,6 +8,8 @@ import Ajv2020 from "ajv/dist/2020.js";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const defaultRepoRoot = join(scriptDir, "..");
+const repositoryUrl = "https://github.com/vana-com/data-connectors";
+const rawRepositoryUrl = "https://raw.githubusercontent.com/vana-com/data-connectors";
 const maturityRank = new Map([
   ["stable", 0],
   ["beta", 1],
@@ -42,6 +44,11 @@ function descriptionFromManifestEntry(entry) {
   return typeof entry === "object" ? entry?.description : null;
 }
 
+function supportsScopeLimits(manifestVersion) {
+  const [major, minor] = String(manifestVersion).split(".").map(Number);
+  return major > 1 || (major === 1 && minor >= 1);
+}
+
 function loadPublishedScopes(repoRoot) {
   const registry = readJson(join(repoRoot, "registry.json"));
   if (!Array.isArray(registry.connectors)) {
@@ -49,6 +56,7 @@ function loadPublishedScopes(repoRoot) {
   }
 
   const groupedScopes = new Map();
+  const manifestPaths = [];
   const seenConnectorIds = new Set();
 
   for (const registryEntry of registry.connectors) {
@@ -68,6 +76,7 @@ function loadPublishedScopes(repoRoot) {
       throw new Error(`Registry connector ${registryEntry.id} metadata does not exist`);
     }
     const manifest = readJson(metadataPath);
+    manifestPaths.push(relative(repoRoot, metadataPath));
     if (manifest.connector_id !== registryEntry.id) {
       throw new Error(
         `Registry connector ${registryEntry.id} points to manifest ${manifest.connector_id}`,
@@ -77,6 +86,7 @@ function loadPublishedScopes(repoRoot) {
       throw new Error(`Manifest ${relative(repoRoot, metadataPath)} has no source_id or scopes`);
     }
 
+    const manifestScopeIds = new Set();
     for (const scopeEntry of manifest.scopes) {
       const scopeId = scopeIdFromManifestEntry(scopeEntry);
       const description = descriptionFromManifestEntry(scopeEntry);
@@ -88,6 +98,17 @@ function loadPublishedScopes(repoRoot) {
       if (!scopeId.startsWith(`${manifest.source_id}.`)) {
         throw new Error(
           `${scopeId} does not belong to manifest source_id ${manifest.source_id}`,
+        );
+      }
+      if (manifestScopeIds.has(scopeId)) {
+        throw new Error(
+          `${relative(repoRoot, metadataPath)} declares duplicate scope ${scopeId}`,
+        );
+      }
+      manifestScopeIds.add(scopeId);
+      if (scopeEntry.limits && !supportsScopeLimits(manifest.manifest_version)) {
+        throw new Error(
+          `${relative(repoRoot, metadataPath)} must use manifest_version 1.1 or later to declare scope limits`,
         );
       }
 
@@ -104,9 +125,13 @@ function loadPublishedScopes(repoRoot) {
 
       const candidate = {
         sourceId: manifest.source_id,
-        description: scopeSchema.description.trim(),
+        description: description.trim(),
         schemaPath: relative(repoRoot, schemaPath),
-        connector: { id: registryEntry.id, status: registryEntry.status },
+        connector: {
+          id: registryEntry.id,
+          status: registryEntry.status,
+          ...(scopeEntry.limits ? { limits: scopeEntry.limits } : {}),
+        },
       };
       const group = groupedScopes.get(scopeId) ?? [];
       group.push(candidate);
@@ -114,7 +139,10 @@ function loadPublishedScopes(repoRoot) {
     }
   }
 
-  return groupedScopes;
+  return {
+    groupedScopes,
+    manifestPaths: manifestPaths.sort((left, right) => left.localeCompare(right)),
+  };
 }
 
 function validateExactWebSet(publishedScopes, webInput) {
@@ -136,7 +164,13 @@ function validateExactWebSet(publishedScopes, webInput) {
   }
 }
 
-function buildCatalog(repoRoot) {
+function buildCatalog(repoRoot, { sourceCommit, releaseTag } = {}) {
+  if ((sourceCommit && !releaseTag) || (!sourceCommit && releaseTag)) {
+    throw new Error("sourceCommit and releaseTag must be provided together");
+  }
+  if (sourceCommit && !/^[0-9a-f]{40}$/.test(sourceCommit)) {
+    throw new Error("sourceCommit must be a full lowercase Git commit SHA");
+  }
   const webInputPath = join(repoRoot, "scopes", "web-capabilities.json");
   const webInput = readJson(webInputPath);
   const webInputSchema = readJson(
@@ -144,7 +178,7 @@ function buildCatalog(repoRoot) {
   );
   validateAgainstSchema(webInput, webInputSchema, "web-capabilities.json");
 
-  const publishedScopes = loadPublishedScopes(repoRoot);
+  const { groupedScopes: publishedScopes, manifestPaths } = loadPublishedScopes(repoRoot);
   validateExactWebSet(publishedScopes, webInput);
 
   const blockerById = new Map();
@@ -167,6 +201,10 @@ function buildCatalog(repoRoot) {
       const primary = candidates[0];
       if (candidates.some(({ sourceId }) => sourceId !== primary.sourceId)) {
         throw new Error(`Published scope ${scopeId} has conflicting source IDs`);
+      }
+      const descriptions = new Set(candidates.map(({ description }) => description));
+      if (descriptions.size > 1) {
+        throw new Error(`Published scope ${scopeId} has conflicting manifest descriptions`);
       }
       const schemaPaths = new Set(candidates.map(({ schemaPath }) => schemaPath));
       if (schemaPaths.size > 1) {
@@ -194,7 +232,12 @@ function buildCatalog(repoRoot) {
         sourceId: primary.sourceId,
         scopeId,
         description: primary.description,
-        schema: { path: primary.schemaPath },
+        schema: {
+          path: primary.schemaPath,
+          ...(sourceCommit
+            ? { url: `${rawRepositoryUrl}/${sourceCommit}/${primary.schemaPath}` }
+            : {}),
+        },
         maturity: primary.connector.status,
         fulfillment: {
           desktop: {
@@ -211,13 +254,20 @@ function buildCatalog(repoRoot) {
       path: "schemas/scope-catalog.schema.json",
       releaseAsset: "scope-catalog.schema.json",
     },
+    distribution: {
+      repository: repositoryUrl,
+      ...(sourceCommit ? { sourceCommit, releaseTag } : {}),
+    },
     catalogVersion: "1.0.0",
     generatedBy: "scripts/generate-scope-catalog.mjs",
-    generatedFrom: [
-      "registry.json",
-      "connectors/**/*-playwright.json",
-      "scopes/web-capabilities.json",
-    ],
+    generatedFrom: {
+      publishability: {
+        path: "registry.json",
+        manifestSelector: "connectors[].files.metadata",
+      },
+      manifests: manifestPaths,
+      webCapabilities: "scopes/web-capabilities.json",
+    },
     scopes,
   };
   const catalogSchema = readJson(join(repoRoot, "schemas", "scope-catalog.schema.json"));
@@ -231,9 +281,17 @@ function renderWebStatus(web) {
   return "—";
 }
 
-function renderLimits(web) {
-  if (!web.limits) return "—";
-  return web.limits.map(({ description }) => description).join("; ");
+function renderLimits(scope) {
+  const limits = [];
+  for (const limit of scope.fulfillment.web.limits ?? []) {
+    limits.push(`Web: ${limit.description}`);
+  }
+  for (const connector of scope.fulfillment.desktop.connectors) {
+    for (const limit of connector.limits ?? []) {
+      limits.push(`Desktop (${connector.id}): ${limit.description}`);
+    }
+  }
+  return limits.join("; ") || "—";
 }
 
 function escapeCell(value) {
@@ -245,7 +303,7 @@ function renderScopesMarkdown(catalog) {
     const connectors = scope.fulfillment.desktop.connectors
       .map(({ id, status }) => `${id} (${status})`)
       .join("; ");
-    return `| ${escapeCell(scope.sourceId)} | \`${scope.scopeId}\` | ${escapeCell(scope.description)} | [JSON Schema](${scope.schema.path}) | ${renderWebStatus(scope.fulfillment.web)} | ✅ | ${escapeCell(renderLimits(scope.fulfillment.web))} | ${escapeCell(connectors)} |`;
+    return `| ${escapeCell(scope.sourceId)} | \`${scope.scopeId}\` | ${escapeCell(scope.description)} | [JSON Schema](${scope.schema.path}) | ${renderWebStatus(scope.fulfillment.web)} | ✅ | ${escapeCell(renderLimits(scope))} | ${escapeCell(connectors)} |`;
   });
 
   return `<!-- Generated by scripts/generate-scope-catalog.mjs. Do not edit. -->
@@ -289,8 +347,13 @@ function checkOrWrite(path, expected, check) {
   writeFileSync(path, expected);
 }
 
-export function generateScopeCatalog({ repoRoot = defaultRepoRoot, check = false } = {}) {
-  const catalog = buildCatalog(repoRoot);
+export function generateScopeCatalog({
+  repoRoot = defaultRepoRoot,
+  check = false,
+  sourceCommit,
+  releaseTag,
+} = {}) {
+  const catalog = buildCatalog(repoRoot, { sourceCommit, releaseTag });
   checkOrWrite(
     join(repoRoot, "scope-catalog.json"),
     `${JSON.stringify(catalog, null, 2)}\n`,
@@ -309,7 +372,11 @@ function parseArgs(argv) {
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   try {
     const { check } = parseArgs(process.argv.slice(2));
-    const catalog = generateScopeCatalog({ check });
+    const catalog = generateScopeCatalog({
+      check,
+      sourceCommit: process.env.SCOPE_CATALOG_SOURCE_COMMIT?.trim() || undefined,
+      releaseTag: process.env.SCOPE_CATALOG_RELEASE_TAG?.trim() || undefined,
+    });
     console.log(
       check
         ? `Scope catalog is up to date (${catalog.scopes.length} scopes).`
