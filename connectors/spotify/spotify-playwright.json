@@ -2,7 +2,7 @@
   "manifest_version": "1.0",
   "connector_id": "spotify-playwright",
   "source_id": "spotify",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "name": "Spotify",
   "company": "Spotify",
   "description": "Exports your Spotify library, playlists, listening history, and preferences.",

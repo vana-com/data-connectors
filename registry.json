@@ -127,7 +127,7 @@
     {
       "id": "spotify-playwright",
       "company": "spotify",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "name": "Spotify",
       "status": "stable",
       "description": "Exports your Spotify library, playlists, listening history, and preferences.",

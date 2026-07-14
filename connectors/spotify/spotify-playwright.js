@@ -554,28 +554,63 @@ const spClientFetch = async (path) => {
     message: 'Loading profile data...',
   });
 
-  // Use spclient for profile (always works, returns JSON directly)
-  const profileData = await spClientFetch('/user-profile-view/v3/profile/me');
-
-  // Also get profileAttributes via GraphQL for username/uri
+  // IDENTITY comes from the session-bound GraphQL `me` query, never from
+  // spclient. `/user-profile-view/v3/profile/me` is NOT session-bound: called
+  // with a token that is not tied to a user it still answers 200, with
+  // `uri: "spotify:user:me"` and some unrelated person's name/avatar/counts
+  // (reproduced with a fresh anonymous token: it returns a fixed foreign
+  // profile). Reading display_name from it stamped that stranger's identity
+  // onto every user's export while the ids and the collected data were their
+  // own.
   const profileAttrs = await gqlFetch('profileAttributes', {});
   const pa = profileAttrs?.data?.me?.profile;
 
-  if (!profileData && !pa) {
-    await page.setData('error', 'Could not fetch profile. Token may be invalid.');
-    return { error: 'Could not fetch profile' };
+  if (!pa?.username) {
+    await page.setData(
+      'error',
+      'Could not confirm which Spotify account is signed in. Please sign in again.'
+    );
+    return { error: 'Could not resolve the signed-in Spotify profile' };
   }
 
+  const identityUri = pa.uri || 'spotify:user:' + pa.username;
+
+  // spclient is enrichment ONLY (avatar + counts, which GraphQL does not
+  // expose), and only when it demonstrably describes the SAME account. The
+  // literal "spotify:user:me" uri is the not-a-real-user marker.
+  const profileData = await spClientFetch('/user-profile-view/v3/profile/me');
+  const enrichment =
+    profileData &&
+    profileData.uri &&
+    profileData.uri !== 'spotify:user:me' &&
+    profileData.uri === identityUri
+      ? profileData
+      : null;
+
+  if (profileData && !enrichment) {
+    await page.setData(
+      'status',
+      'Profile details unavailable for this account; continuing with the signed-in identity.'
+    );
+  }
+
+  // Avatar: prefer the session-bound GraphQL field when Spotify exposes it,
+  // and only fall back to the (verified-same-account) spclient image.
+  const avatar = pa.imageUrl || enrichment?.image_url || null;
+
   state.profile = {
-    id: pa?.username || '',
-    display_name: profileData?.name || pa?.name || '',
-    uri: pa?.uri || profileData?.uri || '',
-    followers: profileData?.followers_count || 0,
-    following: profileData?.following_count || 0,
-    images: profileData?.image_url ? [profileData.image_url] : [],
+    id: pa.username,
+    display_name: pa.name || '',
+    uri: identityUri,
+    followers: enrichment?.followers_count || 0,
+    following: enrichment?.following_count || 0,
+    images: avatar ? [avatar] : [],
   };
 
-  await page.setData('status', 'Logged in as ' + state.profile.display_name);
+  await page.setData(
+    'status',
+    'Logged in as ' + (state.profile.display_name || state.profile.id)
+  );
 
   // Step 2: Liked Songs (paginated via GraphQL)
   await page.setProgress({
