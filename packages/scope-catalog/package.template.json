@@ -1,0 +1,32 @@
+{
+  "name": "@opendatalabs/scope-catalog",
+  "description": "Versioned public Vana source and scope catalog",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vana-com/data-connectors.git",
+    "directory": "packages/scope-catalog"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "files": [
+    "CHANGELOG.md",
+    "README.md",
+    "connectors",
+    "release.json",
+    "schemas",
+    "scope-catalog.json"
+  ],
+  "exports": {
+    "./scope-catalog.json": "./scope-catalog.json",
+    "./schemas/scope-catalog.schema.json": "./schemas/scope-catalog.schema.json",
+    "./connectors/*": "./connectors/*",
+    "./release.json": "./release.json",
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  }
+}
