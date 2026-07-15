@@ -554,14 +554,13 @@ const spClientFetch = async (path) => {
     message: 'Loading profile data...',
   });
 
-  // IDENTITY comes from the session-bound GraphQL `me` query, never from
-  // spclient. `/user-profile-view/v3/profile/me` is NOT session-bound: called
-  // with a token that is not tied to a user it still answers 200, with
-  // `uri: "spotify:user:me"` and some unrelated person's name/avatar/counts
-  // (reproduced with a fresh anonymous token: it returns a fixed foreign
-  // profile). Reading display_name from it stamped that stranger's identity
-  // onto every user's export while the ids and the collected data were their
-  // own.
+  // IDENTITY comes from the session-bound GraphQL `me` query, never from the
+  // profile-view path. `spClientFetch('/user-profile-view/v3/profile/me')` is
+  // NOT a self-alias: the trailing segment is a literal vanity username, and a
+  // real Spotify user grabbed the username "me" (open.spotify.com/user/me =>
+  // "Micael Widell"). So "me" resolved to that stranger's public profile for
+  // every user, stamping his name/avatar/counts onto their spotify.profile
+  // while the ids and collected data stayed their own.
   const profileAttrs = await gqlFetch('profileAttributes', {});
   const pa = profileAttrs?.data?.me?.profile;
 
@@ -576,16 +575,14 @@ const spClientFetch = async (path) => {
   const identityUri = pa.uri || 'spotify:user:' + pa.username;
 
   // spclient is enrichment ONLY (avatar + counts, which GraphQL does not
-  // expose), and only when it demonstrably describes the SAME account. The
-  // literal "spotify:user:me" uri is the not-a-real-user marker.
-  const profileData = await spClientFetch('/user-profile-view/v3/profile/me');
+  // expose). Fetch the profile-view for the RESOLVED username — never the
+  // literal "me" — and still verify it describes the same account before
+  // trusting it, in case the username itself is ever ambiguous.
+  const profileData = await spClientFetch(
+    '/user-profile-view/v3/profile/' + encodeURIComponent(pa.username)
+  );
   const enrichment =
-    profileData &&
-    profileData.uri &&
-    profileData.uri !== 'spotify:user:me' &&
-    profileData.uri === identityUri
-      ? profileData
-      : null;
+    profileData && profileData.uri === identityUri ? profileData : null;
 
   if (profileData && !enrichment) {
     await page.setData(
