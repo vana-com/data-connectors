@@ -285,6 +285,34 @@
         }
       }
     ],
+    "gmail-playwright": [
+      {
+        "connectorId": "gmail-playwright",
+        "company": "google",
+        "version": "1.0.0",
+        "name": "Gmail Receipts",
+        "status": "experimental",
+        "description": "Exports up to 100 recent Gmail purchase receipts and travel confirmations using a local authenticated browser session.",
+        "sourceFiles": {
+          "script": "google/gmail-playwright.js",
+          "metadata": "google/gmail-playwright.json"
+        },
+        "publishedAt": "2026-07-13T00:00:00Z",
+        "sourceTag": "feat/gmail-connector",
+        "sourceCommit": "239092da52f87e3917819828b3e1250d770018fe",
+        "releaseId": "connectors-239092da52f8",
+        "pageApiVersion": 1,
+        "manifestSha256": "sha256:b3f80f45f9c38e0580099bfc612a847592f34af8815b0657f38333c017a663c4",
+        "scriptSha256": "sha256:21d7e4853f41a86a6de47c7dd833f0ba21dce22d9ed7fd51548f7b33c27b7279",
+        "artifactSha256": "sha256:e147f0313c25c9ef8f233cdb4de6e04500d95f7f540978f7e490fe1a23ab29ad",
+        "artifactPath": "artifacts/gmail-playwright/gmail-playwright-1.0.0.tgz",
+        "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/239092da52f87e3917819828b3e1250d770018fe/artifacts/gmail-playwright/gmail-playwright-1.0.0.tgz",
+        "scopes": [
+          "gmail.receipts"
+        ],
+        "consumerMetadata": null
+      }
+    ],
     "heb-playwright": [
       {
         "connectorId": "heb-playwright",

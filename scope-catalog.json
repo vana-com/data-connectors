@@ -19,6 +19,7 @@
       "connectors/apple/icloud-notes-playwright.json",
       "connectors/doordash/doordash-playwright.json",
       "connectors/github/github-playwright.json",
+      "connectors/google/gmail-playwright.json",
       "connectors/google/youtube-playwright.json",
       "connectors/heb/heb-playwright.json",
       "connectors/linkedin/linkedin-playwright.json",
@@ -356,6 +357,37 @@
             {
               "id": "github-playwright",
               "status": "stable"
+            }
+          ]
+        },
+        "web": {
+          "status": "unsupported"
+        }
+      }
+    },
+    {
+      "sourceId": "gmail",
+      "scopeId": "gmail.receipts",
+      "description": "Recent Gmail messages matching purchases, flights, or tickets, including sender, subject, date, and preview text.",
+      "schema": {
+        "path": "connectors/google/schemas/gmail.receipts.json"
+      },
+      "maturity": "experimental",
+      "fulfillment": {
+        "desktop": {
+          "status": "supported",
+          "connectors": [
+            {
+              "id": "gmail-playwright",
+              "status": "experimental",
+              "limits": [
+                {
+                  "type": "maxItems",
+                  "value": 100,
+                  "unit": "messages",
+                  "description": "The Desktop connector returns at most the 100 most recent Gmail rows matching the purchase and travel search."
+                }
+              ]
             }
           ]
         },

@@ -26,6 +26,7 @@ The catalog separates two collection paths. **Vana Desktop (local)** runs regist
 | `claude` | `claude.conversations`, `claude.projects` | claude-export-playwright (experimental) |
 | `doordash` | `doordash.orders` | doordash-playwright (beta) |
 | `github` | `github.contributions`, `github.events`, `github.history`, `github.profile`, `github.repositories`, `github.starred` | github-playwright (stable) |
+| `gmail` | `gmail.receipts` | gmail-playwright (experimental) |
 | `heb` | `heb.nutrition`, `heb.orders`, `heb.profile` | heb-playwright (experimental) |
 | `icloud_notes` | `icloud_notes.folders`, `icloud_notes.notes` | icloud-notes-playwright (experimental) |
 | `instagram` | `instagram.ads`, `instagram.following`, `instagram.posts`, `instagram.profile` | instagram-playwright (stable); instagram-ads-playwright (beta) |

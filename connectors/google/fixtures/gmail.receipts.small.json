@@ -1,0 +1,23 @@
+[
+  {
+    "id": "synthetic-order-2026-001",
+    "date": "Jul 9, 2026, 10:42 AM",
+    "sender": "Example Store <receipts@example-store.test>",
+    "subject": "Your order is confirmed",
+    "snippet": "Thanks for your purchase. Your synthetic order will be dispatched shortly."
+  },
+  {
+    "id": "synthetic-flight-2026-002",
+    "date": "Jul 7, 2026, 4:15 PM",
+    "sender": "Example Airways <booking@example-airways.test>",
+    "subject": "Flight booking confirmation",
+    "snippet": "Your synthetic itinerary from Lagos to Accra is confirmed for August 18."
+  },
+  {
+    "id": "synthetic-ticket-2026-003",
+    "date": "Jul 3, 2026, 8:05 AM",
+    "sender": "Example Tickets <hello@example-tickets.test>",
+    "subject": "Your event tickets",
+    "snippet": "Your two synthetic admission tickets are attached and ready to use."
+  }
+]

@@ -373,6 +373,22 @@
         "script": "sha256:ab465031ce09187c70890f4498fb0d650d0ea0dd7a11d558496d834a00076188",
         "metadata": "sha256:1b43c2ab74a7dc8bb2271b5be9d6f1d1e64d3f636604332f67439663bfd62bce"
       }
+    },
+    {
+      "id": "gmail-playwright",
+      "company": "google",
+      "version": "1.0.0",
+      "name": "Gmail Receipts",
+      "status": "experimental",
+      "description": "Exports up to 100 recent Gmail purchase receipts and travel confirmations using a local authenticated browser session.",
+      "files": {
+        "script": "google/gmail-playwright.js",
+        "metadata": "google/gmail-playwright.json"
+      },
+      "checksums": {
+        "script": "sha256:21d7e4853f41a86a6de47c7dd833f0ba21dce22d9ed7fd51548f7b33c27b7279",
+        "metadata": "sha256:b3f80f45f9c38e0580099bfc612a847592f34af8815b0657f38333c017a663c4"
+      }
     }
   ]
 }
