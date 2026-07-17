@@ -1,6 +1,8 @@
 # Data Connectors
 
-Playwright-based data connectors for local desktop collection in [Unity Surfaces](https://github.com/vana-com/unity-surfaces). Each connector exports your data from a web platform using browser automation. Credentials never leave your device.
+Playwright-based data connectors for local desktop collection. Each connector exports your data from a web platform using browser automation. Credentials never leave your device.
+
+This repo bundles its own standalone runner (`playwright-runner/`) -- no other repo is required to run a connector. See [Running a connector](#running-a-connector) below.
 
 ## Connector status
 
@@ -58,12 +60,15 @@ See the [Context Gateway docs](https://dev.opendatalabs.com/docs/data-sources) f
 ## Running a connector
 
 ```bash
+# One-time setup: install the bundled runner's dependencies + Chromium
+bash skills/pdp-connect/scripts/setup.sh
+
 node run-connector.cjs ./connectors/github/github-playwright.js              # JSON output (for agents)
 node run-connector.cjs ./connectors/github/github-playwright.js --pretty      # colored output (for humans)
 node run-connector.cjs ./connectors/github/github-playwright.js --inputs '{"username":"x","password":"y"}'
 ```
 
-See [`skills/pdp-connect/`](skills/pdp-connect/) for the agent skill: setup, running, creating new connectors, and data recipes.
+`run-connector.cjs` resolves the bundled `playwright-runner/` in this repo automatically -- no other repo needs to be cloned. See [`skills/pdp-connect/SETUP.md`](skills/pdp-connect/SETUP.md) for details, and [`skills/pdp-connect/`](skills/pdp-connect/) for the agent skill: setup, running, creating new connectors, and data recipes.
 
 ## Repository structure
 
@@ -209,7 +214,7 @@ Both produce the same connector files (`connectors/<company>/<name>-playwright.j
 
 ## How connectors work
 
-Connectors run in a sandboxed Playwright browser managed by the local desktop runner in Unity Surfaces. The runner provides a `page` API object (not raw Playwright). The browser starts headless; connectors call `page.showBrowser()` when login is needed and `page.goHeadless()` after.
+Connectors run in a sandboxed Playwright browser managed by the bundled runner (`playwright-runner/`) or, in the desktop app, an equivalent driver. The runner provides a `page` API object (not raw Playwright). The browser starts headless; connectors call `page.showBrowser()` when login is needed and `page.goHeadless()` after.
 
 ### Two-phase architecture
 
@@ -366,7 +371,7 @@ See [`skills/pdp-connect/CREATE.md`](skills/pdp-connect/CREATE.md) for the full 
 
 ## Page API reference
 
-The `page` object is available as a global in connector scripts. The runner implementation lives in [Unity Surfaces](https://github.com/vana-com/unity-surfaces/tree/main/apps/desktop/playwright-runner).
+The `page` object is available as a global in connector scripts. The runner implementation is bundled in this repo at [`playwright-runner/`](playwright-runner/).
 
 | Method | Description |
 |--------|-------------|
@@ -414,7 +419,7 @@ const { email, password } = await page.requestInput({
 });
 ```
 
-The runner relays the request to the driver (Tauri app, agent, CLI) and resolves with the response. The `schema` field uses JSON Schema — the same format used by OpenAI, Anthropic, and Google for LLM tool definitions. See the [headless-first runner spec](https://github.com/vana-com/unity-surfaces/blob/main/apps/desktop/docs/260310-headless-first-runner-spec.md) for the full protocol design.
+The runner relays the request to the driver (Tauri app, agent, CLI) and resolves with the response. The `schema` field uses JSON Schema — the same format used by OpenAI, Anthropic, and Google for LLM tool definitions.
 
 ### Progress reporting
 
@@ -435,17 +440,11 @@ await page.setProgress({
 
 ## Testing locally
 
-Desktop app development belongs to [Unity Surfaces](https://github.com/vana-com/unity-surfaces/tree/main/apps/desktop). Follow that repo's Desktop instructions for app setup, connector syncing, and runtime debugging.
-
 ### Standalone test runner
 
-Test connectors without the full desktop app. The runner spawns `playwright-runner` as a child process and outputs JSON protocol messages.
-
-**Prerequisites:** Clone [Unity Surfaces](https://github.com/vana-com/unity-surfaces) alongside this repo, then point `PLAYWRIGHT_RUNNER_DIR` at its Desktop runner.
+Test connectors without any other app or repo. `run-connector.cjs` spawns the bundled `playwright-runner/` (see [Running a connector](#running-a-connector) for one-time setup) as a child process and outputs JSON protocol messages.
 
 ```bash
-export PLAYWRIGHT_RUNNER_DIR=../unity-surfaces/apps/desktop/playwright-runner
-
 # Run a connector (headed by default, browser visible)
 node run-connector.cjs ./connectors/linkedin/linkedin-playwright.js
 

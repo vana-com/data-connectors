@@ -1,0 +1,24 @@
+{
+  "name": "pdp-connect-playwright-runner",
+  "version": "1.0.0",
+  "description": "Playwright sidecar for PDP-Connect connectors",
+  "main": "index.cjs",
+  "type": "module",
+  "scripts": {
+    "start": "node index.cjs",
+    "build": "node scripts/build.js",
+    "build:lean": "node scripts/build.js --lean",
+    "postinstall": "playwright install chromium"
+  },
+  "pkg": {
+    "assets": [],
+    "targets": ["node20-macos-arm64", "node20-macos-x64", "node20-win-x64", "node20-linux-x64"],
+    "outputPath": "dist"
+  },
+  "dependencies": {
+    "playwright": "^1.40.0"
+  },
+  "devDependencies": {
+    "@yao-pkg/pkg": "^5.12.0"
+  }
+}

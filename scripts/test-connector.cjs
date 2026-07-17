@@ -55,6 +55,8 @@ function resolveRunnerDir() {
 
   // 2. Common locations relative to this script
   const candidates = [
+    // Bundled runner in this repo
+    path.resolve(__dirname, '..', 'playwright-runner'),
     // Sibling repo (same parent directory)
     path.resolve(__dirname, '..', 'data-dt-app', 'playwright-runner'),
     // Home directory common paths
@@ -250,9 +252,17 @@ async function main() {
 
   const runnerDir = resolveRunnerDir();
   const metadata = loadMetadata(connectorPath);
-  const connectUrl = args.url || (metadata && metadata.connectURL) || 'about:blank';
+  const connectUrl = args.url || (metadata && (metadata.connectURL || metadata.connect_url)) || 'about:blank';
   const connectorName = metadata?.name || path.basename(connectorPath, '.js');
   const connectorVersion = metadata?.version || 'unknown';
+  const requestedScopes = Array.isArray(metadata?.scopes)
+    ? metadata.scopes.map((s) => s.scope).filter((s) => typeof s === 'string' && s.length > 0)
+    : [];
+
+  if (requestedScopes.length === 0) {
+    console.error(`${c.red}Could not resolve requestedScopes for ${connectorPath} — no sibling metadata JSON with a non-empty "scopes" array found.${c.reset}`);
+    process.exit(1);
+  }
 
   console.log('');
   console.log(`${c.bold}Connector Test Runner${c.reset}`);
@@ -290,6 +300,7 @@ async function main() {
           url: connectUrl,
           headless: args.headless,
           forceHeaded: !args.headless,
+          requestedScopes,
         });
         child.stdin.write(runCmd + '\n');
         print(c.green, '[runner]', 'Connected, starting connector...');

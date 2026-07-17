@@ -55,6 +55,8 @@ function resolveRunnerDir() {
   }
 
   const candidates = [
+    // Bundled runner in this repo
+    path.resolve(__dirname, '..', 'playwright-runner'),
     path.resolve(__dirname, '..', 'data-dt-app', 'playwright-runner'),
     path.join(os.homedir(), 'Documents', 'GitHub', 'data-dt-app', 'playwright-runner'),
     path.join(os.homedir(), 'Documents', 'Github', 'data-dt-app', 'playwright-runner'),

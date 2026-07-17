@@ -11,3 +11,6 @@ test-results/
 # Non-connector projects (stray checkouts)
 clearcut/
 proxy-test/
+
+# Vendored playwright-runner's own install
+playwright-runner/node_modules/

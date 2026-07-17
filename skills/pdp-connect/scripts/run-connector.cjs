@@ -56,12 +56,39 @@ for (let i = 0; i < rawArgs.length; i++) {
 }
 
 const connectorPath = positional[0];
-const startUrl = positional[1] || 'about:blank';
 
 if (!connectorPath) {
   console.error('Usage: node run-connector.cjs <connector-path> [start-url] [--inputs \'{"key":"val"}\'] [--pretty]');
   process.exit(1);
 }
+
+// ─── Metadata resolution ─────────────────────────────────────
+// Connector metadata lives in a sibling <name>.json next to the .js script.
+// It supplies the canonical requestedScopes the runner requires, and (when
+// --url isn't passed) the starting connectURL.
+function loadMetadata(resolvedConnectorPath) {
+  const metadataPath = resolvedConnectorPath.replace(/\.js$/, '.json');
+  if (!fs.existsSync(metadataPath)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(metadataPath, 'utf-8'));
+  } catch (e) {
+    console.error(`Warning: could not parse metadata at ${metadataPath}: ${e.message}`);
+    return null;
+  }
+}
+
+const resolvedConnectorPath = path.resolve(connectorPath);
+const metadata = loadMetadata(resolvedConnectorPath);
+const requestedScopes = Array.isArray(metadata?.scopes)
+  ? metadata.scopes.map((s) => s.scope).filter((s) => typeof s === 'string' && s.length > 0)
+  : [];
+
+if (requestedScopes.length === 0) {
+  console.error(`Could not resolve requestedScopes for ${connectorPath} — no sibling metadata JSON with a non-empty "scopes" array found.`);
+  process.exit(1);
+}
+
+const startUrl = positional[1] || metadata?.connectURL || metadata?.connect_url || 'about:blank';
 
 // Scope IPC files by connector name + timestamp so multiple runs never collide.
 const connectorSlug = path.basename(connectorPath, path.extname(connectorPath));
@@ -122,6 +149,7 @@ function resolveRunnerDir() {
   }
 
   const candidates = [
+    path.resolve(__dirname, '..', '..', '..', 'playwright-runner'),
     path.join(homedir, '.pdp-connect', 'desktop', 'playwright-runner'),
     process.env.PLAYWRIGHT_RUNNER_DIR,
     path.resolve(__dirname, '..', '..', '..', 'data-dt-app', 'playwright-runner'),
@@ -187,8 +215,9 @@ function handleMessage(msg) {
     case 'ready':
       runner.stdin.write(JSON.stringify({
         type: 'run', runId,
-        connectorPath: path.resolve(connectorPath),
+        connectorPath: resolvedConnectorPath,
         url: startUrl, headless: true, allowHeaded: false,
+        requestedScopes,
       }) + '\n');
       if (pretty) prettyPrint(c.green, '[ready]', 'Connected, starting connector...');
       break;

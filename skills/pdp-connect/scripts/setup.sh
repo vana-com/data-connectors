@@ -1,59 +1,46 @@
 #!/usr/bin/env bash
 # setup.sh — One-shot setup for the pdp-connect skill.
-# Installs playwright-runner, Chromium, and run-connector.cjs.
+# Installs the bundled playwright-runner's dependencies and Chromium.
 #
-# Usage: bash scripts/setup.sh
-#   Run from the data-connectors repo root (where skills/ lives).
+# Usage: bash skills/pdp-connect/scripts/setup.sh
+#   Run from the data-connectors repo root (where playwright-runner/ lives).
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PDP_CONNECT_DIR="$HOME/.pdp-connect/desktop"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+RUNNER_DIR="$REPO_ROOT/playwright-runner"
+
+if [[ ! -f "$RUNNER_DIR/index.cjs" ]]; then
+  echo "Could not find playwright-runner/ at $RUNNER_DIR — is this the data-connectors repo root?"
+  exit 1
+fi
 
 # Skip if already set up
-if [[ -f "$PDP_CONNECT_DIR/playwright-runner/index.cjs" && -f "$PDP_CONNECT_DIR/run-connector.cjs" ]]; then
-  echo "Already set up. To reinstall, remove ~/.pdp-connect/desktop/playwright-runner/ first."
+if [[ -f "$RUNNER_DIR/node_modules/playwright/package.json" ]]; then
+  echo "Already set up. To reinstall, remove $RUNNER_DIR/node_modules/ first."
   exit 0
 fi
 
-echo "Setting up pdp-connect..."
+echo "Setting up the bundled playwright-runner..."
 
-mkdir -p "$PDP_CONNECT_DIR/connectors"
-
-# 1. Clone playwright-runner (sparse checkout, minimal download)
-echo "Downloading playwright-runner..."
-cd "$PDP_CONNECT_DIR"
-rm -rf _data-connect
-git clone --depth 1 --filter=blob:none --sparse --branch main \
-  https://github.com/vana-com/data-connect.git _data-connect 2>&1
-cd _data-connect && git sparse-checkout set playwright-runner 2>&1
-cp -r playwright-runner ../playwright-runner
-cd .. && rm -rf _data-connect
-
-# 2. Install dependencies
+# 1. Install runner dependencies (just playwright)
 echo "Installing dependencies..."
-cd "$PDP_CONNECT_DIR/playwright-runner" && npm install 2>&1
+cd "$RUNNER_DIR" && npm install 2>&1
 
-# 3. Install Chromium
+# 2. Install Chromium (also runs automatically via the runner's postinstall hook)
 echo "Installing Chromium (this may take a minute)..."
 npx playwright install chromium 2>&1 || {
-  echo "Note: 'playwright install --with-deps' may need root. Trying without system deps..."
+  echo "Note: Chromium install may need extra system deps. Trying 'playwright install-deps'..."
+  npx playwright install-deps chromium 2>&1 || true
   npx playwright install chromium 2>&1 || true
 }
 
-# 4. Copy run-connector.cjs
-if [[ -f "$SCRIPT_DIR/run-connector.cjs" ]]; then
-  cp "$SCRIPT_DIR/run-connector.cjs" "$PDP_CONNECT_DIR/run-connector.cjs"
-else
-  echo "Warning: run-connector.cjs not found at $SCRIPT_DIR/run-connector.cjs"
-  echo "Copy it manually: cp skills/pdp-connect/scripts/run-connector.cjs ~/.pdp-connect/desktop/run-connector.cjs"
-fi
-
 # Verify
 echo ""
-if [[ -f "$PDP_CONNECT_DIR/playwright-runner/index.cjs" && -f "$PDP_CONNECT_DIR/run-connector.cjs" ]]; then
-  echo "Setup complete!"
+if [[ -d "$RUNNER_DIR/node_modules/playwright" ]]; then
+  echo "Setup complete! The bundled runner at $RUNNER_DIR is ready."
 else
-  echo "Setup may be incomplete. Check ~/.pdp-connect/desktop/ for missing files."
+  echo "Setup may be incomplete. Check $RUNNER_DIR for missing files."
   exit 1
 fi

@@ -14,13 +14,13 @@ Connect personal data from web platforms using the in-repo scripts under `skills
 
 ## Setup
 
-Check whether the runtime is already installed:
+Check whether the bundled runner's dependencies are already installed:
 
 ```bash
-ls ~/.pdp-connect/desktop/playwright-runner/index.cjs
+ls playwright-runner/node_modules/playwright/package.json
 ```
 
-If it's missing, follow `SETUP.md` in this folder before continuing. Tell the user: "I need to do a one-time setup first. This downloads a browser engine and some dependencies into `~/.pdp-connect/desktop/` and usually takes about a minute."
+If it's missing, follow `SETUP.md` in this folder before continuing. Tell the user: "I need to do a one-time setup first. This installs a browser engine and some dependencies and usually takes about a minute."
 
 If setup, fetch, or run output is truncated, check `~/.pdp-connect/desktop/logs/` directly.
 
