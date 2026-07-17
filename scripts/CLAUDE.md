@@ -67,7 +67,7 @@ For platforms where automated login fails (CAPTCHAs, Cloudflare, 2FA, OAuth):
 1. Run `node capture-session.cjs <platform> <login-url>` — opens a headed browser
 2. Log in manually in the browser window (handles any auth complexity)
 3. Login is detected automatically via URL change + cookie increase
-4. Session persists in `~/.vana/desktop/browser-profiles/<platform>-playwright/`
+4. Session persists in `~/.pdp-connect/desktop/browser-profiles/<platform>-playwright/`
 5. Subsequent connector tests automatically reuse the session (shared profile)
 
 The browser profile is shared by filename: both `sessions/<platform>-playwright.js` (capture)

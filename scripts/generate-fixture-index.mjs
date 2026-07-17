@@ -18,7 +18,7 @@ const indexPath = join(repoRoot, "fixture-index.json");
 const registryPath = join(repoRoot, "registry.json");
 const rawBaseUrl = (
   process.env.FIXTURE_RAW_BASE_URL ||
-  "https://raw.githubusercontent.com/vana-com/data-connectors/main"
+  "https://raw.githubusercontent.com/PDP-Connect/data-connectors/main"
 ).replace(/\/$/, "");
 const CONNECTOR_ID_PATTERN = /^[A-Za-z0-9_-]+$/;
 const SCOPE_PATTERN = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
@@ -491,7 +491,7 @@ function buildFixtureIndex() {
   return {
     $schema: "./schemas/fixture-index.schema.json",
     indexVersion: "1.0",
-    sourceRepo: "https://github.com/vana-com/data-connectors",
+    sourceRepo: "https://github.com/PDP-Connect/data-connectors",
     generatedAt: generatedAt(),
     fixtures,
   };

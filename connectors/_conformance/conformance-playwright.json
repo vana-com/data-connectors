@@ -4,7 +4,7 @@
   "source_id": "conformance",
   "version": "1.0.0",
   "name": "Page API Conformance",
-  "company": "Vana",
+  "company": "Conformance",
   "description": "Synthetic connector that exercises every method in the canonical page API minimum surface. Used by CI to detect runtime drift between shells (Context Gateway, DataConnect, future runners).",
   "runtime": "playwright",
   "page_api_version": 1,

@@ -3,12 +3,7 @@
 
 The public human-readable view of [`scope-catalog.json`](scope-catalog.json).
 
-This catalog shows two collection paths. When both paths support a scope, they use the same scope ID and payload schema:
-
-- **Vana Desktop (local):** A registered Playwright connector runs on your device and uses your browser session. Connector manifests plus `registry.json` own this column.
-- **Vana Web (hosted):** Vana Web requests data from Open Data Labs' hosted collection service, called Data Pipe. [`scopes/web-capabilities.json`](scopes/web-capabilities.json) owns this column and its limits.
-
-A website cannot run the local Node.js/Playwright connector or read your signed-in session on another site. Vana Web could ask an installed Vana Desktop app to collect the data, but that is still Desktop collection. The table uses **Yes**, **No**, or **Blocked** for each path. **Blocked** names the evidence required before making a claim.
+This catalog describes the local connector collection path: a registered Playwright connector runs on your device and uses your browser session. Connector manifests plus `registry.json` own this data.
 
 ## Versioned artifact contract
 
@@ -16,68 +11,59 @@ Every immutable `connectors-<commit12>` GitHub release includes `scope-catalog.j
 
 ## Coverage
 
-| Source | Scope | Description | Schema | Vana Web (hosted) | Vana Desktop (local) | Material limits | Desktop connector(s) / maturity |
-|---|---|---|---|:--:|:--:|---|---|
-| amazon | `amazon.orders` | Order history including items, prices, dates, and delivery status | [JSON Schema](connectors/amazon/schemas/amazon.orders.json) | No | Yes | None | amazon-playwright (beta) |
-| amazon | `amazon.profile` | Account name and Prime membership status | [JSON Schema](connectors/amazon/schemas/amazon.profile.json) | No | Yes | None | amazon-playwright (beta) |
-| chatgpt | `chatgpt.conversations` | All conversation history including messages with ChatGPT | [JSON Schema](connectors/openai/schemas/chatgpt.conversations.json) | No | Yes | None | chatgpt-playwright (stable) |
-| chatgpt | `chatgpt.memories` | Saved memories that ChatGPT uses to personalize responses | [JSON Schema](connectors/openai/schemas/chatgpt.memories.json) | No | Yes | None | chatgpt-playwright (stable) |
-| claude | `claude.conversations` | All Claude conversations with full message threads, from Anthropic's official data export. | [JSON Schema](connectors/anthropic/schemas/claude.conversations.json) | No | Yes | None | claude-export-playwright (experimental) |
-| claude | `claude.projects` | Claude projects and their detail, from Anthropic's official data export. | [JSON Schema](connectors/anthropic/schemas/claude.projects.json) | No | Yes | None | claude-export-playwright (experimental) |
-| doordash | `doordash.orders` | Complete order history with restaurant names, items ordered, dates, totals, and delivery status | [JSON Schema](connectors/doordash/schemas/doordash.orders.json) | No | Yes | None | doordash-playwright (beta) |
-| github | `github.contributions` | Daily contribution counts for the last 4 years (per-year scrape, not just rolling 12 months), monthly totals, per-year totals, and your top day | [JSON Schema](connectors/github/schemas/github.contributions.json) | No | Yes | Vana Desktop (local; github-playwright): The Desktop connector collects the four most recent calendar years. | github-playwright (stable) |
-| github | `github.events` | Recent public activity (pushes, pull requests, issues, comments, branches, releases) across every repository you have touched, including organization-owned repos | [JSON Schema](connectors/github/schemas/github.events.json) | No | Yes | Vana Desktop (local; github-playwright): The Desktop connector returns at most 300 public events.; Vana Desktop (local; github-playwright): The GitHub public-events API covers at most the previous 90 days. | github-playwright (stable) |
-| github | `github.history` | Pull requests and issues you have authored across public repositories via the GitHub Search API, including title, body, dates, repository, labels, and state. | [JSON Schema](connectors/github/schemas/github.history.json) | No | Yes | Vana Desktop (local; github-playwright): The GitHub Search API returns at most 1,000 pull requests and 1,000 issues per query. | github-playwright (stable) |
-| github | `github.profile` | Account profile information such as name, bio, follower counts, pinned repositories, organization memberships, and achievement badges | [JSON Schema](connectors/github/schemas/github.profile.json) | Yes | Yes | None | github-playwright (stable) |
-| github | `github.repositories` | Your repository list with metadata like language, stars, and update time | [JSON Schema](connectors/github/schemas/github.repositories.json) | No | Yes | None | github-playwright (stable) |
-| github | `github.starred` | Repositories you have starred on GitHub | [JSON Schema](connectors/github/schemas/github.starred.json) | No | Yes | None | github-playwright (stable) |
-| heb | `heb.nutrition` | Nutrition facts (calories, macros, sodium, fiber, vitamins) for each product ordered. Aligned to Schema.org NutritionInformation. | [JSON Schema](connectors/heb/schemas/heb.nutrition.json) | No | Yes | None | heb-playwright (experimental) |
-| heb | `heb.orders` | Curbside and delivery orders with item names, quantities, prices, and order dates | [JSON Schema](connectors/heb/schemas/heb.orders.json) | No | Yes | None | heb-playwright (experimental) |
-| heb | `heb.profile` | Your name, email, phone number, and saved delivery addresses | [JSON Schema](connectors/heb/schemas/heb.profile.json) | No | Yes | None | heb-playwright (experimental) |
-| icloud_notes | `icloud_notes.folders` | Folder structure for organizing notes | [JSON Schema](connectors/apple/schemas/icloud_notes.folders.json) | No | Yes | None | icloud-notes-playwright (experimental) |
-| icloud_notes | `icloud_notes.notes` | Note content, titles, created/modified timestamps, and folder assignment | [JSON Schema](connectors/apple/schemas/icloud_notes.notes.json) | No | Yes | None | icloud-notes-playwright (experimental) |
-| instagram | `instagram.ads` | Advertisers the user has seen ads from and ad topic interests based on their Instagram activity | [JSON Schema](connectors/meta/schemas/instagram.ads.json) | No | Yes | None | instagram-playwright (stable); instagram-ads-playwright (beta) |
-| instagram | `instagram.following` | The list of Instagram accounts you follow | [JSON Schema](connectors/meta/schemas/instagram.following.json) | No | Yes | None | instagram-playwright (stable) |
-| instagram | `instagram.posts` | Published posts from your feed | [JSON Schema](connectors/meta/schemas/instagram.posts.json) | Yes | Yes | Vana Web (hosted): The Web path returns at most the 150 most recent posts. | instagram-playwright (stable) |
-| instagram | `instagram.profile` | Profile information including bio and follower counts | [JSON Schema](connectors/meta/schemas/instagram.profile.json) | Yes | Yes | None | instagram-playwright (stable) |
-| linkedin | `linkedin.connections` | Your LinkedIn connections with names, headlines, profile URLs, and date connected | [JSON Schema](connectors/linkedin/schemas/linkedin.connections.json) | Blocked (linkedin-live-output) | Yes | None | linkedin-playwright (stable) |
-| linkedin | `linkedin.education` | Your education history including schools, degrees, years, and grades | [JSON Schema](connectors/linkedin/schemas/linkedin.education.json) | Blocked (linkedin-live-output) | Yes | None | linkedin-playwright (stable) |
-| linkedin | `linkedin.experience` | Your work experience including job titles, companies, dates, locations, and descriptions | [JSON Schema](connectors/linkedin/schemas/linkedin.experience.json) | Blocked (linkedin-live-output) | Yes | None | linkedin-playwright (stable) |
-| linkedin | `linkedin.languages` | Your languages and proficiency levels | [JSON Schema](connectors/linkedin/schemas/linkedin.languages.json) | Blocked (linkedin-live-output) | Yes | None | linkedin-playwright (stable) |
-| linkedin | `linkedin.profile` | Your LinkedIn profile including name, headline, location, about, and profile picture | [JSON Schema](connectors/linkedin/schemas/linkedin.profile.json) | Blocked (linkedin-live-output) | Yes | None | linkedin-playwright (stable) |
-| linkedin | `linkedin.skills` | Your skills and endorsement counts | [JSON Schema](connectors/linkedin/schemas/linkedin.skills.json) | Blocked (linkedin-live-output) | Yes | None | linkedin-playwright (stable) |
-| oura | `oura.activity` | Daily activity scores, step counts, calorie burn, and activity level breakdowns | [JSON Schema](connectors/oura/schemas/oura.activity.json) | No | Yes | None | oura-playwright (stable) |
-| oura | `oura.readiness` | Daily readiness scores and contributing factors like HRV balance, resting heart rate, recovery, and body temperature | [JSON Schema](connectors/oura/schemas/oura.readiness.json) | No | Yes | None | oura-playwright (stable) |
-| oura | `oura.sleep` | Daily sleep scores with contributor breakdowns and detailed sleep period data including duration, stages, heart rate, and HRV | [JSON Schema](connectors/oura/schemas/oura.sleep.json) | No | Yes | None | oura-playwright (stable) |
-| shop | `shop.orders` | Complete order history from the Shop app including merchants, items, totals, and delivery status | [JSON Schema](connectors/shopify/schemas/shop.orders.json) | No | Yes | None | shop-playwright (beta) |
-| spotify | `spotify.playlists` | Playlists and their tracks | [JSON Schema](connectors/spotify/schemas/spotify.playlists.json) | No | Yes | None | spotify-playwright (stable) |
-| spotify | `spotify.profile` | Profile information | [JSON Schema](connectors/spotify/schemas/spotify.profile.json) | Yes | Yes | None | spotify-playwright (stable) |
-| spotify | `spotify.savedTracks` | Saved/liked tracks in your library | [JSON Schema](connectors/spotify/schemas/spotify.savedTracks.json) | No | Yes | None | spotify-playwright (stable) |
-| steam | `steam.friends` | Friend list with persona names, avatars, and friendship dates | [JSON Schema](connectors/valve/schemas/steam.friends.json) | No | Yes | None | steam-playwright (experimental) |
-| steam | `steam.games` | Owned games with playtime statistics, plus recently played games | [JSON Schema](connectors/valve/schemas/steam.games.json) | No | Yes | None | steam-playwright (experimental) |
-| steam | `steam.profile` | Steam profile including persona name, avatar, level, country, and account age | [JSON Schema](connectors/valve/schemas/steam.profile.json) | No | Yes | None | steam-playwright (experimental) |
-| uber | `uber.receipts` | Fare breakdowns and receipt details for each trip | [JSON Schema](connectors/uber/schemas/uber.receipts.json) | No | Yes | None | uber-playwright (beta) |
-| uber | `uber.trips` | Complete history of your Uber rides including pickup/dropoff locations, dates, and driver info | [JSON Schema](connectors/uber/schemas/uber.trips.json) | No | Yes | None | uber-playwright (beta) |
-| wholefoods | `wholefoods.nutrition` | Nutrition facts (calories, macros, sodium, fiber, vitamins) for each product ordered. Aligned to Schema.org NutritionInformation. | [JSON Schema](connectors/wholefoods/schemas/wholefoods.nutrition.json) | No | Yes | None | wholefoods-playwright (experimental) |
-| wholefoods | `wholefoods.orders` | Whole Foods delivery and pickup orders with item names, quantities, prices, and order dates | [JSON Schema](connectors/wholefoods/schemas/wholefoods.orders.json) | No | Yes | None | wholefoods-playwright (experimental) |
-| wholefoods | `wholefoods.profile` | Your Amazon account name and email associated with Whole Foods orders | [JSON Schema](connectors/wholefoods/schemas/wholefoods.profile.json) | No | Yes | None | wholefoods-playwright (experimental) |
-| youtube | `youtube.history` | Raw watch history entries for the top 50 most recent items | [JSON Schema](connectors/google/schemas/youtube.history.json) | No | Yes | Vana Desktop (local; youtube-playwright): The Desktop connector returns at most the 50 most recent watch history items. | youtube-playwright (beta) |
-| youtube | `youtube.likes` | Videos you have liked | [JSON Schema](connectors/google/schemas/youtube.likes.json) | No | Yes | None | youtube-playwright (beta) |
-| youtube | `youtube.playlistItems` | Videos inside your playlists, including titles and URLs | [JSON Schema](connectors/google/schemas/youtube.playlistItems.json) | No | Yes | None | youtube-playwright (beta) |
-| youtube | `youtube.playlists` | Playlists visible in your YouTube Library | [JSON Schema](connectors/google/schemas/youtube.playlists.json) | No | Yes | None | youtube-playwright (beta) |
-| youtube | `youtube.profile` | Email, channel URL, handle, and joined date (plus optional channel fields like title, avatar, and stats) | [JSON Schema](connectors/google/schemas/youtube.profile.json) | Yes | Yes | None | youtube-playwright (beta) |
-| youtube | `youtube.subscriptions` | Channels you are subscribed to | [JSON Schema](connectors/google/schemas/youtube.subscriptions.json) | No | Yes | None | youtube-playwright (beta) |
-| youtube | `youtube.watchLater` | Videos saved to Watch Later | [JSON Schema](connectors/google/schemas/youtube.watchLater.json) | No | Yes | None | youtube-playwright (beta) |
-
-## Blocked evidence
-
-- `linkedin.connections`: LinkedIn Web scope capability is not classified without live end-to-end evidence. Required: A captured successful LinkedIn Data Pipe result showing the exact returned scope-key set. The resulting Personal Server scope inventory for the same run and user after sync.
-- `linkedin.education`: LinkedIn Web scope capability is not classified without live end-to-end evidence. Required: A captured successful LinkedIn Data Pipe result showing the exact returned scope-key set. The resulting Personal Server scope inventory for the same run and user after sync.
-- `linkedin.experience`: LinkedIn Web scope capability is not classified without live end-to-end evidence. Required: A captured successful LinkedIn Data Pipe result showing the exact returned scope-key set. The resulting Personal Server scope inventory for the same run and user after sync.
-- `linkedin.languages`: LinkedIn Web scope capability is not classified without live end-to-end evidence. Required: A captured successful LinkedIn Data Pipe result showing the exact returned scope-key set. The resulting Personal Server scope inventory for the same run and user after sync.
-- `linkedin.profile`: LinkedIn Web scope capability is not classified without live end-to-end evidence. Required: A captured successful LinkedIn Data Pipe result showing the exact returned scope-key set. The resulting Personal Server scope inventory for the same run and user after sync.
-- `linkedin.skills`: LinkedIn Web scope capability is not classified without live end-to-end evidence. Required: A captured successful LinkedIn Data Pipe result showing the exact returned scope-key set. The resulting Personal Server scope inventory for the same run and user after sync.
+| Source | Scope | Description | Schema | Material limits | Desktop connector(s) / maturity |
+|---|---|---|---|---|---|
+| amazon | `amazon.orders` | Order history including items, prices, dates, and delivery status | [JSON Schema](connectors/amazon/schemas/amazon.orders.json) | None | amazon-playwright (beta) |
+| amazon | `amazon.profile` | Account name and Prime membership status | [JSON Schema](connectors/amazon/schemas/amazon.profile.json) | None | amazon-playwright (beta) |
+| chatgpt | `chatgpt.conversations` | All conversation history including messages with ChatGPT | [JSON Schema](connectors/openai/schemas/chatgpt.conversations.json) | None | chatgpt-playwright (stable) |
+| chatgpt | `chatgpt.memories` | Saved memories that ChatGPT uses to personalize responses | [JSON Schema](connectors/openai/schemas/chatgpt.memories.json) | None | chatgpt-playwright (stable) |
+| claude | `claude.conversations` | All Claude conversations with full message threads, from Anthropic's official data export. | [JSON Schema](connectors/anthropic/schemas/claude.conversations.json) | None | claude-export-playwright (experimental) |
+| claude | `claude.projects` | Claude projects and their detail, from Anthropic's official data export. | [JSON Schema](connectors/anthropic/schemas/claude.projects.json) | None | claude-export-playwright (experimental) |
+| doordash | `doordash.orders` | Complete order history with restaurant names, items ordered, dates, totals, and delivery status | [JSON Schema](connectors/doordash/schemas/doordash.orders.json) | None | doordash-playwright (beta) |
+| github | `github.contributions` | Daily contribution counts for the last 4 years (per-year scrape, not just rolling 12 months), monthly totals, per-year totals, and your top day | [JSON Schema](connectors/github/schemas/github.contributions.json) | Desktop (local; github-playwright): The Desktop connector collects the four most recent calendar years. | github-playwright (stable) |
+| github | `github.events` | Recent public activity (pushes, pull requests, issues, comments, branches, releases) across every repository you have touched, including organization-owned repos | [JSON Schema](connectors/github/schemas/github.events.json) | Desktop (local; github-playwright): The Desktop connector returns at most 300 public events.; Desktop (local; github-playwright): The GitHub public-events API covers at most the previous 90 days. | github-playwright (stable) |
+| github | `github.history` | Pull requests and issues you have authored across public repositories via the GitHub Search API, including title, body, dates, repository, labels, and state. | [JSON Schema](connectors/github/schemas/github.history.json) | Desktop (local; github-playwright): The GitHub Search API returns at most 1,000 pull requests and 1,000 issues per query. | github-playwright (stable) |
+| github | `github.profile` | Account profile information such as name, bio, follower counts, pinned repositories, organization memberships, and achievement badges | [JSON Schema](connectors/github/schemas/github.profile.json) | None | github-playwright (stable) |
+| github | `github.repositories` | Your repository list with metadata like language, stars, and update time | [JSON Schema](connectors/github/schemas/github.repositories.json) | None | github-playwright (stable) |
+| github | `github.starred` | Repositories you have starred on GitHub | [JSON Schema](connectors/github/schemas/github.starred.json) | None | github-playwright (stable) |
+| heb | `heb.nutrition` | Nutrition facts (calories, macros, sodium, fiber, vitamins) for each product ordered. Aligned to Schema.org NutritionInformation. | [JSON Schema](connectors/heb/schemas/heb.nutrition.json) | None | heb-playwright (experimental) |
+| heb | `heb.orders` | Curbside and delivery orders with item names, quantities, prices, and order dates | [JSON Schema](connectors/heb/schemas/heb.orders.json) | None | heb-playwright (experimental) |
+| heb | `heb.profile` | Your name, email, phone number, and saved delivery addresses | [JSON Schema](connectors/heb/schemas/heb.profile.json) | None | heb-playwright (experimental) |
+| icloud_notes | `icloud_notes.folders` | Folder structure for organizing notes | [JSON Schema](connectors/apple/schemas/icloud_notes.folders.json) | None | icloud-notes-playwright (experimental) |
+| icloud_notes | `icloud_notes.notes` | Note content, titles, created/modified timestamps, and folder assignment | [JSON Schema](connectors/apple/schemas/icloud_notes.notes.json) | None | icloud-notes-playwright (experimental) |
+| instagram | `instagram.ads` | Advertisers the user has seen ads from and ad topic interests based on their Instagram activity | [JSON Schema](connectors/meta/schemas/instagram.ads.json) | None | instagram-playwright (stable); instagram-ads-playwright (beta) |
+| instagram | `instagram.following` | The list of Instagram accounts you follow | [JSON Schema](connectors/meta/schemas/instagram.following.json) | None | instagram-playwright (stable) |
+| instagram | `instagram.posts` | Published posts from your feed | [JSON Schema](connectors/meta/schemas/instagram.posts.json) | None | instagram-playwright (stable) |
+| instagram | `instagram.profile` | Profile information including bio and follower counts | [JSON Schema](connectors/meta/schemas/instagram.profile.json) | None | instagram-playwright (stable) |
+| linkedin | `linkedin.connections` | Your LinkedIn connections with names, headlines, profile URLs, and date connected | [JSON Schema](connectors/linkedin/schemas/linkedin.connections.json) | None | linkedin-playwright (stable) |
+| linkedin | `linkedin.education` | Your education history including schools, degrees, years, and grades | [JSON Schema](connectors/linkedin/schemas/linkedin.education.json) | None | linkedin-playwright (stable) |
+| linkedin | `linkedin.experience` | Your work experience including job titles, companies, dates, locations, and descriptions | [JSON Schema](connectors/linkedin/schemas/linkedin.experience.json) | None | linkedin-playwright (stable) |
+| linkedin | `linkedin.languages` | Your languages and proficiency levels | [JSON Schema](connectors/linkedin/schemas/linkedin.languages.json) | None | linkedin-playwright (stable) |
+| linkedin | `linkedin.profile` | Your LinkedIn profile including name, headline, location, about, and profile picture | [JSON Schema](connectors/linkedin/schemas/linkedin.profile.json) | None | linkedin-playwright (stable) |
+| linkedin | `linkedin.skills` | Your skills and endorsement counts | [JSON Schema](connectors/linkedin/schemas/linkedin.skills.json) | None | linkedin-playwright (stable) |
+| oura | `oura.activity` | Daily activity scores, step counts, calorie burn, and activity level breakdowns | [JSON Schema](connectors/oura/schemas/oura.activity.json) | None | oura-playwright (stable) |
+| oura | `oura.readiness` | Daily readiness scores and contributing factors like HRV balance, resting heart rate, recovery, and body temperature | [JSON Schema](connectors/oura/schemas/oura.readiness.json) | None | oura-playwright (stable) |
+| oura | `oura.sleep` | Daily sleep scores with contributor breakdowns and detailed sleep period data including duration, stages, heart rate, and HRV | [JSON Schema](connectors/oura/schemas/oura.sleep.json) | None | oura-playwright (stable) |
+| shop | `shop.orders` | Complete order history from the Shop app including merchants, items, totals, and delivery status | [JSON Schema](connectors/shopify/schemas/shop.orders.json) | None | shop-playwright (beta) |
+| spotify | `spotify.playlists` | Playlists and their tracks | [JSON Schema](connectors/spotify/schemas/spotify.playlists.json) | None | spotify-playwright (stable) |
+| spotify | `spotify.profile` | Profile information | [JSON Schema](connectors/spotify/schemas/spotify.profile.json) | None | spotify-playwright (stable) |
+| spotify | `spotify.savedTracks` | Saved/liked tracks in your library | [JSON Schema](connectors/spotify/schemas/spotify.savedTracks.json) | None | spotify-playwright (stable) |
+| steam | `steam.friends` | Friend list with persona names, avatars, and friendship dates | [JSON Schema](connectors/valve/schemas/steam.friends.json) | None | steam-playwright (experimental) |
+| steam | `steam.games` | Owned games with playtime statistics, plus recently played games | [JSON Schema](connectors/valve/schemas/steam.games.json) | None | steam-playwright (experimental) |
+| steam | `steam.profile` | Steam profile including persona name, avatar, level, country, and account age | [JSON Schema](connectors/valve/schemas/steam.profile.json) | None | steam-playwright (experimental) |
+| uber | `uber.receipts` | Fare breakdowns and receipt details for each trip | [JSON Schema](connectors/uber/schemas/uber.receipts.json) | None | uber-playwright (beta) |
+| uber | `uber.trips` | Complete history of your Uber rides including pickup/dropoff locations, dates, and driver info | [JSON Schema](connectors/uber/schemas/uber.trips.json) | None | uber-playwright (beta) |
+| wholefoods | `wholefoods.nutrition` | Nutrition facts (calories, macros, sodium, fiber, vitamins) for each product ordered. Aligned to Schema.org NutritionInformation. | [JSON Schema](connectors/wholefoods/schemas/wholefoods.nutrition.json) | None | wholefoods-playwright (experimental) |
+| wholefoods | `wholefoods.orders` | Whole Foods delivery and pickup orders with item names, quantities, prices, and order dates | [JSON Schema](connectors/wholefoods/schemas/wholefoods.orders.json) | None | wholefoods-playwright (experimental) |
+| wholefoods | `wholefoods.profile` | Your Amazon account name and email associated with Whole Foods orders | [JSON Schema](connectors/wholefoods/schemas/wholefoods.profile.json) | None | wholefoods-playwright (experimental) |
+| youtube | `youtube.history` | Raw watch history entries for the top 50 most recent items | [JSON Schema](connectors/google/schemas/youtube.history.json) | Desktop (local; youtube-playwright): The Desktop connector returns at most the 50 most recent watch history items. | youtube-playwright (beta) |
+| youtube | `youtube.likes` | Videos you have liked | [JSON Schema](connectors/google/schemas/youtube.likes.json) | None | youtube-playwright (beta) |
+| youtube | `youtube.playlistItems` | Videos inside your playlists, including titles and URLs | [JSON Schema](connectors/google/schemas/youtube.playlistItems.json) | None | youtube-playwright (beta) |
+| youtube | `youtube.playlists` | Playlists visible in your YouTube Library | [JSON Schema](connectors/google/schemas/youtube.playlists.json) | None | youtube-playwright (beta) |
+| youtube | `youtube.profile` | Email, channel URL, handle, and joined date (plus optional channel fields like title, avatar, and stats) | [JSON Schema](connectors/google/schemas/youtube.profile.json) | None | youtube-playwright (beta) |
+| youtube | `youtube.subscriptions` | Channels you are subscribed to | [JSON Schema](connectors/google/schemas/youtube.subscriptions.json) | None | youtube-playwright (beta) |
+| youtube | `youtube.watchLater` | Videos saved to Watch Later | [JSON Schema](connectors/google/schemas/youtube.watchLater.json) | None | youtube-playwright (beta) |
 
 ## Maintenance
 
-Do not edit this file. Update connector manifests/`registry.json` for Vana Desktop truth or `scopes/web-capabilities.json` for Vana Web truth, then run `node scripts/generate-scope-catalog.mjs`.
+Do not edit this file. Update connector manifests/`registry.json`, then run `node scripts/generate-scope-catalog.mjs`.

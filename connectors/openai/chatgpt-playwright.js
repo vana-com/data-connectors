@@ -38,7 +38,7 @@
  */
 
 // ─── Tunables ────────────────────────────────────────────────────────
-const CKPT_DB = 'vana_chatgpt_ckpt';
+const CKPT_DB = 'pdpconnect_chatgpt_ckpt';
 const CKPT_FORMAT = 1;
 
 // "Concurrency" now sizes the /conversations/batch request (ids per POST). The

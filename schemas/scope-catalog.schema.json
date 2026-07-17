@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:vana:data-connectors:scope-catalog:1.0.0",
-  "title": "Vana public source and scope catalog",
+  "$id": "urn:pdp-connect:data-connectors:scope-catalog:1.0.0",
+  "title": "PDP-Connect public source and scope catalog",
   "type": "object",
   "required": ["catalogSchema", "distribution", "catalogVersion", "generatedBy", "generatedFrom", "scopes"],
   "properties": {
@@ -19,7 +19,7 @@
       "type": "object",
       "required": ["repository"],
       "properties": {
-        "repository": { "const": "https://github.com/vana-com/data-connectors" },
+        "repository": { "const": "https://github.com/PDP-Connect/data-connectors" },
         "sourceCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
         "releaseTag": { "type": "string", "pattern": "^connectors-[0-9a-f]{12}$" }
       },
@@ -32,7 +32,7 @@
     "generatedBy": { "const": "scripts/generate-scope-catalog.mjs" },
     "generatedFrom": {
       "type": "object",
-      "required": ["publishability", "manifests", "webCapabilities"],
+      "required": ["publishability", "manifests"],
       "properties": {
         "publishability": {
           "type": "object",
@@ -47,8 +47,7 @@
           "type": "array",
           "items": { "type": "string", "pattern": "^connectors/.+-playwright\\.json$" },
           "uniqueItems": true
-        },
-        "webCapabilities": { "const": "scopes/web-capabilities.json" }
+        }
       },
       "additionalProperties": false
     },
@@ -83,20 +82,6 @@
       },
       "additionalProperties": false
     },
-    "blocker": {
-      "type": "object",
-      "required": ["id", "description", "requiredCapture"],
-      "properties": {
-        "id": { "type": "string", "minLength": 1 },
-        "description": { "type": "string", "minLength": 1 },
-        "requiredCapture": {
-          "type": "array",
-          "minItems": 1,
-          "items": { "type": "string", "minLength": 1 }
-        }
-      },
-      "additionalProperties": false
-    },
     "scope": {
       "type": "object",
       "required": ["sourceId", "scopeId", "description", "schema", "maturity", "fulfillment"],
@@ -109,14 +94,14 @@
           "required": ["path"],
           "properties": {
             "path": { "type": "string", "pattern": "^connectors/.+/schemas/.+\\.json$" },
-            "url": { "type": "string", "pattern": "^https://raw\\.githubusercontent\\.com/vana-com/data-connectors/[0-9a-f]{40}/connectors/.+/schemas/.+\\.json$" }
+            "url": { "type": "string", "pattern": "^https://raw\\.githubusercontent\\.com/PDP-Connect/data-connectors/[0-9a-f]{40}/connectors/.+/schemas/.+\\.json$" }
           },
           "additionalProperties": false
         },
         "maturity": { "type": "string", "enum": ["stable", "beta", "experimental"] },
         "fulfillment": {
           "type": "object",
-          "required": ["desktop", "web"],
+          "required": ["desktop"],
           "properties": {
             "desktop": {
               "type": "object",
@@ -130,39 +115,6 @@
                   "uniqueItems": true
                 }
               },
-              "additionalProperties": false
-            },
-            "web": {
-              "type": "object",
-              "required": ["status"],
-              "properties": {
-                "status": { "type": "string", "enum": ["supported", "unsupported", "blocked"] },
-                "limits": {
-                  "type": "array",
-                  "minItems": 1,
-                  "items": { "$ref": "#/$defs/limit" }
-                },
-                "blocker": { "$ref": "#/$defs/blocker" }
-              },
-              "allOf": [
-                {
-                  "if": { "properties": { "status": { "const": "blocked" } }, "required": ["status"] },
-                  "then": {
-                    "properties": { "blocker": { "$ref": "#/$defs/blocker" } },
-                    "required": ["blocker"]
-                  },
-                  "else": { "not": { "required": ["blocker"] } }
-                },
-                {
-                  "if": { "properties": { "status": { "const": "supported" } }, "required": ["status"] },
-                  "else": {
-                    "not": {
-                      "properties": { "limits": { "type": "array" } },
-                      "required": ["limits"]
-                    }
-                  }
-                }
-              ],
               "additionalProperties": false
             }
           },

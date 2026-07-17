@@ -61,7 +61,7 @@ test("a fully signed index passes the publish signature gate", () => {
               type: "sigstoreBundle",
               bundlePath: "alpha-playwright-1.0.0.tgz.sigstore.json",
               bundleUrl:
-                "https://github.com/vana-com/data-connectors/releases/download/connectors-test/alpha-playwright-1.0.0.tgz.sigstore.json",
+                "https://github.com/PDP-Connect/data-connectors/releases/download/connectors-test/alpha-playwright-1.0.0.tgz.sigstore.json",
             },
           },
           {

@@ -1,12 +1,12 @@
 {
   "version": "2.0.0",
   "lastUpdated": "2026-07-13T00:00:00Z",
-  "baseUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main/connectors",
+  "baseUrl": "https://raw.githubusercontent.com/PDP-Connect/data-connectors/main/connectors",
   "connectors": [
     {
       "id": "chatgpt-playwright",
       "company": "openai",
-      "version": "3.0.0",
+      "version": "3.0.1",
       "name": "ChatGPT",
       "status": "stable",
       "description": "Exports your email, memories, and all conversations from ChatGPT.",
@@ -25,8 +25,8 @@
         "metadata": "openai/chatgpt-playwright.json"
       },
       "checksums": {
-        "script": "sha256:f0bebc7055a0b49c87cece29bdcd078e447d88a575e643d02f30f5b6daa2e95b",
-        "metadata": "sha256:b4ced371d0a87c5d3d202ff0835b361caa0124732da179fb913688a6b29fc914"
+        "script": "sha256:f2f33ef300e8b89ecbc13fcfa80ee88b0ec0d7849f2018a7a16623b5e1146527",
+        "metadata": "sha256:6b3df1f5ce03e588c23f1e26e35494526166baee99e69c384b72b31f7b306371"
       }
     },
     {
@@ -225,7 +225,7 @@
     {
       "id": "wholefoods-playwright",
       "company": "wholefoods",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "name": "Whole Foods Market",
       "status": "experimental",
       "description": "Exports your Whole Foods Market order history (via Amazon) and product nutrition data.",
@@ -245,7 +245,7 @@
       },
       "checksums": {
         "script": "sha256:2ebb4426258b87a8e3699b9609c36ff69b03f050e747ed530c54ee1e7f84c59b",
-        "metadata": "sha256:bbeb1748b6964a1b564788744eed1ddbbf5ea9c7d0a423639dfa5313c653fbe9"
+        "metadata": "sha256:b374a547bacfe49c0fcce7cea41db0630e8335c9f655e644a43a11b2eae9e0e1"
       }
     },
     {
@@ -338,7 +338,7 @@
     {
       "id": "claude-export-playwright",
       "company": "Anthropic",
-      "version": "2.0.0",
+      "version": "2.0.1",
       "name": "Claude",
       "status": "experimental",
       "description": "Exports your Claude conversations and projects via Anthropic's official data export (one complete archive, no per-conversation rate limiting).",
@@ -347,8 +347,8 @@
         "metadata": "anthropic/claude-export-playwright.json"
       },
       "checksums": {
-        "script": "sha256:1b8b4caf80b5e976822fa201b8232edd0d562858ce71f976dd1ebe449da909c1",
-        "metadata": "sha256:083af470ca0a590fff2b4929716c10332db230ab8ed7d83aa974cf5f183e2f53"
+        "script": "sha256:12a068a5186aececdd13e999b84f14a281d8e3d256c1eec70b812afd17142152",
+        "metadata": "sha256:7213ef42d1bcbde91db4972ae22a8f0b445f2ff47d85c95548b34ce20054c315"
       }
     },
     {

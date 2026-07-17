@@ -76,7 +76,7 @@ jobs:
           commit-message: "chore: refresh connector snapshot"
           title: "chore: refresh connector snapshot"
           body: |
-            Automated update from `vana-com/data-connectors`.
+            Automated update from `PDP-Connect/data-connectors`.
 
             Changes:
             - refreshed `config/data-connectors-snapshot/`
@@ -130,7 +130,7 @@ jobs:
           commit-message: "chore: refresh bundled connectors"
           title: "chore: refresh bundled connectors"
           body: |
-            Automated update from `vana-com/data-connectors`.
+            Automated update from `PDP-Connect/data-connectors`.
 
             Changes:
             - refreshed bundled connectors under `connectors/`

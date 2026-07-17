@@ -65,7 +65,7 @@ function resolveReleaseMetadata(sourceCommit) {
     `connectors-${sourceCommit.slice(0, 12)}`;
   const releaseId = process.env.CONNECTOR_RELEASE_ID?.trim() || releaseTag;
   const repo =
-    process.env.GITHUB_REPOSITORY?.trim() || "vana-com/data-connectors";
+    process.env.GITHUB_REPOSITORY?.trim() || "PDP-Connect/data-connectors";
 
   return {
     releaseTag,
@@ -455,7 +455,7 @@ async function main() {
   const releaseMetadata = resolveReleaseMetadata(sourceCommit);
   const nextIndex = {
     indexVersion: "2.0",
-    sourceRepo: "https://github.com/vana-com/data-connectors",
+    sourceRepo: "https://github.com/PDP-Connect/data-connectors",
     generatedAt: registry.lastUpdated ?? new Date().toISOString(),
     signature: buildSigstoreBundleMetadata(
       "connector-index.json.sigstore.json",

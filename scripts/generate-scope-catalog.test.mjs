@@ -20,10 +20,6 @@ function makeFixture() {
   const root = mkdtempSync(join(tmpdir(), "scope-catalog-test-"));
   mkdirSync(join(root, "schemas"), { recursive: true });
   cpSync(
-    join(repoRoot, "schemas", "web-scope-capabilities.schema.json"),
-    join(root, "schemas", "web-scope-capabilities.schema.json"),
-  );
-  cpSync(
     join(repoRoot, "schemas", "scope-catalog.schema.json"),
     join(root, "schemas", "scope-catalog.schema.json"),
   );
@@ -68,18 +64,6 @@ function makeFixture() {
     source_id: "ignored",
     scopes: [{ scope: "ignored.profile", description: "Not published." }],
   });
-  writeJson(join(root, "scopes", "web-capabilities.json"), {
-    $schema: "../schemas/web-scope-capabilities.schema.json",
-    schemaVersion: "1.0.0",
-    contract: "Test Web API",
-    provenance: {
-      issue: "TEST-1",
-      baselineCommit: "a".repeat(40),
-      note: "Test evidence.",
-    },
-    blockers: [],
-    scopes: [{ scopeId: "alpha.profile", status: "unsupported" }],
-  });
   writeFileSync(
     join(root, "README.md"),
     `# Fixture
@@ -116,12 +100,9 @@ test("generated files are clean and exclude unregistered manifests", () => {
       manifestSelector: "connectors[].files.metadata",
     },
     manifests: ["connectors/alpha/alpha-playwright.json"],
-    webCapabilities: "scopes/web-capabilities.json",
   });
-  assert.match(markdown, /Vana Web \(hosted\)/);
-  assert.match(markdown, /Vana Desktop \(local\)/);
-  assert.match(markdown, /A website cannot run the local Node\.js\/Playwright connector/);
-  assert.match(markdown, /\| No \| Yes \|/);
+  assert.match(markdown, /local connector collection path/);
+  assert.doesNotMatch(markdown, /Vana/);
   assert.doesNotMatch(markdown, /✅|—/);
   assert.match(
     readme,
@@ -134,65 +115,6 @@ test("generated files are clean and exclude unregistered manifests", () => {
   assert.throws(
     () => generateScopeCatalog({ repoRoot: root, check: true }),
     /README\.md drift detected/,
-  );
-});
-
-test("missing Web capability entries fail exact-set validation", () => {
-  const root = makeFixture();
-  const inputPath = join(root, "scopes", "web-capabilities.json");
-  const input = JSON.parse(readFileSync(inputPath));
-  input.scopes = [];
-  writeJson(inputPath, input);
-
-  assert.throws(
-    () => generateScopeCatalog({ repoRoot: root }),
-    /Missing Web capability entries: alpha\.profile/,
-  );
-});
-
-test("extra Web capability entries fail exact-set validation", () => {
-  const root = makeFixture();
-  const inputPath = join(root, "scopes", "web-capabilities.json");
-  const input = JSON.parse(readFileSync(inputPath));
-  input.scopes.push({ scopeId: "extra.profile", status: "unsupported" });
-  writeJson(inputPath, input);
-
-  assert.throws(
-    () => generateScopeCatalog({ repoRoot: root }),
-    /Extra Web capability entries: extra\.profile/,
-  );
-});
-
-test("malformed Web capability entries fail schema validation", () => {
-  const root = makeFixture();
-  const inputPath = join(root, "scopes", "web-capabilities.json");
-  const input = JSON.parse(readFileSync(inputPath));
-  input.scopes[0].status = "maybe";
-  writeJson(inputPath, input);
-
-  assert.throws(
-    () => generateScopeCatalog({ repoRoot: root }),
-    /web-capabilities\.json failed schema validation/,
-  );
-});
-
-test("unsupported Web capability entries cannot declare limits", () => {
-  const root = makeFixture();
-  const inputPath = join(root, "scopes", "web-capabilities.json");
-  const input = JSON.parse(readFileSync(inputPath));
-  input.scopes[0].limits = [
-    {
-      type: "maxItems",
-      value: 1,
-      unit: "item",
-      description: "Contradictory unsupported limit.",
-    },
-  ];
-  writeJson(inputPath, input);
-
-  assert.throws(
-    () => generateScopeCatalog({ repoRoot: root }),
-    /web-capabilities\.json failed schema validation/,
   );
 });
 
@@ -275,13 +197,13 @@ test("release generation embeds immutable payload-schema URLs", () => {
 
   const catalog = JSON.parse(readFileSync(join(root, "scope-catalog.json")));
   assert.deepEqual(catalog.distribution, {
-    repository: "https://github.com/vana-com/data-connectors",
+    repository: "https://github.com/PDP-Connect/data-connectors",
     sourceCommit,
     releaseTag,
   });
   assert.equal(
     catalog.scopes[0].schema.url,
-    `https://raw.githubusercontent.com/vana-com/data-connectors/${sourceCommit}/connectors/alpha/schemas/alpha.profile.json`,
+    `https://raw.githubusercontent.com/PDP-Connect/data-connectors/${sourceCommit}/connectors/alpha/schemas/alpha.profile.json`,
   );
 });
 

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/vana-com/data-connectors/schemas/fixture-index.schema.json",
+  "$id": "https://github.com/PDP-Connect/data-connectors/schemas/fixture-index.schema.json",
   "title": "Connector Fixture Index v1",
   "type": "object",
   "required": [

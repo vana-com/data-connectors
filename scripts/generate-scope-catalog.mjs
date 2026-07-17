@@ -8,8 +8,8 @@ import Ajv2020 from "ajv/dist/2020.js";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const defaultRepoRoot = join(scriptDir, "..");
-const repositoryUrl = "https://github.com/vana-com/data-connectors";
-const rawRepositoryUrl = "https://raw.githubusercontent.com/vana-com/data-connectors";
+const repositoryUrl = "https://github.com/PDP-Connect/data-connectors";
+const rawRepositoryUrl = "https://raw.githubusercontent.com/PDP-Connect/data-connectors";
 const readmeOverviewStart = "<!-- BEGIN GENERATED CONNECTOR OVERVIEW -->";
 const readmeOverviewEnd = "<!-- END GENERATED CONNECTOR OVERVIEW -->";
 const maturityRank = new Map([
@@ -147,25 +147,6 @@ function loadPublishedScopes(repoRoot) {
   };
 }
 
-function validateExactWebSet(publishedScopes, webInput) {
-  const webIds = webInput.scopes.map(({ scopeId }) => scopeId);
-  const duplicateIds = webIds.filter((scopeId, index) => webIds.indexOf(scopeId) !== index);
-  if (duplicateIds.length > 0) {
-    throw new Error(`Duplicate Web capability entries: ${[...new Set(duplicateIds)].sort().join(", ")}`);
-  }
-
-  const publishedIds = new Set(publishedScopes.keys());
-  const webIdSet = new Set(webIds);
-  const missing = [...publishedIds].filter((scopeId) => !webIdSet.has(scopeId)).sort();
-  const extra = [...webIdSet].filter((scopeId) => !publishedIds.has(scopeId)).sort();
-  if (missing.length > 0) {
-    throw new Error(`Missing Web capability entries: ${missing.join(", ")}`);
-  }
-  if (extra.length > 0) {
-    throw new Error(`Extra Web capability entries: ${extra.join(", ")}`);
-  }
-}
-
 function buildCatalog(repoRoot, { sourceCommit, releaseTag } = {}) {
   if ((sourceCommit && !releaseTag) || (!sourceCommit && releaseTag)) {
     throw new Error("sourceCommit and releaseTag must be provided together");
@@ -176,24 +157,7 @@ function buildCatalog(repoRoot, { sourceCommit, releaseTag } = {}) {
   if (sourceCommit && releaseTag !== `connectors-${sourceCommit.slice(0, 12)}`) {
     throw new Error("releaseTag must match connectors-<sourceCommit first 12 characters>");
   }
-  const webInputPath = join(repoRoot, "scopes", "web-capabilities.json");
-  const webInput = readJson(webInputPath);
-  const webInputSchema = readJson(
-    join(repoRoot, "schemas", "web-scope-capabilities.schema.json"),
-  );
-  validateAgainstSchema(webInput, webInputSchema, "web-capabilities.json");
-
   const { groupedScopes: publishedScopes, manifestPaths } = loadPublishedScopes(repoRoot);
-  validateExactWebSet(publishedScopes, webInput);
-
-  const blockerById = new Map();
-  for (const blocker of webInput.blockers) {
-    if (blockerById.has(blocker.id)) {
-      throw new Error(`Duplicate Web blocker id: ${blocker.id}`);
-    }
-    blockerById.set(blocker.id, blocker);
-  }
-  const webByScope = new Map(webInput.scopes.map((entry) => [entry.scopeId, entry]));
 
   const scopes = [...publishedScopes.entries()]
     .sort(([left], [right]) => left.localeCompare(right))
@@ -218,21 +182,6 @@ function buildCatalog(repoRoot, { sourceCommit, releaseTag } = {}) {
         );
       }
 
-      const webInputEntry = webByScope.get(scopeId);
-      const web = { status: webInputEntry.status };
-      if (webInputEntry.limits) {
-        web.limits = webInputEntry.limits;
-      }
-      if (webInputEntry.blockerId) {
-        const blocker = blockerById.get(webInputEntry.blockerId);
-        if (!blocker) {
-          throw new Error(
-            `Web capability ${scopeId} references unknown blocker ${webInputEntry.blockerId}`,
-          );
-        }
-        web.blocker = blocker;
-      }
-
       return {
         sourceId: primary.sourceId,
         scopeId,
@@ -249,7 +198,6 @@ function buildCatalog(repoRoot, { sourceCommit, releaseTag } = {}) {
             status: "supported",
             connectors: candidates.map(({ connector }) => connector),
           },
-          web,
         },
       };
     });
@@ -271,7 +219,6 @@ function buildCatalog(repoRoot, { sourceCommit, releaseTag } = {}) {
         manifestSelector: "connectors[].files.metadata",
       },
       manifests: manifestPaths,
-      webCapabilities: "scopes/web-capabilities.json",
     },
     scopes,
   };
@@ -280,20 +227,11 @@ function buildCatalog(repoRoot, { sourceCommit, releaseTag } = {}) {
   return catalog;
 }
 
-function renderWebStatus(web) {
-  if (web.status === "supported") return "Yes";
-  if (web.status === "blocked") return `Blocked (${web.blocker.id})`;
-  return "No";
-}
-
 function renderLimits(scope) {
   const limits = [];
-  for (const limit of scope.fulfillment.web.limits ?? []) {
-    limits.push(`Vana Web (hosted): ${limit.description}`);
-  }
   for (const connector of scope.fulfillment.desktop.connectors) {
     for (const limit of connector.limits ?? []) {
-      limits.push(`Vana Desktop (local; ${connector.id}): ${limit.description}`);
+      limits.push(`Desktop (local; ${connector.id}): ${limit.description}`);
     }
   }
   return limits.join("; ") || "None";
@@ -351,7 +289,7 @@ function renderScopesMarkdown(catalog) {
     const connectors = scope.fulfillment.desktop.connectors
       .map(({ id, status }) => `${id} (${status})`)
       .join("; ");
-    return `| ${escapeCell(scope.sourceId)} | \`${scope.scopeId}\` | ${escapeCell(scope.description)} | [JSON Schema](${scope.schema.path}) | ${renderWebStatus(scope.fulfillment.web)} | Yes | ${escapeCell(renderLimits(scope))} | ${escapeCell(connectors)} |`;
+    return `| ${escapeCell(scope.sourceId)} | \`${scope.scopeId}\` | ${escapeCell(scope.description)} | [JSON Schema](${scope.schema.path}) | ${escapeCell(renderLimits(scope))} | ${escapeCell(connectors)} |`;
   });
 
   return `<!-- Generated by scripts/generate-scope-catalog.mjs. Do not edit. -->
@@ -359,12 +297,7 @@ function renderScopesMarkdown(catalog) {
 
 The public human-readable view of [\`scope-catalog.json\`](scope-catalog.json).
 
-This catalog shows two collection paths. When both paths support a scope, they use the same scope ID and payload schema:
-
-- **Vana Desktop (local):** A registered Playwright connector runs on your device and uses your browser session. Connector manifests plus \`registry.json\` own this column.
-- **Vana Web (hosted):** Vana Web requests data from Open Data Labs' hosted collection service, called Data Pipe. [\`scopes/web-capabilities.json\`](scopes/web-capabilities.json) owns this column and its limits.
-
-A website cannot run the local Node.js/Playwright connector or read your signed-in session on another site. Vana Web could ask an installed Vana Desktop app to collect the data, but that is still Desktop collection. The table uses **Yes**, **No**, or **Blocked** for each path. **Blocked** names the evidence required before making a claim.
+This catalog describes the local connector collection path: a registered Playwright connector runs on your device and uses your browser session. Connector manifests plus \`registry.json\` own this data.
 
 ## Versioned artifact contract
 
@@ -372,20 +305,13 @@ Every immutable \`connectors-<commit12>\` GitHub release includes \`scope-catalo
 
 ## Coverage
 
-| Source | Scope | Description | Schema | Vana Web (hosted) | Vana Desktop (local) | Material limits | Desktop connector(s) / maturity |
-|---|---|---|---|:--:|:--:|---|---|
+| Source | Scope | Description | Schema | Material limits | Desktop connector(s) / maturity |
+|---|---|---|---|---|---|
 ${rows.join("\n")}
-
-## Blocked evidence
-
-${catalog.scopes
-  .filter(({ fulfillment }) => fulfillment.web.status === "blocked")
-  .map(({ scopeId, fulfillment }) => `- \`${scopeId}\`: ${fulfillment.web.blocker.description} Required: ${fulfillment.web.blocker.requiredCapture.join(" ")}`)
-  .join("\n") || "None."}
 
 ## Maintenance
 
-Do not edit this file. Update connector manifests/\`registry.json\` for Vana Desktop truth or \`scopes/web-capabilities.json\` for Vana Web truth, then run \`node scripts/generate-scope-catalog.mjs\`.
+Do not edit this file. Update connector manifests/\`registry.json\`, then run \`node scripts/generate-scope-catalog.mjs\`.
 `;
 }
 

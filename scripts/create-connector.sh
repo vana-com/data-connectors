@@ -115,7 +115,7 @@ if [ -n "${!LOGIN_VAR}" ] && [ -n "${!PASSWORD_VAR}" ]; then
   HAS_CREDENTIALS=true
 fi
 
-PROFILE_DIR="$HOME/.vana/desktop/browser-profiles/${PLATFORM}-playwright"
+PROFILE_DIR="$HOME/.pdp-connect/desktop/browser-profiles/${PLATFORM}-playwright"
 if [ -d "$PROFILE_DIR" ]; then
   HAS_SESSION=true
 fi

@@ -176,7 +176,7 @@ async function runConnectorOnce(userDataDir, plan) {
     const returned = await connectorFn.call(null, api);
     // Read the on-disk checkpoint back the same way the connector does.
     const ckpt = await realPage.evaluate(`(async () => {
-      const db = await new Promise((res, rej) => { const r = indexedDB.open('vana_chatgpt_ckpt', 1); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+      const db = await new Promise((res, rej) => { const r = indexedDB.open('pdpconnect_chatgpt_ckpt', 1); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
       const ids = await new Promise((res) => { const out = []; const cur = db.transaction('conversations').objectStore('conversations').openCursor(); cur.onsuccess = (e) => { const c = e.target.result; if (!c) return res(out); out.push(c.value.id); c.continue(); }; });
       const meta = await new Promise((res) => { const g = db.transaction('meta').objectStore('meta').get('state'); g.onsuccess = () => res(g.result && g.result.v ? g.result.v : {}); });
       return { ids: ids.sort(), meta };

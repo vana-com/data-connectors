@@ -23,7 +23,7 @@
 
 const CLAUDE_HOME_URL = 'https://claude.ai/new';
 const CLAUDE_LOGIN_URL = 'https://claude.ai/login';
-const CKPT_DB = 'vana_claude_export_ckpt';
+const CKPT_DB = 'pdpconnect_claude_export_ckpt';
 // The export is an async job; poll within the run so it completes in one click.
 const POLL_ATTEMPT_TIMEOUT_MS = 25000;     // per attempt: navigate + wait for the download to fire
 const POLL_INTERVAL_MS = 8000;             // pause between attempts while the job is still preparing

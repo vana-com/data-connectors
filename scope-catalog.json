@@ -4,7 +4,7 @@
     "releaseAsset": "scope-catalog.schema.json"
   },
   "distribution": {
-    "repository": "https://github.com/vana-com/data-connectors"
+    "repository": "https://github.com/PDP-Connect/data-connectors"
   },
   "catalogVersion": "1.0.0",
   "generatedBy": "scripts/generate-scope-catalog.mjs",
@@ -31,8 +31,7 @@
       "connectors/uber/uber-playwright.json",
       "connectors/valve/steam-playwright.json",
       "connectors/wholefoods/wholefoods-playwright.json"
-    ],
-    "webCapabilities": "scopes/web-capabilities.json"
+    ]
   },
   "scopes": [
     {
@@ -52,9 +51,6 @@
               "status": "beta"
             }
           ]
-        },
-        "web": {
-          "status": "unsupported"
         }
       }
     },
@@ -75,9 +71,6 @@
               "status": "beta"
             }
           ]
-        },
-        "web": {
-          "status": "unsupported"
         }
       }
     },
@@ -98,9 +91,6 @@
               "status": "stable"
             }
           ]
-        },
-        "web": {
-          "status": "unsupported"
         }
       }
     },
@@ -121,9 +111,6 @@
               "status": "stable"
             }
           ]
-        },
-        "web": {
-          "status": "unsupported"
         }
       }
     },
@@ -144,9 +131,6 @@
               "status": "experimental"
             }
           ]
-        },
-        "web": {
-          "status": "unsupported"
         }
       }
     },
@@ -167,9 +151,6 @@
               "status": "experimental"
             }
           ]
-        },
-        "web": {
-          "status": "unsupported"
         }
       }
     },
@@ -190,9 +171,6 @@
               "status": "beta"
             }
           ]
-        },
-        "web": {
-          "status": "unsupported"
         }
       }
     },
@@ -221,9 +199,6 @@
               ]
             }
           ]
-        },
-        "web": {
-          "status": "unsupported"
         }
       }
     },
@@ -258,9 +233,6 @@
               ]
             }
           ]
-        },
-        "web": {
-          "status": "unsupported"
         }
       }
     },
@@ -289,9 +261,6 @@
               ]
             }
           ]
-        },
-        "web": {
-          "status": "unsupported"
         }
       }
     },
@@ -312,9 +281,6 @@
               "status": "stable"
             }
           ]
-        },
-        "web": {
-          "status": "supported"
         }
       }
     },
@@ -335,9 +301,6 @@
               "status": "stable"
             }
           ]
-        },
-        "web": {
-          "status": "unsupported"
         }
       }
     },
@@ -358,9 +321,6 @@
               "status": "stable"
             }
           ]
-        },
-        "web": {
-          "status": "unsupported"
         }
       }
     },
@@ -381,9 +341,6 @@
               "status": "experimental"
             }
           ]
-        },
-        "web": {
-          "status": "unsupported"
         }
       }
     },
@@ -404,9 +361,6 @@
               "status": "experimental"
             }
           ]
-        },
-        "web": {
-          "status": "unsupported"
         }
       }
     },
@@ -427,9 +381,6 @@
               "status": "experimental"
             }
           ]
-        },
-        "web": {
-          "status": "unsupported"
         }
       }
     },
@@ -450,9 +401,6 @@
               "status": "experimental"
             }
           ]
-        },
-        "web": {
-          "status": "unsupported"
         }
       }
     },
@@ -473,9 +421,6 @@
               "status": "experimental"
             }
           ]
-        },
-        "web": {
-          "status": "unsupported"
         }
       }
     },
@@ -500,9 +445,6 @@
               "status": "beta"
             }
           ]
-        },
-        "web": {
-          "status": "unsupported"
         }
       }
     },
@@ -523,9 +465,6 @@
               "status": "stable"
             }
           ]
-        },
-        "web": {
-          "status": "unsupported"
         }
       }
     },
@@ -544,17 +483,6 @@
             {
               "id": "instagram-playwright",
               "status": "stable"
-            }
-          ]
-        },
-        "web": {
-          "status": "supported",
-          "limits": [
-            {
-              "type": "maxItems",
-              "value": 150,
-              "unit": "posts",
-              "description": "The Web path returns at most the 150 most recent posts."
             }
           ]
         }
@@ -577,9 +505,6 @@
               "status": "stable"
             }
           ]
-        },
-        "web": {
-          "status": "supported"
         }
       }
     },
@@ -600,17 +525,6 @@
               "status": "stable"
             }
           ]
-        },
-        "web": {
-          "status": "blocked",
-          "blocker": {
-            "id": "linkedin-live-output",
-            "description": "LinkedIn Web scope capability is not classified without live end-to-end evidence.",
-            "requiredCapture": [
-              "A captured successful LinkedIn Data Pipe result showing the exact returned scope-key set.",
-              "The resulting Personal Server scope inventory for the same run and user after sync."
-            ]
-          }
         }
       }
     },
@@ -631,17 +545,6 @@
               "status": "stable"
             }
           ]
-        },
-        "web": {
-          "status": "blocked",
-          "blocker": {
-            "id": "linkedin-live-output",
-            "description": "LinkedIn Web scope capability is not classified without live end-to-end evidence.",
-            "requiredCapture": [
-              "A captured successful LinkedIn Data Pipe result showing the exact returned scope-key set.",
-              "The resulting Personal Server scope inventory for the same run and user after sync."
-            ]
-          }
         }
       }
     },
@@ -662,17 +565,6 @@
               "status": "stable"
             }
           ]
-        },
-        "web": {
-          "status": "blocked",
-          "blocker": {
-            "id": "linkedin-live-output",
-            "description": "LinkedIn Web scope capability is not classified without live end-to-end evidence.",
-            "requiredCapture": [
-              "A captured successful LinkedIn Data Pipe result showing the exact returned scope-key set.",
-              "The resulting Personal Server scope inventory for the same run and user after sync."
-            ]
-          }
         }
       }
     },
@@ -693,17 +585,6 @@
               "status": "stable"
             }
           ]
-        },
-        "web": {
-          "status": "blocked",
-          "blocker": {
-            "id": "linkedin-live-output",
-            "description": "LinkedIn Web scope capability is not classified without live end-to-end evidence.",
-            "requiredCapture": [
-              "A captured successful LinkedIn Data Pipe result showing the exact returned scope-key set.",
-              "The resulting Personal Server scope inventory for the same run and user after sync."
-            ]
-          }
         }
       }
     },
@@ -724,17 +605,6 @@
               "status": "stable"
             }
           ]
-        },
-        "web": {
-          "status": "blocked",
-          "blocker": {
-            "id": "linkedin-live-output",
-            "description": "LinkedIn Web scope capability is not classified without live end-to-end evidence.",
-            "requiredCapture": [
-              "A captured successful LinkedIn Data Pipe result showing the exact returned scope-key set.",
-              "The resulting Personal Server scope inventory for the same run and user after sync."
-            ]
-          }
         }
       }
     },
@@ -755,17 +625,6 @@
               "status": "stable"
             }
           ]
-        },
-        "web": {
-          "status": "blocked",
-          "blocker": {
-            "id": "linkedin-live-output",
-            "description": "LinkedIn Web scope capability is not classified without live end-to-end evidence.",
-            "requiredCapture": [
-              "A captured successful LinkedIn Data Pipe result showing the exact returned scope-key set.",
-              "The resulting Personal Server scope inventory for the same run and user after sync."
-            ]
-          }
         }
       }
     },
@@ -786,9 +645,6 @@
               "status": "stable"
             }
           ]
-        },
-        "web": {
-          "status": "unsupported"
         }
       }
     },
@@ -809,9 +665,6 @@
               "status": "stable"
             }
           ]
-        },
-        "web": {
-          "status": "unsupported"
         }
       }
     },
@@ -832,9 +685,6 @@
               "status": "stable"
             }
           ]
-        },
-        "web": {
-          "status": "unsupported"
         }
       }
     },
@@ -855,9 +705,6 @@
               "status": "beta"
             }
           ]
-        },
-        "web": {
-          "status": "unsupported"
         }
       }
     },
@@ -878,9 +725,6 @@
               "status": "stable"
             }
           ]
-        },
-        "web": {
-          "status": "unsupported"
         }
       }
     },
@@ -901,9 +745,6 @@
               "status": "stable"
             }
           ]
-        },
-        "web": {
-          "status": "supported"
         }
       }
     },
@@ -924,9 +765,6 @@
               "status": "stable"
             }
           ]
-        },
-        "web": {
-          "status": "unsupported"
         }
       }
     },
@@ -947,9 +785,6 @@
               "status": "experimental"
             }
           ]
-        },
-        "web": {
-          "status": "unsupported"
         }
       }
     },
@@ -970,9 +805,6 @@
               "status": "experimental"
             }
           ]
-        },
-        "web": {
-          "status": "unsupported"
         }
       }
     },
@@ -993,9 +825,6 @@
               "status": "experimental"
             }
           ]
-        },
-        "web": {
-          "status": "unsupported"
         }
       }
     },
@@ -1016,9 +845,6 @@
               "status": "beta"
             }
           ]
-        },
-        "web": {
-          "status": "unsupported"
         }
       }
     },
@@ -1039,9 +865,6 @@
               "status": "beta"
             }
           ]
-        },
-        "web": {
-          "status": "unsupported"
         }
       }
     },
@@ -1062,9 +885,6 @@
               "status": "experimental"
             }
           ]
-        },
-        "web": {
-          "status": "unsupported"
         }
       }
     },
@@ -1085,9 +905,6 @@
               "status": "experimental"
             }
           ]
-        },
-        "web": {
-          "status": "unsupported"
         }
       }
     },
@@ -1108,9 +925,6 @@
               "status": "experimental"
             }
           ]
-        },
-        "web": {
-          "status": "unsupported"
         }
       }
     },
@@ -1139,9 +953,6 @@
               ]
             }
           ]
-        },
-        "web": {
-          "status": "unsupported"
         }
       }
     },
@@ -1162,9 +973,6 @@
               "status": "beta"
             }
           ]
-        },
-        "web": {
-          "status": "unsupported"
         }
       }
     },
@@ -1185,9 +993,6 @@
               "status": "beta"
             }
           ]
-        },
-        "web": {
-          "status": "unsupported"
         }
       }
     },
@@ -1208,9 +1013,6 @@
               "status": "beta"
             }
           ]
-        },
-        "web": {
-          "status": "unsupported"
         }
       }
     },
@@ -1231,9 +1033,6 @@
               "status": "beta"
             }
           ]
-        },
-        "web": {
-          "status": "supported"
         }
       }
     },
@@ -1254,9 +1053,6 @@
               "status": "beta"
             }
           ]
-        },
-        "web": {
-          "status": "unsupported"
         }
       }
     },
@@ -1277,9 +1073,6 @@
               "status": "beta"
             }
           ]
-        },
-        "web": {
-          "status": "unsupported"
         }
       }
     }

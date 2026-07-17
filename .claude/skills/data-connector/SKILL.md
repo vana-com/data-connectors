@@ -1,7 +1,7 @@
 ---
 name: data-connector
 description: >
-  Build new Vana DataConnect data connectors that export user data from web platforms.
+  Build new data connectors that export user data from web platforms.
   Use when asked to "create a connector", "add a connector", "build a connector",
   "new data connector", "write a connector for X", or when working on the data-connectors
   repository and the task involves adding or modifying a Playwright-based connector.
@@ -9,7 +9,7 @@ description: >
 
 # Data Connector Builder
 
-Build Playwright-based data connectors for the Vana DataConnect ecosystem. Connectors export
+Build Playwright-based data connectors for the data-connectors ecosystem. Connectors export
 a user's personal data from web platforms (LinkedIn, ChatGPT, Spotify, etc.) using browser
 automation. Credentials never leave the device.
 

@@ -2,7 +2,7 @@
   "manifest_version": "1.0",
   "connector_id": "chatgpt-playwright",
   "source_id": "chatgpt",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "name": "ChatGPT",
   "company": "OpenAI",
   "description": "Exports your email, memories, and all conversations from ChatGPT.",

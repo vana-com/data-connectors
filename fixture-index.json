@@ -1,7 +1,7 @@
 {
   "$schema": "./schemas/fixture-index.schema.json",
   "indexVersion": "1.0",
-  "sourceRepo": "https://github.com/vana-com/data-connectors",
+  "sourceRepo": "https://github.com/PDP-Connect/data-connectors",
   "generatedAt": "2026-07-13T00:00:00Z",
   "fixtures": [
     {
@@ -12,7 +12,7 @@
       "scenario": "empty",
       "recordCount": 0,
       "path": "connectors/meta/fixtures/instagram.profile.empty.json",
-      "rawUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main/connectors/meta/fixtures/instagram.profile.empty.json",
+      "rawUrl": "https://raw.githubusercontent.com/PDP-Connect/data-connectors/main/connectors/meta/fixtures/instagram.profile.empty.json",
       "schemaPath": "connectors/meta/schemas/instagram.profile.json",
       "sizeBytes": 271,
       "sha256": "sha256:f294a6ca5ff524edf68110ef8b564c1df15284beccc1dc28bf8af7ff16a7e5f3"
@@ -25,7 +25,7 @@
       "scenario": "small",
       "recordCount": 0,
       "path": "connectors/meta/fixtures/instagram.profile.small.json",
-      "rawUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main/connectors/meta/fixtures/instagram.profile.small.json",
+      "rawUrl": "https://raw.githubusercontent.com/PDP-Connect/data-connectors/main/connectors/meta/fixtures/instagram.profile.small.json",
       "schemaPath": "connectors/meta/schemas/instagram.profile.json",
       "sizeBytes": 274,
       "sha256": "sha256:1840789166c70c1468b7296b8842f0ff2b937da2a75f2d26d5a84a6d7c192efc"
@@ -38,7 +38,7 @@
       "scenario": "large",
       "recordCount": 0,
       "path": "connectors/meta/fixtures/instagram.profile.large.json",
-      "rawUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main/connectors/meta/fixtures/instagram.profile.large.json",
+      "rawUrl": "https://raw.githubusercontent.com/PDP-Connect/data-connectors/main/connectors/meta/fixtures/instagram.profile.large.json",
       "schemaPath": "connectors/meta/schemas/instagram.profile.json",
       "sizeBytes": 484,
       "sha256": "sha256:9b304fea3be9c2e3937060d8374c1d1ba77cc66cfa578868950c2a7a7d246f9c"
@@ -51,7 +51,7 @@
       "scenario": "empty",
       "recordCount": 0,
       "path": "connectors/spotify/fixtures/spotify.savedTracks.empty.json",
-      "rawUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main/connectors/spotify/fixtures/spotify.savedTracks.empty.json",
+      "rawUrl": "https://raw.githubusercontent.com/PDP-Connect/data-connectors/main/connectors/spotify/fixtures/spotify.savedTracks.empty.json",
       "schemaPath": "connectors/spotify/schemas/spotify.savedTracks.json",
       "sizeBytes": 38,
       "sha256": "sha256:1083809a5e7b2adb1c94cf74a067c80182da1b96b7fa90d4b648487e7bda7fef"
@@ -64,7 +64,7 @@
       "scenario": "small",
       "recordCount": 3,
       "path": "connectors/spotify/fixtures/spotify.savedTracks.small.json",
-      "rawUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main/connectors/spotify/fixtures/spotify.savedTracks.small.json",
+      "rawUrl": "https://raw.githubusercontent.com/PDP-Connect/data-connectors/main/connectors/spotify/fixtures/spotify.savedTracks.small.json",
       "schemaPath": "connectors/spotify/schemas/spotify.savedTracks.json",
       "sizeBytes": 1355,
       "sha256": "sha256:0f577bfb2877e93b7b6e0b2c89b855906faaca373d2865c5a11d8ef47aa7063f"
@@ -77,7 +77,7 @@
       "scenario": "large",
       "recordCount": 15,
       "path": "connectors/spotify/fixtures/spotify.savedTracks.large.json",
-      "rawUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main/connectors/spotify/fixtures/spotify.savedTracks.large.json",
+      "rawUrl": "https://raw.githubusercontent.com/PDP-Connect/data-connectors/main/connectors/spotify/fixtures/spotify.savedTracks.large.json",
       "schemaPath": "connectors/spotify/schemas/spotify.savedTracks.json",
       "sizeBytes": 6358,
       "sha256": "sha256:b1fe3c82003fef4f222161eed65c5a3e76c7cc13cc793b39940c3589c394c840"
@@ -90,7 +90,7 @@
       "scenario": "empty",
       "recordCount": 0,
       "path": "connectors/google/fixtures/youtube.history.empty.json",
-      "rawUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main/connectors/google/fixtures/youtube.history.empty.json",
+      "rawUrl": "https://raw.githubusercontent.com/PDP-Connect/data-connectors/main/connectors/google/fixtures/youtube.history.empty.json",
       "schemaPath": "connectors/google/schemas/youtube.history.json",
       "sizeBytes": 64,
       "sha256": "sha256:e1920da9025417bba991f2edc74e91aa4444d86a13e402ad5625fbfc5e12e1aa"
@@ -103,7 +103,7 @@
       "scenario": "small",
       "recordCount": 4,
       "path": "connectors/google/fixtures/youtube.history.small.json",
-      "rawUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main/connectors/google/fixtures/youtube.history.small.json",
+      "rawUrl": "https://raw.githubusercontent.com/PDP-Connect/data-connectors/main/connectors/google/fixtures/youtube.history.small.json",
       "schemaPath": "connectors/google/schemas/youtube.history.json",
       "sizeBytes": 1431,
       "sha256": "sha256:4d3fb2096b2a46741c42894095fdd12ffea69b3fbe905b1b507167236a43197f"
@@ -116,7 +116,7 @@
       "scenario": "large",
       "recordCount": 30,
       "path": "connectors/google/fixtures/youtube.history.large.json",
-      "rawUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main/connectors/google/fixtures/youtube.history.large.json",
+      "rawUrl": "https://raw.githubusercontent.com/PDP-Connect/data-connectors/main/connectors/google/fixtures/youtube.history.large.json",
       "schemaPath": "connectors/google/schemas/youtube.history.json",
       "sizeBytes": 10107,
       "sha256": "sha256:fd202ae77b4f21f7bfe26f9b3b2f50a6f7af5cd76ab933f8ebe9ed762fc98eb6"
@@ -129,7 +129,7 @@
       "scenario": "empty",
       "recordCount": 0,
       "path": "connectors/google/fixtures/youtube.likes.empty.json",
-      "rawUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main/connectors/google/fixtures/youtube.likes.empty.json",
+      "rawUrl": "https://raw.githubusercontent.com/PDP-Connect/data-connectors/main/connectors/google/fixtures/youtube.likes.empty.json",
       "schemaPath": "connectors/google/schemas/youtube.likes.json",
       "sizeBytes": 24,
       "sha256": "sha256:b142328617d8c8ecc8d81c3cee885930154515b95b131e9c53214e78d807434d"
@@ -142,7 +142,7 @@
       "scenario": "small",
       "recordCount": 4,
       "path": "connectors/google/fixtures/youtube.likes.small.json",
-      "rawUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main/connectors/google/fixtures/youtube.likes.small.json",
+      "rawUrl": "https://raw.githubusercontent.com/PDP-Connect/data-connectors/main/connectors/google/fixtures/youtube.likes.small.json",
       "schemaPath": "connectors/google/schemas/youtube.likes.json",
       "sizeBytes": 1531,
       "sha256": "sha256:a134c8f9097f8cdbcce2acb3e18383595ea09a9cc729131ae9c3f7bda665c5a5"
@@ -155,7 +155,7 @@
       "scenario": "large",
       "recordCount": 30,
       "path": "connectors/google/fixtures/youtube.likes.large.json",
-      "rawUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/main/connectors/google/fixtures/youtube.likes.large.json",
+      "rawUrl": "https://raw.githubusercontent.com/PDP-Connect/data-connectors/main/connectors/google/fixtures/youtube.likes.large.json",
       "schemaPath": "connectors/google/schemas/youtube.likes.json",
       "sizeBytes": 11318,
       "sha256": "sha256:2d02bcef10dbb34b7a84e6a875b5b555fc0fe4fbb7712ce5067af6d9e9fb3f35"

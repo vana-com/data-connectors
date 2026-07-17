@@ -15,7 +15,7 @@ import { dirname, join, normalize, resolve as resolvePath } from "node:path";
 import { verify as verifySigstoreBundle } from "sigstore";
 
 export const DEFAULT_CONNECTOR_INDEX_URL =
-  "https://github.com/vana-com/data-connectors/releases/download/connectors-latest/connector-index.json";
+  "https://github.com/PDP-Connect/data-connectors/releases/download/connectors-latest/connector-index.json";
 export const DEFAULT_SIGSTORE_CERTIFICATE_ISSUER =
   "https://token.actions.githubusercontent.com";
 export const DEFAULT_SIGSTORE_CERTIFICATE_IDENTITY =
@@ -738,7 +738,7 @@ export async function generateLock({
     sourceRepo:
       source.doc.sourceRepo ??
       dependencies.source_repo ??
-      "https://github.com/vana-com/data-connectors",
+      "https://github.com/PDP-Connect/data-connectors",
     sourceTag: sourceMeta.sourceTag,
     sourceCommit: sourceMeta.sourceCommit,
     index: {

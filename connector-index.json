@@ -1,6 +1,6 @@
 {
   "indexVersion": "2.0",
-  "sourceRepo": "https://github.com/vana-com/data-connectors",
+  "sourceRepo": "https://github.com/PDP-Connect/data-connectors",
   "generatedAt": "2026-07-13T00:00:00Z",
   "signature": null,
   "connectors": {
@@ -110,6 +110,42 @@
           "iconKey": "chatgpt",
           "defaultScope": "chatgpt.conversations"
         }
+      },
+      {
+        "connectorId": "chatgpt-playwright",
+        "company": "openai",
+        "version": "3.0.1",
+        "name": "ChatGPT",
+        "status": "stable",
+        "description": "Exports your email, memories, and all conversations from ChatGPT.",
+        "sourceFiles": {
+          "script": "openai/chatgpt-playwright.js",
+          "metadata": "openai/chatgpt-playwright.json"
+        },
+        "publishedAt": "2026-07-13T00:00:00Z",
+        "sourceTag": "chore/apache-license-and-neutralize",
+        "sourceCommit": "37b45c33d159281f718bf2f1da325520ce0f50c4",
+        "releaseId": "connectors-37b45c33d159",
+        "pageApiVersion": 1,
+        "manifestSha256": "sha256:6b3df1f5ce03e588c23f1e26e35494526166baee99e69c384b72b31f7b306371",
+        "scriptSha256": "sha256:f2f33ef300e8b89ecbc13fcfa80ee88b0ec0d7849f2018a7a16623b5e1146527",
+        "artifactSha256": "sha256:e99ba585710615ae3a4afcd1babe21097bdd52acc06bfa79837e32334e5ee03e",
+        "artifactPath": "artifacts/chatgpt-playwright/chatgpt-playwright-3.0.1.tgz",
+        "artifactUrl": "https://raw.githubusercontent.com/PDP-Connect/data-connectors/37b45c33d159281f718bf2f1da325520ce0f50c4/artifacts/chatgpt-playwright/chatgpt-playwright-3.0.1.tgz",
+        "scopes": [
+          "chatgpt.memories",
+          "chatgpt.conversations"
+        ],
+        "consumerMetadata": {
+          "sourceId": "chatgpt",
+          "displayName": "ChatGPT",
+          "brandDomain": "chatgpt.com",
+          "aliases": [
+            "openai"
+          ],
+          "iconKey": "chatgpt",
+          "defaultScope": "chatgpt.conversations"
+        }
       }
     ],
     "claude-export-playwright": [
@@ -134,6 +170,33 @@
         "artifactSha256": "sha256:3b18be615bc71b1b81a45b2630a27bb6cbc1a74bf67b04d4f6cd557bd0b51842",
         "artifactPath": "artifacts/claude-export-playwright/claude-export-playwright-2.0.0.tgz",
         "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/27585aab07b35521c961de8d7cb5ccffe81af533/artifacts/claude-export-playwright/claude-export-playwright-2.0.0.tgz",
+        "scopes": [
+          "claude.conversations",
+          "claude.projects"
+        ],
+        "consumerMetadata": null
+      },
+      {
+        "connectorId": "claude-export-playwright",
+        "company": "Anthropic",
+        "version": "2.0.1",
+        "name": "Claude",
+        "status": "experimental",
+        "description": "Exports your Claude conversations and projects via Anthropic's official data export (one complete archive, no per-conversation rate limiting).",
+        "sourceFiles": {
+          "script": "anthropic/claude-export-playwright.js",
+          "metadata": "anthropic/claude-export-playwright.json"
+        },
+        "publishedAt": "2026-07-13T00:00:00Z",
+        "sourceTag": "chore/apache-license-and-neutralize",
+        "sourceCommit": "37b45c33d159281f718bf2f1da325520ce0f50c4",
+        "releaseId": "connectors-37b45c33d159",
+        "pageApiVersion": 1,
+        "manifestSha256": "sha256:7213ef42d1bcbde91db4972ae22a8f0b445f2ff47d85c95548b34ce20054c315",
+        "scriptSha256": "sha256:12a068a5186aececdd13e999b84f14a281d8e3d256c1eec70b812afd17142152",
+        "artifactSha256": "sha256:23c8b63a91e3ea3bafce80aa1a6efd5afb79625cdc65719776480fa1b2f8e320",
+        "artifactPath": "artifacts/claude-export-playwright/claude-export-playwright-2.0.1.tgz",
+        "artifactUrl": "https://raw.githubusercontent.com/PDP-Connect/data-connectors/37b45c33d159281f718bf2f1da325520ce0f50c4/artifacts/claude-export-playwright/claude-export-playwright-2.0.1.tgz",
         "scopes": [
           "claude.conversations",
           "claude.projects"
@@ -896,6 +959,43 @@
         "artifactSha256": "sha256:3becba5a27ab369e2ca50a7eba5ac47189c72dde91028a10a263664a4befeb04",
         "artifactPath": "artifacts/wholefoods-playwright/wholefoods-playwright-1.0.0.tgz",
         "artifactUrl": "https://raw.githubusercontent.com/vana-com/data-connectors/27585aab07b35521c961de8d7cb5ccffe81af533/artifacts/wholefoods-playwright/wholefoods-playwright-1.0.0.tgz",
+        "scopes": [
+          "wholefoods.profile",
+          "wholefoods.orders",
+          "wholefoods.nutrition"
+        ],
+        "consumerMetadata": {
+          "sourceId": "wholefoods",
+          "displayName": "Whole Foods Market",
+          "brandDomain": "wholefoodsmarket.com",
+          "aliases": [
+            "whole foods"
+          ],
+          "iconKey": "wholefoods",
+          "defaultScope": "wholefoods.orders"
+        }
+      },
+      {
+        "connectorId": "wholefoods-playwright",
+        "company": "wholefoods",
+        "version": "1.0.1",
+        "name": "Whole Foods Market",
+        "status": "experimental",
+        "description": "Exports your Whole Foods Market order history (via Amazon) and product nutrition data.",
+        "sourceFiles": {
+          "script": "wholefoods/wholefoods-playwright.js",
+          "metadata": "wholefoods/wholefoods-playwright.json"
+        },
+        "publishedAt": "2026-07-13T00:00:00Z",
+        "sourceTag": "chore/apache-license-and-neutralize",
+        "sourceCommit": "37b45c33d159281f718bf2f1da325520ce0f50c4",
+        "releaseId": "connectors-37b45c33d159",
+        "pageApiVersion": 1,
+        "manifestSha256": "sha256:b374a547bacfe49c0fcce7cea41db0630e8335c9f655e644a43a11b2eae9e0e1",
+        "scriptSha256": "sha256:2ebb4426258b87a8e3699b9609c36ff69b03f050e747ed530c54ee1e7f84c59b",
+        "artifactSha256": "sha256:5f1262b008e96360385af589b2cee71e8512fde6505382ed6e4c39087181ddd0",
+        "artifactPath": "artifacts/wholefoods-playwright/wholefoods-playwright-1.0.1.tgz",
+        "artifactUrl": "https://raw.githubusercontent.com/PDP-Connect/data-connectors/37b45c33d159281f718bf2f1da325520ce0f50c4/artifacts/wholefoods-playwright/wholefoods-playwright-1.0.1.tgz",
         "scopes": [
           "wholefoods.profile",
           "wholefoods.orders",

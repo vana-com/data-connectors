@@ -56,10 +56,10 @@ Initial target:
 
 Source docs:
 
-- `skills/vana-connect/SKILL.md`
-- `skills/vana-connect/CREATE.md`
-- `skills/vana-connect/reference/PATTERNS.md`
-- `skills/vana-connect/reference/PAGE-API.md`
+- `skills/pdp-connect/SKILL.md`
+- `skills/pdp-connect/CREATE.md`
+- `skills/pdp-connect/reference/PATTERNS.md`
+- `skills/pdp-connect/reference/PAGE-API.md`
 
 Important repo constraints:
 
@@ -249,7 +249,7 @@ Once files exist, the working loop is:
 
 What is working now:
 
-- connector is scaffolded, registered, and runnable through `vana`
+- connector is scaffolded, registered, and runnable through `run-connector.cjs`
 - manual-login-first Claude session detection works
 - full thread/message export works for conversations via:
   - `GET /api/organizations/:orgId/chat_conversations_v2?...`
@@ -318,15 +318,15 @@ Structural validation:
 
 Register updated connector locally:
 
-- `node skills/vana-connect/scripts/register.cjs connectors/anthropic/claude-playwright.js`
+- `node skills/pdp-connect/scripts/register.cjs connectors/anthropic/claude-playwright.js`
 
 Run the real connector:
 
-- `vana connect claude --json --no-input`
+- `node run-connector.cjs connectors/anthropic/claude-playwright.js --inputs '{...}'`
 
 Validate the exported result:
 
-- `node scripts/validate-connector.cjs connectors/anthropic/claude-playwright.js --check-result ~/.vana/results/claude.json`
+- `node scripts/validate-connector.cjs connectors/anthropic/claude-playwright.js --check-result ~/.pdp-connect/desktop/last-result.json`
 
 ## Next Steps
 
@@ -386,15 +386,15 @@ Reason:
 
 ## Claude-Specific Learnings
 
-- the local repo can be exercised directly through `vana` when run from the repo root; this is the right execution path for this project
+- the local repo can be exercised directly through `run-connector.cjs` when run from the repo root; this is the right execution path for this project
 - Claude session state is reusable through the existing local browser profile, which makes manual-login-first iteration practical
 - the active organization id is recoverable from `lastActiveOrg` in cookie or storage, and that is enough to unlock the main authenticated API paths
 - the conversation-detail API returns message trees under `chat_messages`
 - flattening message text requires handling Claude content blocks rather than assuming a single plain-text field
 - sidebar DOM scraping is still useful as a fallback, but API collection is the primary path now
 - fetching every conversation serially is too slow; batching detail requests is necessary for practical export times
-- after changing the connector, re-run the repo registration step so `vana` picks up the new script hash
-- prefer validating with a real `vana connect claude --json --no-input` run, not only the structural validator
+- after changing the connector, re-run the repo registration step so the registry picks up the new script hash
+- prefer validating with a real `run-connector.cjs` run, not only the structural validator
 - if a field may legitimately be `null`, avoid marking it as required in the schema because the current validator can report it as missing
 - manual login is an acceptable and common connector tradeoff when auth is brittle or includes anti-bot checks, CAPTCHA, SSO, or third-party identity flows
 - for Claude specifically, email/password automation is a reasonable fast-follow candidate; Google automation should be treated as later work unless there is a very strong product reason to take it on

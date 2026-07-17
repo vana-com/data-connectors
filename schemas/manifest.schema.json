@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/vana-com/data-connectors/main/schemas/manifest.schema.json",
+  "$id": "https://raw.githubusercontent.com/PDP-Connect/data-connectors/main/schemas/manifest.schema.json",
   "title": "Connector Manifest",
   "description": "Canonical manifest contract for data-connectors. Every *-playwright.json file must validate against this schema.",
   "type": "object",

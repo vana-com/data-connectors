@@ -1,1 +1,1 @@
-skills/vana-connect/scripts/run-connector.cjs
+skills/pdp-connect/scripts/run-connector.cjs

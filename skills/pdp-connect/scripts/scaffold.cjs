@@ -4,7 +4,7 @@
  *
  * Usage: node scaffold.cjs <platform> [company] [output-dir]
  *
- * Defaults: company = platform, output-dir = ~/.vana/desktop/connectors
+ * Defaults: company = platform, output-dir = ~/.pdp-connect/desktop/connectors
  */
 
 const fs = require('fs');
@@ -12,7 +12,7 @@ const path = require('path');
 
 const platform = process.argv[2];
 const company = process.argv[3] || platform;
-const outputDir = process.argv[4] || path.join(require('os').homedir(), '.vana', 'desktop', 'connectors');
+const outputDir = process.argv[4] || path.join(require('os').homedir(), '.pdp-connect', 'desktop', 'connectors');
 
 if (!platform) {
   console.error('Usage: node scaffold.cjs <platform> [company] [output-dir]');
