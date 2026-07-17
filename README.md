@@ -117,8 +117,9 @@ create-connector.sh                # Quick autonomous scaffold script
 
 ## Distribution contract
 
-`data-connectors` is the canonical connector distribution source for both
-`unity-surfaces` and `context-gateway`.
+`data-connectors` is an open collection of data connectors that any consumer
+can pin and resolve as a versioned dependency. Vana's Context Gateway and
+Unity Surfaces are two example consumers; nothing here is specific to them.
 
 - `connector-index.json` is the authoritative release index.
 - `scope-catalog.json` is the generated, schema-validated public contract for
@@ -515,19 +516,21 @@ shasum -a 256 connectors/<company>/<name>-playwright.json | awk '{print "sha256:
 
 ## How consumers get connectors
 
-Both [Context Gateway](https://github.com/vana-com/context-gateway) and [Unity Surfaces](https://github.com/vana-com/unity-surfaces) consume connectors from this repo as pinned dependencies.
-
-Each consumer declares version constraints in a `connector-dependencies.json` file and resolves them with:
+Any project can consume connectors from this repo as pinned dependencies. A
+consumer declares version constraints in a `connector-dependencies.json` file
+and resolves them with a `connectors:resolve` script (naming and invocation
+are up to the consumer's own tooling), for example:
 
 ```bash
-# Context Gateway
+# Example: a consumer's package.json script
 npm run connectors:resolve
-
-# Unity Surfaces
-pnpm --dir apps/desktop connectors:resolve
 ```
 
 This fetches matching versions from the signed `connectors-latest`
 `connector-index.json`, verifies the detached Sigstore bundles plus the
 artifact/manifest/script checksums, and writes the scripts + manifests to a
 local snapshot directory. It's analogous to `npm install`.
+
+Vana's [Context Gateway](https://github.com/vana-com/context-gateway) and
+[Unity Surfaces](https://github.com/vana-com/unity-surfaces) are two examples
+of consumers that resolve connectors this way.

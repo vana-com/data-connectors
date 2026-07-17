@@ -7,7 +7,7 @@ Build a data connector for a platform that isn't in the registry yet.
 - `reference/PAGE-API.md` -- full `page` object API
 - `reference/PATTERNS.md` -- data extraction approaches and code examples
 
-All `node scripts/...` commands refer to `skills/pdp-connect/scripts/` in the data-connectors repo. `run-connector.cjs` is at `~/.pdp-connect/desktop/run-connector.cjs` (installed by SETUP.md).
+All `node scripts/...` commands refer to `skills/pdp-connect/scripts/` in the data-connectors repo. `run-connector.cjs` is the bundled runner at the repo root (a symlink to `skills/pdp-connect/scripts/run-connector.cjs`); see `SETUP.md` for the one-time install.
 
 ## Connector Format
 
@@ -167,7 +167,7 @@ Run the connector and validate in one step:
 
 ```bash
 node scripts/validate.cjs connectors/<company>/<name>-playwright.js && \
-  node ~/.pdp-connect/desktop/run-connector.cjs connectors/<company>/<name>-playwright.js [start-url] && \
+  node run-connector.cjs connectors/<company>/<name>-playwright.js [start-url] && \
   node scripts/validate.cjs connectors/<company>/<name>-playwright.js --check-result ~/.pdp-connect/desktop/last-result.json
 ```
 
