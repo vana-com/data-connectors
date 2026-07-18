@@ -1,3 +1,8 @@
+> [!IMPORTANT]
+> **This repository has moved to [https://github.com/PDP-Connect/data-connectors](https://github.com/PDP-Connect/data-connectors).**
+> It is now maintained as part of the PDP-Connect lab under LF Decentralized Trust.
+> This copy is archived and read-only; please open issues and pull requests at the new home.
+
 # Data Connectors
 
 Playwright-based data connectors for local desktop collection. Each connector exports your data from a web platform using browser automation. Credentials never leave your device.
